@@ -1,10 +1,10 @@
-# myharu
+# My Haru
 
-Next.js 15 + Supabase Auth + shadcn/ui + Pretendard 기반 개인용 보일러플레이트. 새 프로젝트를 시작할 때 인증/네비/사이드바/폰트/UI 키트를 그대로 재사용하고 페이지 디자인만 갈아끼울 수 있게 구성되어 있습니다.
+나의 하루를 기록하고 관리하는 개인 서비스입니다.
 
 ## 기술 스택
 
-- **Next.js** 15 (App Router, Turbopack)
+- **Next.js** 16 (App Router, Turbopack)
 - **React** 19
 - **TypeScript** 5
 - **Tailwind CSS** v4 + `tw-animate-css`
@@ -86,21 +86,17 @@ npm run dev
 - 모바일: 우측 슬라이드 사이드 메뉴 (ESC / 오버레이 클릭 / focus trap)
 - 인증 상태는 SSR + `onAuthStateChange` + `pageshow` 이벤트로 동기화
 
-프로젝트별 메뉴 항목은 `Navbar.tsx`의 사이드바 `<ul>` 내부 주석을 참고해 추가하세요.
-
 ### shadcn UI 컴포넌트
 
-`src/components/ui/` 에 `button`, `card`, `input`, `label`, `alert-dialog` 가 초기 포함되어 있습니다. 추가 컴포넌트가 필요하면 shadcn CLI로 가져오세요.
+`src/components/ui/` 에 `button`, `card`, `input`, `label`, `alert-dialog` 가 초기 포함되어 있습니다. 추가 컴포넌트는 shadcn CLI로 설치:
 
 ```bash
-npx shadcn@latest add popover select calendar
+npx shadcn@latest add <component>
 ```
-
-`components.json` 은 base-nova / neutral / lucide 로 설정되어 있습니다.
 
 ### Pretendard 폰트
 
-`next/font/local` 로 가변 폰트 파일(`node_modules/pretendard/dist/web/variable/woff2/PretendardVariable.woff2`)을 로드하고, Tailwind v4의 `--font-sans` 에 매핑되어 있어 별도 설정 없이 사용 가능합니다.
+`next/font/local` 로 가변 폰트를 로드하고, Tailwind v4의 `--font-sans` 에 매핑되어 있어 별도 설정 없이 사용 가능합니다.
 
 ## 프로젝트 구조
 
@@ -110,7 +106,7 @@ src/
 │   ├── (auth)/                # 로그인/회원가입/비밀번호 찾기·재설정/로그아웃/OAuth
 │   ├── auth/confirm/          # 이메일·OAuth callback 라우트
 │   ├── layout.tsx             # Pretendard + Navbar + Footer + AuthHashHandler
-│   ├── page.tsx               # 시작 페이지 (자유롭게 교체)
+│   ├── page.tsx               # 메인 페이지
 │   └── globals.css            # Tailwind v4 + shadcn neutral 토큰
 ├── components/
 │   ├── auth/                  # LoginForm / SignupForm / KakaoButton / 등
@@ -132,25 +128,8 @@ src/
 └── middleware.ts              # 정적 자산 제외 matcher
 ```
 
-## 운영 시 유의 사항
-
-### Rate limit
-- in-memory 구현. 프로세스 재시작 시 초기화되며 서버리스/멀티 인스턴스에서는 인스턴스별로 분리됨.
-- 운영 트래픽이 늘면 `src/lib/rate-limit.ts` 내부만 Upstash Redis 등으로 교체 (호출부 시그니처 유지).
-
-### Admin API 사용
-- `emailExists` / `getUserIdentitySummary` 는 `auth.admin.listUsers` 페이지네이션을 풀 스캔. 사용자 수가 많아지면 Postgres RPC(SECURITY DEFINER)로 교체 권장.
-- 클라이언트로 service role 키가 새지 않도록 `utils/supabase/admin.ts` 는 `"server-only"` 임포트가 강제되어 있음.
-
-### Bot/spam 방지
-- 미포함. 회원가입을 공개할 경우 Cloudflare Turnstile / hCaptcha 등을 별도로 붙이세요.
-
 ## 컨벤션
 
 - **경로 alias**: `@/*` → `./src/*`
-- **TypeScript**: 본 보일러플레이트는 `strict: false`, `noImplicitAny: false` (느슨한 기본값). 필요 시 `tsconfig.json` 조정.
+- **TypeScript**: `strict: false`, `noImplicitAny: false`
 - **Prettier**: `printWidth: 150`, `endOfLine: "crlf"`, 큰따옴표, `trailingComma: "all"`. Tailwind 클래스는 플러그인이 자동 정렬.
-
-## 라이선스
-
-개인 보일러플레이트. 자유롭게 사용하세요.
