@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import BottomNav from "@/components/BottomNav";
 import AuthHashHandler from "@/components/auth/AuthHashHandler";
 import { Toaster } from "@/components/ui/sonner";
 import { createClient } from "@/utils/supabase/server";
@@ -49,11 +50,12 @@ export default async function RootLayout({
 
   return (
     <html lang="ko" className={pretendard.variable}>
-      <body className="bg-background font-sans text-foreground antialiased">
+      <body className="bg-background pb-16 font-sans text-foreground antialiased md:pb-0">
         <Navbar user={user ? { email: user.email } : null} />
         <AuthHashHandler />
         {children}
         <Footer />
+        <BottomNav user={user ? { email: user.email } : null} />
         <Toaster position="top-right" richColors closeButton />
       </body>
     </html>

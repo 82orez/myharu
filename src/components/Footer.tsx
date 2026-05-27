@@ -4,7 +4,7 @@ const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "My Haru";
 
 export default function Footer() {
   return (
-    <footer className="border-t border-border bg-muted/40 px-6 py-10">
+    <footer className="hidden border-t border-border bg-muted/40 px-6 py-10 md:block">
       <div className="mx-auto flex max-w-5xl flex-col gap-8 md:flex-row md:items-start md:justify-between">
         <div className="flex flex-col gap-2">
           <span className="text-sm font-bold text-brand">{SITE_NAME}</span>

@@ -8,6 +8,12 @@
   --color-foreground: var(--foreground);
   --color-brand: var(--brand);
   --color-brand-foreground: var(--brand-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-xp-gold: var(--xp-gold);
+  --color-xp-gold-foreground: var(--xp-gold-foreground);
+  --color-streak-orange: var(--streak-orange);
+  --color-streak-orange-foreground: var(--streak-orange-foreground);
   --font-sans: var(--font-pretendard);
   --font-heading: var(--font-pretendard);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -74,7 +80,13 @@
   --chart-5: oklch(0.269 0 0);
   --brand: oklch(0.55 0.15 260);
   --brand-foreground: oklch(0.985 0 0);
-  --radius: 0.625rem;
+  --success: oklch(0.55 0.17 145);
+  --success-foreground: oklch(0.985 0 0);
+  --xp-gold: oklch(0.78 0.15 85);
+  --xp-gold-foreground: oklch(0.25 0.05 60);
+  --streak-orange: oklch(0.7 0.18 50);
+  --streak-orange-foreground: oklch(0.985 0 0);
+  --radius: 0.875rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -103,6 +115,12 @@
   --destructive: oklch(0.704 0.191 22.216);
   --brand: oklch(0.65 0.15 260);
   --brand-foreground: oklch(0.985 0 0);
+  --success: oklch(0.65 0.17 145);
+  --success-foreground: oklch(0.985 0 0);
+  --xp-gold: oklch(0.82 0.13 85);
+  --xp-gold-foreground: oklch(0.2 0.05 60);
+  --streak-orange: oklch(0.75 0.16 50);
+  --streak-orange-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -139,4 +157,36 @@
   a {
     @apply transition-colors duration-200;
   }
+  [data-slot="card"] {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  [data-slot="card"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px -5px rgba(0, 0, 0, 0.08);
+  }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+  20%, 40%, 60%, 80% { transform: translateX(4px); }
+}
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
+
+@keyframes float-up {
+  0% { opacity: 1; transform: translateY(0) scale(1); }
+  100% { opacity: 0; transform: translateY(-60px) scale(1.2); }
+}
+.animate-float-up {
+  animation: float-up 1.2s ease-out forwards;
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.17 145 / 0); }
+  50% { box-shadow: 0 0 20px 4px oklch(0.55 0.17 145 / 0.3); }
+}
+.animate-pulse-glow {
+  animation: pulse-glow 1s ease-in-out;
 }

@@ -18,6 +18,8 @@ const buttonVariants = cva(
         destructive:
           "bg-destructive/10 text-destructive hover:bg-destructive/20 focus-visible:border-destructive/40 focus-visible:ring-destructive/20 dark:bg-destructive/20 dark:hover:bg-destructive/30 dark:focus-visible:ring-destructive/40",
         kakao: "bg-[#FEE500] text-[#191919] hover:bg-[#FEE500]/90 focus-visible:border-[#FEE500] focus-visible:ring-[#FEE500]/60",
+        brand: "bg-brand text-brand-foreground hover:bg-brand/90 focus-visible:border-brand focus-visible:ring-brand/30",
+        success: "bg-success text-success-foreground hover:bg-success/90 focus-visible:border-success focus-visible:ring-success/30",
         link: "text-primary underline-offset-4 hover:underline",
       },
       size: {

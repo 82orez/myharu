@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useEffect, useRef, useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, PenLine } from "lucide-react";
 import { createSentence, type InputState } from "@/app/(learn)/learn/input/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,7 +30,12 @@ export default function InputForm() {
   return (
     <Card className="mx-auto w-full max-w-md">
       <CardHeader className="pb-2">
-        <CardTitle className="text-2xl font-extrabold">문장 입력</CardTitle>
+        <div className="flex items-center gap-2">
+          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/10 text-brand">
+            <PenLine size={16} />
+          </div>
+          <CardTitle className="text-2xl font-extrabold">문장 입력</CardTitle>
+        </div>
         <CardDescription>영어 문장과 한국어 뜻을 입력하세요</CardDescription>
       </CardHeader>
       <CardContent>
@@ -88,7 +93,7 @@ export default function InputForm() {
             </p>
           )}
 
-          <Button type="submit" disabled={pending} className="mt-2 h-11 bg-brand text-base font-bold text-brand-foreground hover:bg-brand/90">
+          <Button type="submit" disabled={pending} variant="brand" className="mt-2 h-12 rounded-xl text-lg font-bold">
             {pending && <Loader2 className="animate-spin" />}
             {pending ? "저장 중..." : "저장"}
           </Button>

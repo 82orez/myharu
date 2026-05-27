@@ -124,7 +124,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
             )}
           </div>
 
-          {/* 모바일 + 사이드바 트리거 (데스크톱에서도 추가 메뉴 진입점으로 사용 가능) */}
+          {/* 사이드바 트리거 — 로그인 시 모바일에서는 하단 탭 바로 대체되므로 숨김 */}
           <button
             ref={triggerRef}
             type="button"
@@ -132,7 +132,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
             aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={menuOpen}
             aria-controls="side-menu"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-brand-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+            className={`flex h-10 w-10 items-center justify-center rounded-full bg-brand text-brand-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none ${user ? "hidden md:flex" : ""}`}>
             <Menu size={20} />
           </button>
         </div>
