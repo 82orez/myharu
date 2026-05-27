@@ -82,10 +82,16 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-3">
-          {/* 데스크톱 인라인 인증 영역 */}
+          {/* 데스크톱 인라인 학습 + 인증 영역 */}
           <div className="hidden items-center gap-3 md:flex">
             {user ? (
               <>
+                <Link href="/learn/input" className="text-sm font-medium text-foreground transition-colors hover:text-primary">
+                  문장 입력
+                </Link>
+                <Link href="/learn/review" className="text-sm font-medium text-foreground transition-colors hover:text-primary">
+                  복습
+                </Link>
                 <span className="max-w-[180px] truncate text-sm text-muted-foreground" title={user.email ?? undefined}>
                   {user.email}
                 </span>
@@ -156,15 +162,20 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
           ✕
         </button>
         <ul className="list-none px-6">
-          {/*
-            프로젝트별 사이드바 메뉴 항목을 여기에 추가하세요.
-            예시:
-            <li className="border-b border-border py-4">
-              <Link href="/dashboard" onClick={closeMenu} className="block text-[15px] font-medium text-foreground">
-                대시보드
-              </Link>
-            </li>
-          */}
+          {user && (
+            <>
+              <li className="border-b border-border py-4">
+                <Link href="/learn/input" onClick={closeMenu} className="block text-[15px] font-medium text-foreground">
+                  문장 입력
+                </Link>
+              </li>
+              <li className="border-b border-border py-4">
+                <Link href="/learn/review" onClick={closeMenu} className="block text-[15px] font-medium text-foreground">
+                  복습
+                </Link>
+              </li>
+            </>
+          )}
 
           {/* 모바일 인증 섹션 */}
           {user ? (

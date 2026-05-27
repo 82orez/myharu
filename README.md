@@ -1,6 +1,6 @@
 # My Haru
 
-나의 하루를 기록하고 관리하는 개인 서비스입니다.
+나의 하루를 기록하고 관리하는 개인 서비스입니다. 영어 문장을 입력하고, 음성으로 복습할 수 있습니다.
 
 ## 기술 스택
 
@@ -8,6 +8,7 @@
 - **React** 19
 - **TypeScript** 5
 - **Tailwind CSS** v4 + `tw-animate-css`
+- **OpenAI** (`openai`) — TTS 음성 생성
 - **Supabase** (`@supabase/ssr`, `@supabase/supabase-js`) — 이메일/비밀번호 + 카카오 OAuth
 - **shadcn/ui** (base-nova, neutral) — `@base-ui/react` 기반
 - **Pretendard** 가변 폰트 (`next/font/local`)
@@ -36,6 +37,7 @@ cp .env.example .env.local
 | `SUPABASE_SERVICE_ROLE_KEY` | 서버 전용. 이메일 존재 확인 / 사용자 identities 조회용 admin API에 필요 |
 | `NEXT_PUBLIC_SITE_URL` | 이메일 redirectTo / OAuth callback에 쓸 절대 URL (운영 권장) |
 | `NEXT_PUBLIC_SITE_NAME` | Navbar/Footer에 표시할 사이트 이름 |
+| `OPENAI_API_KEY` | 서버 전용. 영어 문장 TTS 음성 생성에 필요 |
 
 ### 3. Supabase 설정
 
@@ -79,6 +81,17 @@ npm run dev
 
 서버 액션 기반(`useActionState`)으로 폼 처리, rate-limit / Caps Lock 감지 / 비밀번호 보기 토글 등 UX 헬퍼 포함.
 
+### 영어 학습
+
+| 경로 | 설명 |
+| --- | --- |
+| `/learn/input` | 영어 문장 + 한국어 뜻 입력, OpenAI TTS로 원어민 음성 자동 생성 |
+| `/learn/review` | 한국어 뜻을 보고 영어로 말하기 연습 (Web Speech API 음성 인식) |
+
+- 복습 시 한국어만 먼저 표시되며, "정답 보기" 버튼으로 영어 원문 확인 가능
+- 음성 인식 결과는 축약형 확장 + 단어 유사도(80% 이상)로 관대하게 판정
+- 날짜별 필터, TTS 듣기, 문장 삭제 지원
+
 ### Navbar + 사이드바
 
 `src/components/Navbar.tsx`:
@@ -104,12 +117,14 @@ npx shadcn@latest add <component>
 src/
 ├── app/
 │   ├── (auth)/                # 로그인/회원가입/비밀번호 찾기·재설정/로그아웃/OAuth
+│   ├── (learn)/               # 영어 학습: learn/input (문장 입력), learn/review (복습)
 │   ├── auth/confirm/          # 이메일·OAuth callback 라우트
 │   ├── layout.tsx             # Pretendard + Navbar + Footer + AuthHashHandler
 │   ├── page.tsx               # 메인 페이지
 │   └── globals.css            # Tailwind v4 + shadcn neutral 토큰
 ├── components/
 │   ├── auth/                  # LoginForm / SignupForm / KakaoButton / 등
+│   ├── learn/                 # InputForm (문장 입력) / ReviewClient (복습 + 음성 인식)
 │   ├── ui/                    # shadcn 컴포넌트
 │   ├── Navbar.tsx
 │   └── Footer.tsx
@@ -119,7 +134,9 @@ src/
 │   ├── utils.ts               # cn (clsx + tailwind-merge)
 │   ├── origin.ts              # 절대 URL 추정
 │   ├── email.ts               # 이메일 형식 검증
-│   └── rate-limit.ts          # in-memory 토큰 버킷
+│   ├── rate-limit.ts          # in-memory 토큰 버킷
+│   ├── normalize-text.ts      # 텍스트 정규화 + 축약형 확장 + 유사도 비교
+│   └── openai.ts              # OpenAI 클라이언트 (TTS 음성 생성)
 ├── utils/supabase/
 │   ├── client.ts              # 브라우저 클라이언트
 │   ├── server.ts              # 서버 컴포넌트/액션 클라이언트
