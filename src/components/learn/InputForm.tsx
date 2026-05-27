@@ -1,8 +1,8 @@
 "use client";
 
-import { useActionState, useEffect, useRef, useState } from "react";
-import { Loader2, PenLine } from "lucide-react";
-import { createSentence, type InputState } from "@/app/(learn)/learn/input/actions";
+import { useEffect, useRef, useState, useTransition } from "react";
+import { Loader2, PenLine, Volume2, RotateCcw } from "lucide-react";
+import { generateAudio, saveSentence } from "@/app/(learn)/learn/input/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,21 +11,111 @@ import { Label } from "@/components/ui/label";
 const MAX_LENGTH = 500;
 const WARN_THRESHOLD = 450;
 
+type Phase = "input" | "preview" | "saving";
+
 export default function InputForm() {
-  const [state, formAction, pending] = useActionState<InputState, FormData>(createSentence, null);
-  const formRef = useRef<HTMLFormElement>(null);
   const [englishText, setEnglishText] = useState("");
   const [koreanText, setKoreanText] = useState("");
+  const [phase, setPhase] = useState<Phase>("input");
+  const [audioBase64, setAudioBase64] = useState<string | null>(null);
+  const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
   const [recentSave, setRecentSave] = useState<{ english: string; korean: string } | null>(null);
+  const [generating, startGenerating] = useTransition();
+  const [saving, startSaving] = useTransition();
+  const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
-    if (state?.success) {
+    return () => {
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+    };
+  }, [audioUrl]);
+
+  function base64ToBlobUrl(base64: string): string {
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const blob = new Blob([bytes], { type: "audio/mpeg" });
+    return URL.createObjectURL(blob);
+  }
+
+  function handleGenerate() {
+    if (!englishText.trim() || !koreanText.trim()) {
+      setError("영어 문장과 한국어 뜻을 모두 입력해 주세요.");
+      return;
+    }
+
+    setError(null);
+    setSuccess(null);
+
+    startGenerating(async () => {
+      const result = await generateAudio(englishText);
+
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      const url = base64ToBlobUrl(result.audioBase64);
+      setAudioBase64(result.audioBase64);
+      setAudioUrl(url);
+      setPhase("preview");
+    });
+  }
+
+  function handleRegenerate() {
+    setError(null);
+
+    startGenerating(async () => {
+      const result = await generateAudio(englishText);
+
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      const url = base64ToBlobUrl(result.audioBase64);
+      setAudioBase64(result.audioBase64);
+      setAudioUrl(url);
+    });
+  }
+
+  function handleSave() {
+    if (!audioBase64) return;
+
+    setError(null);
+
+    startSaving(async () => {
+      const result = await saveSentence(englishText, koreanText, audioBase64);
+
+      if ("error" in result) {
+        setError(result.error);
+        return;
+      }
+
+      setSuccess(result.success);
       setRecentSave({ english: englishText, korean: koreanText });
       setEnglishText("");
       setKoreanText("");
-      formRef.current?.reset();
-    }
-  }, [state]);
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      setAudioBase64(null);
+      setAudioUrl(null);
+      setPhase("input");
+    });
+  }
+
+  function handleReset() {
+    if (audioUrl) URL.revokeObjectURL(audioUrl);
+    setAudioBase64(null);
+    setAudioUrl(null);
+    setError(null);
+    setSuccess(null);
+    setPhase("input");
+  }
+
+  const isPreview = phase === "preview";
+  const pending = generating || saving;
 
   return (
     <Card className="mx-auto w-full max-w-md">
@@ -39,7 +129,7 @@ export default function InputForm() {
         <CardDescription>영어 문장과 한국어 뜻을 입력하세요</CardDescription>
       </CardHeader>
       <CardContent>
-        <form ref={formRef} action={formAction} className="flex flex-col gap-4">
+        <div className="flex flex-col gap-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="englishText">영어 문장</Label>
             <textarea
@@ -49,9 +139,10 @@ export default function InputForm() {
               placeholder="Hello, how are you today?"
               value={englishText}
               onChange={(e) => setEnglishText(e.target.value)}
-              aria-invalid={!!state?.error}
-              aria-describedby={state?.error ? "input-error" : undefined}
-              className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[80px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+              readOnly={isPreview}
+              aria-invalid={!!error}
+              aria-describedby={error ? "input-error" : undefined}
+              className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[80px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 read-only:bg-muted/50"
               maxLength={MAX_LENGTH}
             />
             <div className="flex items-center justify-between">
@@ -72,7 +163,8 @@ export default function InputForm() {
               placeholder="안녕하세요, 오늘 어떠세요?"
               value={koreanText}
               onChange={(e) => setKoreanText(e.target.value)}
-              className="h-10"
+              readOnly={isPreview}
+              className="h-10 read-only:bg-muted/50"
               maxLength={MAX_LENGTH}
             />
             <div className="flex justify-end">
@@ -82,22 +174,51 @@ export default function InputForm() {
             </div>
           </div>
 
-          {state?.error && (
+          {isPreview && audioUrl && (
+            <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-col gap-3 rounded-xl border border-brand/20 bg-brand/5 p-4">
+              <div className="flex items-center gap-2 text-sm font-medium text-brand">
+                <Volume2 size={16} />
+                음성 미리듣기
+              </div>
+              <audio ref={audioRef} src={audioUrl} controls className="w-full" />
+            </div>
+          )}
+
+          {error && (
             <p id="input-error" className="text-sm text-destructive" role="alert">
-              {state.error}
+              {error}
             </p>
           )}
-          {state?.success && (
+          {success && (
             <p className="animate-in fade-in slide-in-from-bottom-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700" role="status">
-              {state.success}
+              {success}
             </p>
           )}
 
-          <Button type="submit" disabled={pending} variant="brand" className="mt-2 h-12 rounded-xl text-lg font-bold">
-            {pending && <Loader2 className="animate-spin" />}
-            {pending ? "저장 중..." : "저장"}
-          </Button>
-        </form>
+          {!isPreview ? (
+            <Button type="button" onClick={handleGenerate} disabled={pending} variant="brand" className="mt-2 h-12 rounded-xl text-lg font-bold">
+              {generating && <Loader2 className="animate-spin" />}
+              {generating ? "음성 생성 중..." : "음성 생성"}
+            </Button>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              <Button type="button" onClick={handleRegenerate} disabled={pending} variant="outline" className="h-12 flex-1 rounded-xl font-bold">
+                {generating && <Loader2 className="animate-spin" />}
+                {generating ? "생성 중..." : <><RotateCcw size={16} /> 다시 생성</>}
+              </Button>
+              <Button type="button" onClick={handleSave} disabled={pending} variant="brand" className="h-12 flex-1 rounded-xl text-lg font-bold">
+                {saving && <Loader2 className="animate-spin" />}
+                {saving ? "저장 중..." : "저장"}
+              </Button>
+            </div>
+          )}
+
+          {isPreview && (
+            <button type="button" onClick={handleReset} disabled={pending} className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+              처음부터 다시 입력
+            </button>
+          )}
+        </div>
 
         {recentSave && (
           <div className="animate-in fade-in slide-in-from-bottom-2 mt-4 rounded-md border border-border bg-muted/40 px-3 py-2">

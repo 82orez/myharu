@@ -4,22 +4,18 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 
-export type InputState = { error?: string; success?: string } | null;
+export type GenerateAudioResult = { audioBase64: string } | { error: string };
+export type SaveSentenceResult = { success: string } | { error: string };
 
-export async function createSentence(_prev: InputState, formData: FormData): Promise<InputState> {
-  const englishText = String(formData.get("englishText") ?? "").trim();
-  const koreanText = String(formData.get("koreanText") ?? "").trim();
+export async function generateAudio(englishText: string): Promise<GenerateAudioResult> {
+  const text = englishText.trim();
 
-  if (!englishText || !koreanText) {
-    return { error: "영어 문장과 한국어 뜻을 모두 입력해 주세요." };
+  if (!text) {
+    return { error: "영어 문장을 입력해 주세요." };
   }
 
-  if (englishText.length > 500) {
+  if (text.length > 500) {
     return { error: "영어 문장은 500자 이내로 입력해 주세요." };
-  }
-
-  if (koreanText.length > 500) {
-    return { error: "한국어 뜻은 500자 이내로 입력해 주세요." };
   }
 
   const supabase = createClient(await cookies());
@@ -31,22 +27,53 @@ export async function createSentence(_prev: InputState, formData: FormData): Pro
     return { error: "로그인이 필요합니다." };
   }
 
-  let audioBuffer: Buffer;
   try {
     const openai = getOpenAIClient();
     const mp3Response = await openai.audio.speech.create({
       model: "tts-1",
       voice: "alloy",
-      input: englishText,
+      input: text,
       response_format: "mp3",
     });
     const arrayBuffer = await mp3Response.arrayBuffer();
-    audioBuffer = Buffer.from(arrayBuffer);
+    const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
+    return { audioBase64 };
   } catch (err) {
     console.error("[OpenAI TTS] 음성 생성 실패:", err);
     return { error: "음성 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." };
   }
+}
 
+export async function saveSentence(englishText: string, koreanText: string, audioBase64: string): Promise<SaveSentenceResult> {
+  const english = englishText.trim();
+  const korean = koreanText.trim();
+
+  if (!english || !korean) {
+    return { error: "영어 문장과 한국어 뜻을 모두 입력해 주세요." };
+  }
+
+  if (english.length > 500) {
+    return { error: "영어 문장은 500자 이내로 입력해 주세요." };
+  }
+
+  if (korean.length > 500) {
+    return { error: "한국어 뜻은 500자 이내로 입력해 주세요." };
+  }
+
+  if (!audioBase64) {
+    return { error: "음성 데이터가 없습니다. 음성을 먼저 생성해 주세요." };
+  }
+
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "로그인이 필요합니다." };
+  }
+
+  const audioBuffer = Buffer.from(audioBase64, "base64");
   const fileId = crypto.randomUUID();
   const storagePath = `${user.id}/${fileId}.mp3`;
 
@@ -62,8 +89,8 @@ export async function createSentence(_prev: InputState, formData: FormData): Pro
 
   const { error: insertError } = await supabase.from("sentences").insert({
     user_id: user.id,
-    english_text: englishText,
-    korean_text: koreanText,
+    english_text: english,
+    korean_text: korean,
     audio_path: storagePath,
   });
 
