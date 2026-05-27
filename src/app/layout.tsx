@@ -5,6 +5,7 @@ import "./globals.css";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import AuthHashHandler from "@/components/auth/AuthHashHandler";
+import { Toaster } from "@/components/ui/sonner";
 import { createClient } from "@/utils/supabase/server";
 
 const pretendard = localFont({
@@ -15,11 +16,25 @@ const pretendard = localFont({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
   title: {
-    default: "My Haru",
+    default: "My Haru — 매일 영어 한 문장 학습",
     template: "%s | My Haru",
   },
-  description: "나의 하루를 기록하고 관리하는 개인 서비스",
+  description: "영어 문장을 입력하고, AI 원어민 발음을 듣고, 직접 말하며 연습하세요. 매일 한 문장씩, 나만의 영어 학습 습관을 만들어 보세요.",
+  openGraph: {
+    title: "My Haru — 매일 영어 한 문장 학습",
+    description: "영어 문장을 입력하고, AI 원어민 발음을 듣고, 직접 말하며 연습하세요.",
+    siteName: "My Haru",
+    locale: "ko_KR",
+    type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "My Haru — 매일 영어 한 문장 학습",
+    description: "영어 문장을 입력하고, AI 원어민 발음을 듣고, 직접 말하며 연습하세요.",
+  },
+  robots: { index: true, follow: true },
 };
 
 export default async function RootLayout({
@@ -39,6 +54,7 @@ export default async function RootLayout({
         <AuthHashHandler />
         {children}
         <Footer />
+        <Toaster position="top-right" richColors closeButton />
       </body>
     </html>
   );

@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import LoginForm from "@/components/auth/LoginForm";
 import AuthBannerSlot from "@/components/auth/AuthBannerSlot";
+import AuthLayout from "@/components/auth/AuthLayout";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
   title: "로그인",
+  description: "My Haru에 로그인하여 영어 학습을 계속하세요.",
 };
 
 type SearchParams = Promise<{ error?: string; verified?: string }>;
@@ -27,7 +29,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   const showVerifiedPending = verified === "pending";
 
   return (
-    <main className="flex min-h-[calc(100vh-200px)] items-center justify-center bg-muted/30 px-6 py-16">
+    <AuthLayout>
       <div className="w-full max-w-md">
         <AuthBannerSlot>
           {showAuthCodeError && (
@@ -50,6 +52,6 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         </AuthBannerSlot>
         <LoginForm />
       </div>
-    </main>
+    </AuthLayout>
   );
 }

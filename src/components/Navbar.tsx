@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { Menu, X, PenLine, BookOpen, LogOut } from "lucide-react";
 import { logout } from "@/app/(auth)/logout/actions";
 import { createClient } from "@/utils/supabase/client";
 
@@ -74,9 +75,9 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
   return (
     <>
       {/* 상단 네비 */}
-      <nav className="sticky top-0 z-[100] flex items-center border-b border-border bg-background px-6 py-4">
+      <nav className="sticky top-0 z-[100] flex items-center border-b border-border bg-background/80 px-6 py-4 backdrop-blur-sm">
         <div className="flex flex-1 items-center justify-start">
-          <Link href="/" className="text-xl font-bold text-foreground">
+          <Link href="/" className="text-xl font-bold text-brand">
             {SITE_NAME}
           </Link>
         </div>
@@ -86,10 +87,14 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
           <div className="hidden items-center gap-3 md:flex">
             {user ? (
               <>
-                <Link href="/learn/input" className="text-sm font-medium text-foreground transition-colors hover:text-primary">
+                <Link
+                  href="/learn/input"
+                  className="relative text-sm font-medium text-foreground after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand after:transition-all hover:text-brand hover:after:w-full">
                   문장 입력
                 </Link>
-                <Link href="/learn/review" className="text-sm font-medium text-foreground transition-colors hover:text-primary">
+                <Link
+                  href="/learn/review"
+                  className="relative text-sm font-medium text-foreground after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand after:transition-all hover:text-brand hover:after:w-full">
                   복습
                 </Link>
                 <span className="max-w-[180px] truncate text-sm text-muted-foreground" title={user.email ?? undefined}>
@@ -127,8 +132,8 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
             aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={menuOpen}
             aria-controls="side-menu"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-xl text-primary-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
-            ≡
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-brand-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+            <Menu size={20} />
           </button>
         </div>
       </nav>
@@ -158,19 +163,21 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
           type="button"
           onClick={closeMenu}
           aria-label="메뉴 닫기"
-          className="absolute top-4 right-6 rounded border-none bg-transparent text-2xl focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
-          ✕
+          className="absolute top-4 right-6 rounded border-none bg-transparent text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+          <X size={24} />
         </button>
         <ul className="list-none px-6">
           {user && (
             <>
               <li className="border-b border-border py-4">
-                <Link href="/learn/input" onClick={closeMenu} className="block text-[15px] font-medium text-foreground">
+                <Link href="/learn/input" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+                  <PenLine size={18} className="text-brand" />
                   문장 입력
                 </Link>
               </li>
               <li className="border-b border-border py-4">
-                <Link href="/learn/review" onClick={closeMenu} className="block text-[15px] font-medium text-foreground">
+                <Link href="/learn/review" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+                  <BookOpen size={18} className="text-brand" />
                   복습
                 </Link>
               </li>
@@ -189,7 +196,8 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
                 <form action={logout}>
                   <button
                     type="submit"
-                    className="w-full rounded-md border border-border px-4 py-2.5 text-[15px] font-medium text-foreground transition-colors hover:border-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+                    className="flex w-full items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-[15px] font-medium text-foreground transition-colors hover:border-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+                    <LogOut size={16} />
                     로그아웃
                   </button>
                 </form>

@@ -2,10 +2,12 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import SignupForm from "@/components/auth/SignupForm";
+import AuthLayout from "@/components/auth/AuthLayout";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
   title: "회원가입",
+  description: "My Haru에 가입하여 매일 영어 한 문장 학습을 시작하세요.",
 };
 
 export default async function SignupPage() {
@@ -19,8 +21,8 @@ export default async function SignupPage() {
   }
 
   return (
-    <main className="flex min-h-[calc(100vh-200px)] items-center justify-center bg-muted/30 px-6 py-16">
+    <AuthLayout>
       <SignupForm />
-    </main>
+    </AuthLayout>
   );
 }

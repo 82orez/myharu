@@ -1,12 +1,14 @@
 "use client";
 
-import { useState, useCallback, useRef, useTransition, useMemo, useEffect } from "react";
+import { useState, useCallback, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Volume2, Mic, MicOff, Trash2, Check, X, Loader2, Eye, EyeOff } from "lucide-react";
+import { Volume2, Mic, MicOff, Trash2, Check, X, Loader2, Eye, EyeOff, Trophy } from "lucide-react";
 import { deleteSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { textsMatch } from "@/lib/normalize-text";
+import { toast } from "sonner";
 
 type SpeechResult = { status: "correct" | "incorrect"; recognizedText: string } | { status: "idle" };
 
@@ -24,7 +26,7 @@ export default function ReviewClient({
   const [results, setResults] = useState<Record<string, SpeechResult>>({});
   const [listeningId, setListeningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [speechSupported, setSpeechSupported] = useState(false);
@@ -35,6 +37,11 @@ export default function ReviewClient({
   }, []);
 
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+
+  const attemptedCount = Object.values(results).filter((r) => r.status === "correct" || r.status === "incorrect").length;
+  const correctCount = Object.values(results).filter((r) => r.status === "correct").length;
+  const accuracyPercent = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : 0;
+  const allAttempted = sentences.length > 0 && attemptedCount === sentences.length;
 
   const handleDateChange = (date: string) => {
     if (date) {
@@ -81,7 +88,7 @@ export default function ReviewClient({
       recognition.onerror = (event: any) => {
         console.error("[Speech Recognition] 오류:", event.error);
         if (event.error === "not-allowed") {
-          alert("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
+          toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
         }
         setListeningId(null);
       };
@@ -104,20 +111,23 @@ export default function ReviewClient({
       if (!confirm("이 문장을 삭제하시겠습니까?")) return;
 
       setDeletingId(id);
-      setDeleteError(null);
 
       startTransition(async () => {
         const result = await deleteSentence(id);
         setDeletingId(null);
         if (result.error) {
-          setDeleteError(result.error);
+          toast.error(result.error);
         } else {
-          setSentences((prev) => prev.filter((s) => s.id !== id));
-          setResults((prev) => {
-            const next = { ...prev };
-            delete next[id];
-            return next;
-          });
+          setRemovingId(id);
+          setTimeout(() => {
+            setSentences((prev) => prev.filter((s) => s.id !== id));
+            setResults((prev) => {
+              const next = { ...prev };
+              delete next[id];
+              return next;
+            });
+            setRemovingId(null);
+          }, 300);
         }
       });
     },
@@ -133,7 +143,7 @@ export default function ReviewClient({
             type="date"
             value={dateFilter ?? ""}
             onChange={(e) => handleDateChange(e.target.value)}
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+            className="border-input bg-background rounded-md border px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:outline-none"
           />
           <Button variant="outline" onClick={() => handleDateChange(today)} className="text-sm">
             오늘
@@ -146,15 +156,24 @@ export default function ReviewClient({
         </div>
       </div>
 
+      {/* 세션 통계 */}
+      {sentences.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="secondary">총 {sentences.length}문장</Badge>
+          {attemptedCount > 0 && (
+            <>
+              <Badge variant="secondary">연습 {attemptedCount}문장</Badge>
+              <Badge variant={accuracyPercent >= 80 ? "default" : "secondary"} className={accuracyPercent >= 80 ? "bg-brand text-brand-foreground" : ""}>
+                정답률 {accuracyPercent}%
+              </Badge>
+            </>
+          )}
+        </div>
+      )}
+
       {initialError && (
         <p className="text-sm text-destructive" role="alert">
           {initialError}
-        </p>
-      )}
-
-      {deleteError && (
-        <p className="text-sm text-destructive" role="alert">
-          {deleteError}
         </p>
       )}
 
@@ -166,14 +185,26 @@ export default function ReviewClient({
 
       {sentences.length === 0 && !initialError && <p className="py-12 text-center text-muted-foreground">저장된 문장이 없습니다.</p>}
 
+      {/* 세션 완료 배너 */}
+      {allAttempted && (
+        <div className="animate-in fade-in zoom-in-95 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+          <Trophy className="h-5 w-5 text-green-600" />
+          <p className="text-sm font-medium text-green-700">수고했어요! 모든 문장을 연습했습니다.</p>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
-        {sentences.map((sentence) => {
+        {sentences.map((sentence, index) => {
           const result = results[sentence.id];
           const isListening = listeningId === sentence.id;
           const isDeleting = deletingId === sentence.id;
+          const isRemoving = removingId === sentence.id;
 
           return (
-            <Card key={sentence.id}>
+            <Card
+              key={sentence.id}
+              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
+              style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
               <CardContent className="flex flex-col gap-3 pt-6">
                 <p className="text-lg font-semibold">{sentence.korean_text}</p>
                 {revealedIds.has(sentence.id) && <p className="text-sm text-muted-foreground">{sentence.english_text}</p>}
@@ -235,14 +266,14 @@ export default function ReviewClient({
                 </div>
 
                 {result && result.status === "correct" && (
-                  <div className="flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+                  <div className="animate-in fade-in slide-in-from-top-1 flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
                     <Check className="h-4 w-4" />
                     정확합니다!
                   </div>
                 )}
 
                 {result && result.status === "incorrect" && (
-                  <div className="flex flex-col gap-1 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <div className="animate-in fade-in slide-in-from-top-1 flex flex-col gap-1 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
                     <div className="flex items-center gap-2">
                       <X className="h-4 w-4" />
                       다시 시도하세요.

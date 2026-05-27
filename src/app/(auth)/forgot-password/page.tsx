@@ -4,10 +4,12 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import ForgotPasswordForm from "@/components/auth/ForgotPasswordForm";
 import AuthBannerSlot from "@/components/auth/AuthBannerSlot";
+import AuthLayout from "@/components/auth/AuthLayout";
 import { createClient } from "@/utils/supabase/server";
 
 export const metadata: Metadata = {
   title: "비밀번호 찾기",
+  description: "비밀번호를 잊으셨나요? 이메일로 재설정 링크를 받으세요.",
 };
 
 type SearchParams = Promise<{ error?: string }>;
@@ -26,7 +28,7 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
   const showLinkExpired = error === "link-expired";
 
   return (
-    <main className="flex min-h-[calc(100vh-200px)] items-center justify-center bg-muted/30 px-6 py-16">
+    <AuthLayout>
       <div className="w-full max-w-md">
         <AuthBannerSlot>
           {showLinkExpired && (
@@ -44,6 +46,6 @@ export default async function ForgotPasswordPage({ searchParams }: { searchParam
         </AuthBannerSlot>
         <ForgotPasswordForm />
       </div>
-    </main>
+    </AuthLayout>
   );
 }

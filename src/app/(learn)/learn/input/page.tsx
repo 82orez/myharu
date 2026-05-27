@@ -3,6 +3,7 @@ import InputForm from "@/components/learn/InputForm";
 
 export const metadata: Metadata = {
   title: "문장 입력",
+  robots: { index: false },
 };
 
 export default function InputPage() {

@@ -4,6 +4,7 @@ import ReviewClient from "@/components/learn/ReviewClient";
 
 export const metadata: Metadata = {
   title: "복습",
+  robots: { index: false },
 };
 
 type SearchParams = Promise<{ date?: string }>;
