@@ -164,7 +164,7 @@ export default function LoginForm() {
             </AlertDialogContent>
           </AlertDialog>
 
-          <Button type="submit" disabled={pending} className="mt-2 h-11 text-base font-bold">
+          <Button type="submit" disabled={pending} className="mt-2 h-11 bg-brand text-base font-bold text-brand-foreground hover:bg-brand/90">
             {pending && <Loader2 className="animate-spin" />}
             {pending ? "로그인 중" : "로그인"}
           </Button>
