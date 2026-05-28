@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check } from "lucide-react";
+import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Keyboard } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
@@ -44,15 +44,22 @@ export default function ReviewClient({
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<"correct" | "incorrect" | null>(null);
   const [feedbackXp, setFeedbackXp] = useState<number>(0);
+  const [writingId, setWritingId] = useState<string | null>(null);
+  const [textInput, setTextInput] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    if (writingId) textInputRef.current?.focus();
+  }, [writingId]);
 
   useEffect(() => {
     setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
@@ -103,9 +110,41 @@ export default function ReviewClient({
     }, 1500);
   }, []);
 
+  const handleTextSubmit = useCallback(
+    (sentenceId: string, targetText: string) => {
+      const trimmed = textInput.trim();
+      if (!trimmed) return;
+      const { match } = textsMatch(trimmed, targetText);
+      startTransition(async () => {
+        const result = await recordPracticeResult(sentenceId, match, "text");
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
+        if (match) {
+          setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, is_memorized: true } : s)));
+          toast.success("정확합니다!");
+          setWritingId(null);
+          setTextInput("");
+        } else {
+          toast.error("다시 시도하세요.", { description: `입력: "${trimmed}"` });
+          setTextInput("");
+          setTimeout(() => textInputRef.current?.focus(), 50);
+        }
+      });
+    },
+    [textInput, triggerFeedback, startTransition],
+  );
+
   const startRecognition = useCallback(
     (sentenceId: string, targetText: string) => {
       if (!speechSupported) return;
+
+      if (writingId !== null) {
+        setWritingId(null);
+        setTextInput("");
+      }
 
       if (recognitionRef.current) {
         recognitionRef.current.abort();
@@ -154,7 +193,7 @@ export default function ReviewClient({
       setListeningId(sentenceId);
       recognition.start();
     },
-    [speechSupported, startTransition, triggerFeedback],
+    [speechSupported, startTransition, triggerFeedback, writingId],
   );
 
   const handleToggleFavorite = useCallback(
@@ -196,6 +235,10 @@ export default function ReviewClient({
   );
 
   const startEditing = (sentence: Sentence) => {
+    if (writingId !== null) {
+      setWritingId(null);
+      setTextInput("");
+    }
     setEditing({
       id: sentence.id,
       englishText: sentence.english_text,
@@ -245,7 +288,7 @@ export default function ReviewClient({
   };
 
   const isEditing = editing !== null;
-  const isBusy = playingId !== null || isEditing || listeningId !== null;
+  const isBusy = playingId !== null || isEditing || listeningId !== null || writingId !== null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -289,6 +332,7 @@ export default function ReviewClient({
         {sentences.map((sentence, index) => {
           const isPlaying = playingId === sentence.id;
           const isListening = listeningId === sentence.id;
+          const isWriting = writingId === sentence.id;
           const isDeleting = deletingId === sentence.id;
           const isRemoving = removingId === sentence.id;
           const busyPlaying = playingId !== null;
@@ -371,7 +415,7 @@ export default function ReviewClient({
                         <Button
                           variant={isListening ? "destructive" : "outline"}
                           size="sm"
-                          disabled={(listeningId !== null && !isListening) || busyPlaying || isEditing}
+                          disabled={(listeningId !== null && !isListening) || busyPlaying || isEditing || (writingId !== null && !isWriting)}
                           onClick={() => {
                             if (isListening && recognitionRef.current) {
                               recognitionRef.current.abort();
@@ -393,6 +437,27 @@ export default function ReviewClient({
                           )}
                         </Button>
                       )}
+
+                      <Button
+                        variant={isWriting ? "destructive" : "outline"}
+                        size="sm"
+                        disabled={(writingId !== null && !isWriting) || busyPlaying || isEditing || (listeningId !== null && !isListening)}
+                        onClick={() => {
+                          if (isWriting) {
+                            setWritingId(null);
+                            setTextInput("");
+                          } else {
+                            if (recognitionRef.current) {
+                              recognitionRef.current.abort();
+                              setListeningId(null);
+                            }
+                            setWritingId(sentence.id);
+                            setTextInput("");
+                          }
+                        }}>
+                        <Keyboard className="mr-1 h-4 w-4" />
+                        {isWriting ? "닫기" : "쓰기"}
+                      </Button>
 
                       <Button
                         variant="ghost"
@@ -437,6 +502,32 @@ export default function ReviewClient({
                         <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
                         듣는 중...
                       </p>
+                    )}
+
+                    {isWriting && (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          handleTextSubmit(sentence.id, sentence.english_text);
+                        }}
+                        className="flex gap-2 pt-1">
+                        <Input
+                          ref={textInputRef}
+                          type="text"
+                          autoComplete="off"
+                          autoCapitalize="off"
+                          autoCorrect="off"
+                          spellCheck={false}
+                          placeholder="영어 문장을 입력하세요"
+                          value={textInput}
+                          onChange={(e) => setTextInput(e.target.value)}
+                          disabled={isPending}
+                          className="h-9 flex-1"
+                        />
+                        <Button type="submit" variant="brand" size="sm" disabled={!textInput.trim() || isPending}>
+                          {isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : "제출"}
+                        </Button>
+                      </form>
                     )}
                   </>
                 )}
