@@ -2,8 +2,8 @@
 
 import { useState, useCallback, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Volume2, Mic, MicOff, Trash2, Check, X, Loader2, Eye, EyeOff, Trophy } from "lucide-react";
-import { deleteSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
+import { Volume2, Mic, MicOff, Trash2, Check, X, Loader2, Eye, EyeOff, Trophy, Star } from "lucide-react";
+import { deleteSentence, toggleFavorite, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -104,6 +104,21 @@ export default function ReviewClient({
       recognition.start();
     },
     [speechSupported],
+  );
+
+  const handleToggleFavorite = useCallback(
+    (id: string, currentValue: boolean) => {
+      setSentences((prev) => prev.map((s) => (s.id === id ? { ...s, is_favorite: !currentValue } : s)));
+
+      startTransition(async () => {
+        const result = await toggleFavorite(id, !currentValue);
+        if (result.error) {
+          setSentences((prev) => prev.map((s) => (s.id === id ? { ...s, is_favorite: currentValue } : s)));
+          toast.error(result.error);
+        }
+      });
+    },
+    [startTransition],
   );
 
   const handleDelete = useCallback(
@@ -257,6 +272,15 @@ export default function ReviewClient({
                     className="text-muted-foreground">
                     {revealedIds.has(sentence.id) ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
                     {revealedIds.has(sentence.id) ? "정답 숨기기" : "정답 보기"}
+                  </Button>
+
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleToggleFavorite(sentence.id, sentence.is_favorite)}
+                    className={sentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"}>
+                    <Star className={`mr-1 h-4 w-4 ${sentence.is_favorite ? "fill-current" : ""}`} />
+                    즐겨찾기
                   </Button>
 
                   <Button variant="ghost" size="sm" onClick={() => handleDelete(sentence.id)} disabled={isDeleting} className="text-muted-foreground hover:text-destructive">

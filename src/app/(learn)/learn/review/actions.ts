@@ -9,6 +9,7 @@ export type Sentence = {
   korean_text: string;
   audio_url: string;
   created_at: string;
+  is_favorite: boolean;
 };
 
 export async function getSentences(dateFilter?: string): Promise<{ sentences?: Sentence[]; error?: string }> {
@@ -21,7 +22,7 @@ export async function getSentences(dateFilter?: string): Promise<{ sentences?: S
     return { error: "로그인이 필요합니다." };
   }
 
-  let query = supabase.from("sentences").select("id, english_text, korean_text, audio_path, created_at").eq("user_id", user.id);
+  let query = supabase.from("sentences").select("id, english_text, korean_text, audio_path, created_at, is_favorite").eq("user_id", user.id);
 
   if (dateFilter) {
     const start = `${dateFilter}T00:00:00+09:00`;
@@ -49,11 +50,32 @@ export async function getSentences(dateFilter?: string): Promise<{ sentences?: S
         korean_text: row.korean_text,
         audio_url: signedData?.signedUrl ?? "",
         created_at: row.created_at,
+        is_favorite: row.is_favorite,
       };
     }),
   );
 
   return { sentences };
+}
+
+export async function toggleFavorite(id: string, isFavorite: boolean): Promise<{ error?: string }> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "로그인이 필요합니다." };
+  }
+
+  const { error } = await supabase.from("sentences").update({ is_favorite: isFavorite }).eq("id", id).eq("user_id", user.id);
+
+  if (error) {
+    console.error("[Supabase DB] 즐겨찾기 변경 실패:", error);
+    return { error: "즐겨찾기 변경 중 오류가 발생했습니다." };
+  }
+
+  return {};
 }
 
 export async function deleteSentence(id: string): Promise<{ error?: string }> {
