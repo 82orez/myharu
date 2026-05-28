@@ -87,16 +87,6 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
           <div className="hidden items-center gap-3 md:flex">
             {user ? (
               <>
-                <Link
-                  href="/learn/input"
-                  className="relative text-sm font-medium text-foreground after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand after:transition-all hover:text-brand hover:after:w-full">
-                  문장 입력
-                </Link>
-                <Link
-                  href="/learn/review"
-                  className="relative text-sm font-medium text-foreground after:absolute after:bottom-[-4px] after:left-0 after:h-[2px] after:w-0 after:bg-brand after:transition-all hover:text-brand hover:after:w-full">
-                  복습
-                </Link>
                 <span className="max-w-[180px] truncate text-sm text-muted-foreground" title={user.email ?? undefined}>
                   {user.email}
                 </span>
@@ -132,7 +122,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
             aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={menuOpen}
             aria-controls="side-menu"
-            className={`flex h-10 w-10 items-center justify-center rounded-full bg-brand text-brand-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none ${user ? "hidden md:flex" : ""}`}>
+            className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-brand-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
             <Menu size={20} />
           </button>
         </div>
@@ -184,7 +174,6 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
             </>
           )}
 
-          {/* 모바일 인증 섹션 */}
           {user ? (
             <>
               <li className="border-b border-border py-4">
