@@ -23,11 +23,14 @@ export type GoalProgress = {
   isOnTrack: boolean;
 };
 
+export type QuizMode = "speech" | "text";
+
 export type PracticeResult = {
   id: string;
   sentence_id: string;
   is_correct: boolean;
   xp_earned: number;
+  mode: QuizMode;
   practiced_at: string;
 };
 

@@ -3,17 +3,17 @@
 import { useReducer, useCallback, useRef, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Volume2, Mic, MicOff, Eye, X as XIcon, Loader2 } from "lucide-react";
+import { Volume2, Mic, MicOff, Eye, X as XIcon, Loader2, Keyboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { textsMatch } from "@/lib/normalize-text";
-import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
 import SessionSummary from "@/components/learn/SessionSummary";
 import type { Sentence } from "@/app/(learn)/learn/review/actions";
-import type { UserStats, SessionSummary as SessionSummaryType } from "@/types/gamification";
+import type { UserStats, SessionSummary as SessionSummaryType, QuizMode } from "@/types/gamification";
 
 type Phase = "ready" | "question" | "listening" | "result" | "summary";
 type Answer = { sentenceId: string; isCorrect: boolean; recognizedText?: string };
@@ -34,6 +34,7 @@ type Action =
   | { type: "LISTEN" }
   | { type: "SHOW_RESULT"; isCorrect: boolean; recognizedText: string; xp: number; streak: number; isNewStreakDay: boolean }
   | { type: "NEXT" }
+  | { type: "RETRY" }
   | { type: "FINISH" }
   | { type: "RESTART" };
 
@@ -57,6 +58,8 @@ function reducer(state: State, action: Action): State {
     case "NEXT":
       const nextIndex = state.currentIndex + 1;
       return { ...state, phase: "question", currentIndex: nextIndex, resultStatus: null, recognizedText: "" };
+    case "RETRY":
+      return { ...state, phase: "question", resultStatus: null, recognizedText: "" };
     case "FINISH":
       return { ...state, phase: "summary" };
     case "RESTART":
@@ -91,9 +94,12 @@ export default function QuizView({
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, initialState);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [mode, setMode] = useState<QuizMode>("speech");
+  const [textInput, setTextInput] = useState("");
   const [isPending, startTransition] = useTransition();
   const recognitionRef = useRef<any>(null);
   const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
+  const textInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
@@ -104,6 +110,16 @@ export default function QuizView({
       if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
     };
   }, []);
+
+  useEffect(() => {
+    setTextInput("");
+  }, [state.currentIndex]);
+
+  useEffect(() => {
+    if (mode === "text" && state.phase === "question") {
+      textInputRef.current?.focus();
+    }
+  }, [mode, state.phase, state.currentIndex]);
 
   const currentSentence = sentences[state.currentIndex];
   const progressPercent = sentences.length > 0 ? Math.round((state.currentIndex / sentences.length) * 100) : 0;
@@ -117,30 +133,35 @@ export default function QuizView({
     (isCorrect: boolean, recognizedText: string) => {
       if (!currentSentence) return;
 
-      startTransition(async () => {
-        const result = await recordPracticeResult(currentSentence.id, isCorrect);
-        dispatch({
-          type: "SHOW_RESULT",
-          isCorrect,
-          recognizedText,
-          xp: result.xpEarned,
-          streak: result.currentStreak,
-          isNewStreakDay: result.isNewStreakDay,
-        });
-
-        if (isCorrect) {
-          autoAdvanceRef.current = setTimeout(() => {
-            if (state.currentIndex + 1 >= sentences.length) {
-              dispatch({ type: "FINISH" });
-            } else {
-              dispatch({ type: "NEXT" });
-            }
-          }, 1500);
-        }
+      dispatch({
+        type: "SHOW_RESULT",
+        isCorrect,
+        recognizedText,
+        xp: 0,
+        streak: 0,
+        isNewStreakDay: false,
       });
+
+      if (isCorrect) {
+        autoAdvanceRef.current = setTimeout(() => {
+          if (state.currentIndex + 1 >= sentences.length) {
+            dispatch({ type: "FINISH" });
+          } else {
+            dispatch({ type: "NEXT" });
+          }
+        }, 1500);
+      }
     },
-    [currentSentence, sentences.length, state.currentIndex, startTransition],
+    [currentSentence, sentences.length, state.currentIndex],
   );
+
+  const handleTextSubmit = useCallback(() => {
+    if (!currentSentence) return;
+    const trimmed = textInput.trim();
+    if (!trimmed) return;
+    const { match } = textsMatch(trimmed, currentSentence.english_text);
+    handleResult(match, trimmed);
+  }, [currentSentence, textInput, handleResult]);
 
   const startRecognition = useCallback(() => {
     if (!speechSupported || !currentSentence) return;
@@ -245,13 +266,44 @@ export default function QuizView({
           )}
         </div>
 
-        {!speechSupported && (
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-sm font-medium text-muted-foreground">학습 모드</p>
+          <div className="flex gap-1 rounded-full bg-muted/60 p-1">
+            <button
+              type="button"
+              onClick={() => setMode("speech")}
+              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                mode === "speech" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}>
+              <Mic size={14} />
+              스피킹
+            </button>
+            <button
+              type="button"
+              onClick={() => setMode("text")}
+              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
+                mode === "text" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              }`}>
+              <Keyboard size={14} />
+              텍스트
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {mode === "speech" ? "한국어 뜻을 보고 영어로 말하세요" : "한국어 뜻을 보고 영어 문장을 입력하세요"}
+          </p>
+        </div>
+
+        {mode === "speech" && !speechSupported && (
           <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            이 브라우저에서는 음성 인식이 지원되지 않습니다. Chrome 또는 Edge 브라우저를 사용해 주세요.
+            이 브라우저에서는 음성 인식이 지원되지 않습니다. Chrome 또는 Edge 브라우저를 사용하거나 텍스트 모드를 선택해 주세요.
           </p>
         )}
 
-        <Button variant="brand" onClick={() => dispatch({ type: "START" })} className="mt-4 h-14 px-10 text-lg font-bold">
+        <Button
+          variant="brand"
+          onClick={() => dispatch({ type: "START" })}
+          disabled={mode === "speech" && !speechSupported}
+          className="mt-4 h-14 px-10 text-lg font-bold">
           시작하기
         </Button>
       </div>
@@ -308,15 +360,16 @@ export default function QuizView({
             state.resultStatus === "correct" ? "animate-pulse-glow ring-2 ring-success" : state.resultStatus === "incorrect" ? "animate-shake ring-2 ring-destructive" : ""
           }`}>
           <CardContent className="flex min-h-[240px] flex-col items-center justify-center gap-6 py-10 text-center">
-            <p className="text-sm font-medium text-muted-foreground">이 문장을 영어로 말하세요</p>
+            <p className="text-sm font-medium text-muted-foreground">
+              {mode === "speech" ? "이 문장을 영어로 말하세요" : "이 문장을 영어로 입력하세요"}
+            </p>
             <p className="text-2xl font-bold leading-relaxed">{currentSentence.korean_text}</p>
 
             {/* 정답 피드백 */}
             {state.resultStatus === "correct" && (
-              <div className="animate-in fade-in relative">
+              <div className="animate-in fade-in">
                 <p className="text-lg font-semibold text-success">정확합니다!</p>
                 <p className="mt-1 text-sm text-muted-foreground">{currentSentence.english_text}</p>
-                <span className="animate-float-up absolute -top-6 right-0 text-lg font-bold text-xp-gold">+10 XP</span>
               </div>
             )}
 
@@ -333,7 +386,7 @@ export default function QuizView({
 
       {/* 액션 버튼 */}
       <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
-        {state.phase === "question" && (
+        {state.phase === "question" && mode === "speech" && (
           <div className="flex gap-3">
             {currentSentence?.audio_url && (
               <Button variant="outline" onClick={() => playAudio(currentSentence.audio_url)} className="h-12 flex-1 text-base">
@@ -347,6 +400,40 @@ export default function QuizView({
                 말하기
               </Button>
             )}
+          </div>
+        )}
+
+        {state.phase === "question" && mode === "text" && (
+          <div className="flex flex-col gap-3">
+            {currentSentence?.audio_url && (
+              <Button variant="outline" onClick={() => playAudio(currentSentence.audio_url)} className="h-12 text-base">
+                <Volume2 className="mr-2 h-5 w-5" />
+                듣기
+              </Button>
+            )}
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleTextSubmit();
+              }}
+              className="flex gap-2">
+              <Input
+                ref={textInputRef}
+                type="text"
+                autoComplete="off"
+                autoCapitalize="off"
+                autoCorrect="off"
+                spellCheck={false}
+                placeholder="영어 문장을 입력하세요"
+                value={textInput}
+                onChange={(e) => setTextInput(e.target.value)}
+                disabled={isPending}
+                className="h-12 flex-1 text-base"
+              />
+              <Button type="submit" variant="brand" disabled={!textInput.trim() || isPending} className="h-12 px-5 text-base font-semibold">
+                확인
+              </Button>
+            </form>
           </div>
         )}
 
@@ -380,8 +467,13 @@ export default function QuizView({
             <Button
               variant="outline"
               onClick={() => {
-                dispatch({ type: "LISTEN" });
-                setTimeout(startRecognition, 100);
+                if (mode === "speech") {
+                  dispatch({ type: "LISTEN" });
+                  setTimeout(startRecognition, 100);
+                } else {
+                  dispatch({ type: "RETRY" });
+                  setTextInput("");
+                }
               }}
               className="h-12 flex-1 text-base">
               다시 시도

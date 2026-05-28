@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { UserStats, GoalProgress } from "@/types/gamification";
+import type { UserStats, GoalProgress, QuizMode } from "@/types/gamification";
 
 export function todayKST(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
@@ -54,6 +54,7 @@ export async function recordPractice(
   userId: string,
   sentenceId: string,
   isCorrect: boolean,
+  mode: QuizMode = "speech",
 ): Promise<{ xpEarned: number; totalXp: number; currentStreak: number; dailyCompleted: number; isNewStreakDay: boolean }> {
   const xpEarned = isCorrect ? 10 : 2;
 
@@ -62,6 +63,7 @@ export async function recordPractice(
     sentence_id: sentenceId,
     is_correct: isCorrect,
     xp_earned: xpEarned,
+    mode,
   });
 
   const stats = await fetchUserStats(supabase, userId);

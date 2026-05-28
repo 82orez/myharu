@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
+import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -40,8 +41,18 @@ export default function ReviewClient({
   const [saving, startSaving] = useTransition();
   const [speechSupported, setSpeechSupported] = useState(false);
   const [listeningId, setListeningId] = useState<string | null>(null);
+  const [feedbackId, setFeedbackId] = useState<string | null>(null);
+  const [feedbackStatus, setFeedbackStatus] = useState<"correct" | "incorrect" | null>(null);
+  const [feedbackXp, setFeedbackXp] = useState<number>(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
+  const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
@@ -80,6 +91,18 @@ export default function ReviewClient({
     });
   }, []);
 
+  const triggerFeedback = useCallback((sentenceId: string, status: "correct" | "incorrect", xp: number) => {
+    if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+    setFeedbackId(sentenceId);
+    setFeedbackStatus(status);
+    setFeedbackXp(xp);
+    feedbackTimerRef.current = setTimeout(() => {
+      setFeedbackId(null);
+      setFeedbackStatus(null);
+      setFeedbackXp(0);
+    }, 1500);
+  }, []);
+
   const startRecognition = useCallback(
     (sentenceId: string, targetText: string) => {
       if (!speechSupported) return;
@@ -98,11 +121,19 @@ export default function ReviewClient({
       recognition.onresult = (event: any) => {
         const recognizedText = event.results[0][0].transcript;
         const { match } = textsMatch(recognizedText, targetText);
-        if (match) {
-          toast.success("정확합니다!");
-        } else {
-          toast.error("다시 시도하세요.", { description: `인식된 문장: "${recognizedText}"` });
-        }
+        startTransition(async () => {
+          const result = await recordPracticeResult(sentenceId, match, "speech");
+          if (result.error) {
+            toast.error(result.error);
+            return;
+          }
+          triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
+          if (match) {
+            toast.success("정확합니다!");
+          } else {
+            toast.error("다시 시도하세요.", { description: `인식된 문장: "${recognizedText}"` });
+          }
+        });
       };
 
       recognition.onerror = (event: any) => {
@@ -122,7 +153,7 @@ export default function ReviewClient({
       setListeningId(sentenceId);
       recognition.start();
     },
-    [speechSupported],
+    [speechSupported, startTransition, triggerFeedback],
   );
 
   const handleToggleFavorite = useCallback(
@@ -262,11 +293,23 @@ export default function ReviewClient({
           const busyPlaying = playingId !== null;
           const isThisEditing = editing?.id === sentence.id;
 
+          const isFeedback = feedbackId === sentence.id;
+          const feedbackClass = isFeedback && feedbackStatus === "correct"
+            ? "animate-pulse-glow ring-2 ring-success"
+            : isFeedback && feedbackStatus === "incorrect"
+              ? "animate-shake ring-2 ring-destructive"
+              : "";
+
           return (
             <Card
               key={sentence.id}
-              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
+              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
               style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
+              {isFeedback && feedbackStatus === "correct" && feedbackXp > 0 && (
+                <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 text-lg font-bold">
+                  +{feedbackXp} XP
+                </span>
+              )}
               <CardContent className="flex flex-col gap-3 pt-6">
                 {isThisEditing && editing ? (
                   <div className="flex flex-col gap-3">

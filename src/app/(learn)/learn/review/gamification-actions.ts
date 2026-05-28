@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, recordPractice } from "@/lib/gamification";
-import type { UserStats, GoalProgress } from "@/types/gamification";
+import type { UserStats, GoalProgress, QuizMode } from "@/types/gamification";
 
 export async function getUserStats(): Promise<{ stats?: UserStats; error?: string }> {
   const supabase = createClient(await cookies());
@@ -45,6 +45,7 @@ export async function getGoalProgress(): Promise<{ goal: GoalProgress | null; er
 export async function recordPracticeResult(
   sentenceId: string,
   isCorrect: boolean,
+  mode: QuizMode = "speech",
 ): Promise<{ xpEarned: number; totalXp: number; currentStreak: number; dailyCompleted: number; isNewStreakDay: boolean; error?: string }> {
   const supabase = createClient(await cookies());
   const {
@@ -53,5 +54,5 @@ export async function recordPracticeResult(
 
   if (!user) return { xpEarned: 0, totalXp: 0, currentStreak: 0, dailyCompleted: 0, isNewStreakDay: false, error: "로그인이 필요합니다." };
 
-  return await recordPractice(supabase, user.id, sentenceId, isCorrect);
+  return await recordPractice(supabase, user.id, sentenceId, isCorrect, mode);
 }
