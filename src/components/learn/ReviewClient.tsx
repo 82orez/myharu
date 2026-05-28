@@ -1,15 +1,18 @@
 "use client";
 
-import { useState, useCallback, useRef, useTransition } from "react";
+import { useState, useCallback, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, X } from "lucide-react";
+import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, X, Mic, MicOff, Check } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { textsMatch } from "@/lib/normalize-text";
 import { toast } from "sonner";
+
+type SpeechResult = { status: "correct" | "incorrect"; recognizedText: string };
 
 type EditState = {
   id: string;
@@ -37,7 +40,15 @@ export default function ReviewClient({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [saving, startSaving] = useTransition();
+  const [speechSupported, setSpeechSupported] = useState(false);
+  const [listeningId, setListeningId] = useState<string | null>(null);
+  const [results, setResults] = useState<Record<string, SpeechResult>>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+  }, []);
 
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
@@ -71,6 +82,50 @@ export default function ReviewClient({
       audioRef.current = null;
     });
   }, []);
+
+  const startRecognition = useCallback(
+    (sentenceId: string, targetText: string) => {
+      if (!speechSupported) return;
+
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      }
+
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recognition = new SpeechRecognition();
+      recognition.lang = "en-US";
+      recognition.interimResults = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onresult = (event: any) => {
+        const recognizedText = event.results[0][0].transcript;
+        const { match } = textsMatch(recognizedText, targetText);
+        setResults((prev) => ({
+          ...prev,
+          [sentenceId]: { status: match ? "correct" : "incorrect", recognizedText },
+        }));
+      };
+
+      recognition.onerror = (event: any) => {
+        console.error("[Speech Recognition] 오류:", event.error);
+        if (event.error === "not-allowed") {
+          toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
+        }
+        setListeningId(null);
+      };
+
+      recognition.onend = () => {
+        setListeningId(null);
+        recognitionRef.current = null;
+      };
+
+      recognitionRef.current = recognition;
+      setListeningId(sentenceId);
+      recognition.start();
+    },
+    [speechSupported],
+  );
 
   const handleToggleFavorite = useCallback(
     (id: string, currentValue: boolean) => {
@@ -160,7 +215,7 @@ export default function ReviewClient({
   };
 
   const isEditing = editing !== null;
-  const isBusy = playingId !== null || isEditing;
+  const isBusy = playingId !== null || isEditing || listeningId !== null;
 
   return (
     <div className="flex flex-col gap-6">
@@ -186,6 +241,12 @@ export default function ReviewClient({
 
       {sentences.length > 0 && <p className="text-sm text-muted-foreground">총 {sentences.length}문장</p>}
 
+      {!speechSupported && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          이 브라우저에서는 음성 인식이 지원되지 않습니다. Chrome 또는 Edge 브라우저를 사용해 주세요.
+        </p>
+      )}
+
       {initialError && (
         <p className="text-sm text-destructive" role="alert">
           {initialError}
@@ -197,10 +258,12 @@ export default function ReviewClient({
       <div className="flex flex-col gap-4">
         {sentences.map((sentence, index) => {
           const isPlaying = playingId === sentence.id;
+          const isListening = listeningId === sentence.id;
           const isDeleting = deletingId === sentence.id;
           const isRemoving = removingId === sentence.id;
           const busyPlaying = playingId !== null;
           const isThisEditing = editing?.id === sentence.id;
+          const result = results[sentence.id];
 
           return (
             <Card
@@ -251,9 +314,36 @@ export default function ReviewClient({
 
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       {sentence.audio_url && (
-                        <Button variant="outline" size="sm" disabled={(busyPlaying && !isPlaying) || isEditing} onClick={() => playAudio(sentence.id, sentence.audio_url)}>
+                        <Button variant="outline" size="sm" disabled={(busyPlaying && !isPlaying) || isEditing || listeningId !== null} onClick={() => playAudio(sentence.id, sentence.audio_url)}>
                           {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
                           듣기
+                        </Button>
+                      )}
+
+                      {speechSupported && (
+                        <Button
+                          variant={isListening ? "destructive" : "outline"}
+                          size="sm"
+                          disabled={(listeningId !== null && !isListening) || busyPlaying || isEditing}
+                          onClick={() => {
+                            if (isListening && recognitionRef.current) {
+                              recognitionRef.current.abort();
+                              setListeningId(null);
+                            } else {
+                              startRecognition(sentence.id, sentence.english_text);
+                            }
+                          }}>
+                          {isListening ? (
+                            <>
+                              <MicOff className="mr-1 h-4 w-4" />
+                              중지
+                            </>
+                          ) : (
+                            <>
+                              <Mic className="mr-1 h-4 w-4" />
+                              말하기
+                            </>
+                          )}
                         </Button>
                       )}
 
@@ -294,6 +384,30 @@ export default function ReviewClient({
                         삭제
                       </Button>
                     </div>
+
+                    {isListening && (
+                      <p className="text-center text-sm text-muted-foreground" aria-live="polite">
+                        <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
+                        듣는 중...
+                      </p>
+                    )}
+
+                    {result && result.status === "correct" && (
+                      <div className="animate-in fade-in slide-in-from-top-1 flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
+                        <Check className="h-4 w-4" />
+                        정확합니다!
+                      </div>
+                    )}
+
+                    {result && result.status === "incorrect" && (
+                      <div className="animate-in fade-in slide-in-from-top-1 flex flex-col gap-1 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
+                        <div className="flex items-center gap-2">
+                          <X className="h-4 w-4" />
+                          다시 시도하세요.
+                        </div>
+                        <p className="text-xs text-red-500">인식된 문장: &quot;{result.recognizedText}&quot;</p>
+                      </div>
+                    )}
                   </>
                 )}
               </CardContent>
