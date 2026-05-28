@@ -33,17 +33,33 @@ export async function fetchDailyProgress(supabase: SupabaseClient, userId: strin
   const start = `${today}T00:00:00+09:00`;
   const nextDay = new Date(start);
   nextDay.setDate(nextDay.getDate() + 1);
+  const nextDayIso = nextDay.toISOString();
 
-  const { count } = await supabase
-    .from("practice_results")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .gte("practiced_at", start)
-    .lt("practiced_at", nextDay.toISOString());
+  const [todayRes, priorRes, stats] = await Promise.all([
+    supabase
+      .from("practice_results")
+      .select("sentence_id")
+      .eq("user_id", userId)
+      .eq("is_correct", true)
+      .gte("practiced_at", start)
+      .lt("practiced_at", nextDayIso),
+    supabase
+      .from("practice_results")
+      .select("sentence_id")
+      .eq("user_id", userId)
+      .eq("is_correct", true)
+      .lt("practiced_at", start),
+    fetchUserStats(supabase, userId),
+  ]);
 
-  const completed = count ?? 0;
+  const todayIds = new Set((todayRes.data ?? []).map((r: { sentence_id: string }) => r.sentence_id));
+  const priorIds = new Set((priorRes.data ?? []).map((r: { sentence_id: string }) => r.sentence_id));
 
-  const stats = await fetchUserStats(supabase, userId);
+  let completed = 0;
+  todayIds.forEach((id) => {
+    if (!priorIds.has(id)) completed++;
+  });
+
   const goal = stats?.daily_goal ?? 5;
 
   return { completed, goal, percentage: goal > 0 ? Math.min(Math.round((completed / goal) * 100), 100) : 0 };
