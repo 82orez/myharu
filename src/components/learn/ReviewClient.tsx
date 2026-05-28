@@ -30,6 +30,8 @@ export default function ReviewClient({
   const [isPending, startTransition] = useTransition();
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
@@ -51,10 +53,26 @@ export default function ReviewClient({
     }
   };
 
-  const playAudio = useCallback((audioUrl: string) => {
+  const playAudio = useCallback((sentenceId: string, audioUrl: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     const audio = new Audio(audioUrl);
+    audioRef.current = audio;
+    setPlayingId(sentenceId);
+    audio.onended = () => {
+      setPlayingId(null);
+      audioRef.current = null;
+    };
+    audio.onerror = () => {
+      setPlayingId(null);
+      audioRef.current = null;
+    };
     audio.play().catch((err) => {
       console.error("[Audio] 재생 실패:", err);
+      setPlayingId(null);
+      audioRef.current = null;
     });
   }, []);
 
@@ -211,9 +229,11 @@ export default function ReviewClient({
       <div className="flex flex-col gap-4">
         {sentences.map((sentence, index) => {
           const result = results[sentence.id];
+          const isPlaying = playingId === sentence.id;
           const isListening = listeningId === sentence.id;
           const isDeleting = deletingId === sentence.id;
           const isRemoving = removingId === sentence.id;
+          const busyPlaying = playingId !== null;
 
           return (
             <Card
@@ -226,8 +246,8 @@ export default function ReviewClient({
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
                   {sentence.audio_url && (
-                    <Button variant="outline" size="sm" onClick={() => playAudio(sentence.audio_url)}>
-                      <Volume2 className="mr-1 h-4 w-4" />
+                    <Button variant="outline" size="sm" disabled={busyPlaying && !isPlaying} onClick={() => playAudio(sentence.id, sentence.audio_url)}>
+                      {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
                       듣기
                     </Button>
                   )}
@@ -236,6 +256,7 @@ export default function ReviewClient({
                     <Button
                       variant={isListening ? "destructive" : "outline"}
                       size="sm"
+                      disabled={busyPlaying}
                       onClick={() => {
                         if (isListening && recognitionRef.current) {
                           recognitionRef.current.abort();
@@ -261,6 +282,7 @@ export default function ReviewClient({
                   <Button
                     variant="ghost"
                     size="sm"
+                    disabled={busyPlaying}
                     onClick={() =>
                       setRevealedIds((prev) => {
                         const next = new Set(prev);
@@ -277,13 +299,14 @@ export default function ReviewClient({
                   <Button
                     variant="ghost"
                     size="sm"
+                    disabled={busyPlaying}
                     onClick={() => handleToggleFavorite(sentence.id, sentence.is_favorite)}
                     className={sentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"}>
                     <Star className={`mr-1 h-4 w-4 ${sentence.is_favorite ? "fill-current" : ""}`} />
                     즐겨찾기
                   </Button>
 
-                  <Button variant="ghost" size="sm" onClick={() => handleDelete(sentence.id)} disabled={isDeleting} className="text-muted-foreground hover:text-destructive">
+                  <Button variant="ghost" size="sm" disabled={busyPlaying || isDeleting} onClick={() => handleDelete(sentence.id)} className="text-muted-foreground hover:text-destructive">
                     {isDeleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
                     삭제
                   </Button>

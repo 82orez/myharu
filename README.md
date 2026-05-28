@@ -84,15 +84,23 @@ npm run dev
 
 | 경로 | 설명 |
 | --- | --- |
-| `/learn/input` | 영어 문장 + 한국어 뜻 입력, OpenAI TTS로 원어민 음성 자동 생성 |
-| `/learn/review` | 듀오링고 스타일 퀴즈 모드 복습 (한 문제씩, 음성 인식) |
+| `/learn/input` | 영어 문장 + 한국어 뜻 입력, OpenAI TTS로 원어민 음성 생성 → 미리듣기 → 저장 |
+| `/learn/review` | 문장 목록 + 듀오링고 스타일 퀴즈 모드 (탭 전환) |
 
-**문장 입력:**
-- 글자수 카운터 (500자 제한, 경고 표시)
-- 예시 문장 힌트
-- 저장 성공 시 최근 저장 문장 표시
+**문장 입력 (2단계 플로우):**
+- 영어 문장 + 한국어 뜻 입력 후 "음성 생성" 클릭
+- 생성된 원어민 음성 미리듣기 (오디오 플레이어)
+- 마음에 들면 "저장", 아니면 "다시 생성"
+- 글자수 카운터 (500자 제한, 경고 표시), 예시 문장 힌트
 
-**퀴즈 복습:**
+**문장 목록 (기본 탭):**
+- 저장한 문장 카드 목록 (한국어 뜻 표시)
+- 듣기 (재생 중 상태 표시, 다른 버튼 비활성화) / 말하기 (음성 인식) / 정답 보기 토글
+- 즐겨찾기 토글 (별 아이콘, 낙관적 업데이트)
+- 삭제 (DB + Storage 동시 삭제)
+- 날짜별 필터, 세션 통계 (연습 수, 정답률)
+
+**퀴즈:**
 - 한 문제씩 표시, 상단 프로그레스 바
 - 한국어 뜻만 보고 영어로 말하기 (Web Speech API 음성 인식)
 - 정답: 초록 글로우 + "+10 XP" 플로팅 애니메이션, 1.5초 후 자동 다음
@@ -106,7 +114,8 @@ npm run dev
 - **XP (경험치)**: 정답 10 XP, 도전 2 XP. 대시보드에서 누적 XP 확인
 - **연속 학습 스트릭**: 매일 학습 시 스트릭 +1, 건너뛰면 리셋. 최고 기록 추적
 - **일일 목표**: 기본 5문장, 원형 프로그레스로 달성률 표시
-- DB 테이블: `user_stats` (XP/스트릭/목표), `practice_results` (문장별 연습 기록)
+- **즐겨찾기**: 문장별 즐겨찾기 토글 (별 아이콘), `sentences.is_favorite` 컬럼
+- DB 테이블: `sentences` (문장/음성/즐겨찾기), `user_stats` (XP/스트릭/목표), `practice_results` (문장별 연습 기록)
 
 ### Supabase 인증
 
@@ -122,7 +131,7 @@ npm run dev
 
 ### UI/UX
 
-- **Navbar**: 프로스티드 글래스 배경, lucide 아이콘, 호버 밑줄 애니메이션
+- **Navbar**: 프로스티드 글래스 배경, lucide 아이콘, 데스크톱 인라인(이메일+로그아웃) + 사이드바(문장 입력/복습/로그아웃)
 - **모바일 하단 탭 바**: 로그인 시 4탭 (홈/입력/복습/프로필), 데스크탑에서는 숨김
 - **Footer**: 태그라인, 네비게이션 링크, 저작권 (모바일에서는 숨김)
 - **토스트 알림**: sonner 기반 (성공/에러/경고)
@@ -165,7 +174,7 @@ src/
 │   └── globals.css            # Tailwind v4 + 시맨틱 컬러 토큰 + 커스텀 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm / SignupForm / KakaoButton / AuthLayout / 등
-│   ├── learn/                 # QuizView (퀴즈 엔진) / SessionSummary / InputForm / StreakBadge / XpBadge / DailyProgressRing
+│   ├── learn/                 # ReviewTabs (탭 전환) / ReviewClient (문장 목록) / QuizView (퀴즈 엔진) / SessionSummary / InputForm / StreakBadge / XpBadge / DailyProgressRing
 │   ├── ui/                    # shadcn 컴포넌트
 │   ├── Navbar.tsx
 │   ├── BottomNav.tsx          # 모바일 하단 4탭 네비게이션
