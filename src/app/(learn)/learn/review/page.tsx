@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { getSentences } from "./actions";
 import { getUserStats } from "./gamification-actions";
-import QuizView from "@/components/learn/QuizView";
+import ReviewTabs from "@/components/learn/ReviewTabs";
 
 export const metadata: Metadata = {
   title: "복습",
@@ -17,7 +17,7 @@ export default async function ReviewPage({ searchParams }: { searchParams: Searc
 
   return (
     <main className="mx-auto min-h-[calc(100vh-200px)] max-w-2xl px-4 py-8">
-      <QuizView sentences={sentencesResult.sentences ?? []} initialStats={statsResult.stats} initialError={sentencesResult.error} dateFilter={date} />
+      <ReviewTabs sentences={sentencesResult.sentences ?? []} stats={statsResult.stats} error={sentencesResult.error} dateFilter={date} />
     </main>
   );
 }
