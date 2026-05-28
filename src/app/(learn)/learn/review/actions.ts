@@ -78,6 +78,76 @@ export async function toggleFavorite(id: string, isFavorite: boolean): Promise<{
   return {};
 }
 
+export type UpdateSentenceResult = { audioUrl: string } | { error: string };
+
+export async function updateSentence(id: string, englishText: string, koreanText: string, newAudioBase64?: string): Promise<UpdateSentenceResult> {
+  const english = englishText.trim();
+  const korean = koreanText.trim();
+
+  if (!english || !korean) {
+    return { error: "영어 문장과 한국어 뜻을 모두 입력해 주세요." };
+  }
+
+  if (english.length > 500) {
+    return { error: "영어 문장은 500자 이내로 입력해 주세요." };
+  }
+
+  if (korean.length > 500) {
+    return { error: "한국어 뜻은 500자 이내로 입력해 주세요." };
+  }
+
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return { error: "로그인이 필요합니다." };
+  }
+
+  const { data: existing } = await supabase.from("sentences").select("audio_path").eq("id", id).eq("user_id", user.id).single();
+
+  if (!existing) {
+    return { error: "문장을 찾을 수 없습니다." };
+  }
+
+  let audioPath = existing.audio_path;
+
+  if (newAudioBase64) {
+    const audioBuffer = Buffer.from(newAudioBase64, "base64");
+    const fileId = crypto.randomUUID();
+    const newPath = `${user.id}/${fileId}.mp3`;
+
+    const { error: uploadError } = await supabase.storage.from("tts-audio").upload(newPath, audioBuffer, {
+      contentType: "audio/mpeg",
+      upsert: false,
+    });
+
+    if (uploadError) {
+      console.error("[Supabase Storage] 업로드 실패:", uploadError);
+      return { error: "음성 파일 저장 중 오류가 발생했습니다." };
+    }
+
+    await supabase.storage.from("tts-audio").remove([existing.audio_path]);
+    audioPath = newPath;
+  }
+
+  const { error: updateError } = await supabase
+    .from("sentences")
+    .update({ english_text: english, korean_text: korean, audio_path: audioPath })
+    .eq("id", id)
+    .eq("user_id", user.id);
+
+  if (updateError) {
+    console.error("[Supabase DB] 문장 수정 실패:", updateError);
+    return { error: "문장 수정 중 오류가 발생했습니다." };
+  }
+
+  const { data: signedData } = await supabase.storage.from("tts-audio").createSignedUrl(audioPath, 3600);
+
+  return { audioUrl: signedData?.signedUrl ?? "" };
+}
+
 export async function deleteSentence(id: string): Promise<{ error?: string }> {
   const supabase = createClient(await cookies());
   const {
