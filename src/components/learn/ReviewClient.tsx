@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, X, Mic, MicOff, Check } from "lucide-react";
+import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { Button } from "@/components/ui/button";
@@ -11,8 +11,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { textsMatch } from "@/lib/normalize-text";
 import { toast } from "sonner";
-
-type SpeechResult = { status: "correct" | "incorrect"; recognizedText: string };
 
 type EditState = {
   id: string;
@@ -42,7 +40,6 @@ export default function ReviewClient({
   const [saving, startSaving] = useTransition();
   const [speechSupported, setSpeechSupported] = useState(false);
   const [listeningId, setListeningId] = useState<string | null>(null);
-  const [results, setResults] = useState<Record<string, SpeechResult>>({});
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const recognitionRef = useRef<any>(null);
 
@@ -101,10 +98,11 @@ export default function ReviewClient({
       recognition.onresult = (event: any) => {
         const recognizedText = event.results[0][0].transcript;
         const { match } = textsMatch(recognizedText, targetText);
-        setResults((prev) => ({
-          ...prev,
-          [sentenceId]: { status: match ? "correct" : "incorrect", recognizedText },
-        }));
+        if (match) {
+          toast.success("정확합니다!");
+        } else {
+          toast.error("다시 시도하세요.", { description: `인식된 문장: "${recognizedText}"` });
+        }
       };
 
       recognition.onerror = (event: any) => {
@@ -263,7 +261,6 @@ export default function ReviewClient({
           const isRemoving = removingId === sentence.id;
           const busyPlaying = playingId !== null;
           const isThisEditing = editing?.id === sentence.id;
-          const result = results[sentence.id];
 
           return (
             <Card
@@ -390,23 +387,6 @@ export default function ReviewClient({
                         <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
                         듣는 중...
                       </p>
-                    )}
-
-                    {result && result.status === "correct" && (
-                      <div className="animate-in fade-in slide-in-from-top-1 flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-                        <Check className="h-4 w-4" />
-                        정확합니다!
-                      </div>
-                    )}
-
-                    {result && result.status === "incorrect" && (
-                      <div className="animate-in fade-in slide-in-from-top-1 flex flex-col gap-1 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                        <div className="flex items-center gap-2">
-                          <X className="h-4 w-4" />
-                          다시 시도하세요.
-                        </div>
-                        <p className="text-xs text-red-500">인식된 문장: &quot;{result.recognizedText}&quot;</p>
-                      </div>
                     )}
                   </>
                 )}
