@@ -4,9 +4,10 @@ import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress } from "@/lib/gamification";
+import { fetchUserStats, fetchDailyProgress, fetchGoalProgress } from "@/lib/gamification";
 import StreakBadge from "@/components/learn/StreakBadge";
 import DailyProgressRing from "@/components/learn/DailyProgressRing";
+import GoalProgressCard from "@/components/learn/GoalProgressCard";
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "My Haru";
 
@@ -62,12 +63,14 @@ export default async function Home() {
 
   if (user) {
     const username = user.email?.split("@")[0] ?? "회원";
-    const [{ count }, stats, dailyProgress] = await Promise.all([
+    const [{ count }, stats, dailyProgress, goalProgress] = await Promise.all([
       supabase.from("sentences").select("*", { count: "exact", head: true }),
       fetchUserStats(supabase, user.id),
       fetchDailyProgress(supabase, user.id),
+      fetchGoalProgress(supabase, user.id),
     ]);
     const hasSentences = (count ?? 0) > 0;
+    const dailyGoalDisplay = goalProgress?.dailyMinimum && goalProgress.dailyMinimum > 0 ? goalProgress.dailyMinimum : dailyProgress.goal;
 
     return (
       <main className="mx-auto flex min-h-[calc(100vh-200px)] max-w-3xl flex-col gap-8 px-6 py-10">
@@ -83,6 +86,9 @@ export default async function Home() {
             {stats?.current_streak && stats.current_streak > 0 ? "꾸준히 잘 하고 있어요! 오늘도 이어가세요." : "오늘 첫 학습을 시작해 볼까요?"}
           </p>
         </div>
+
+        {/* 장기 목표 진도 */}
+        <GoalProgressCard goal={goalProgress} />
 
         {/* 스탯 카드 */}
         <div className="grid grid-cols-3 gap-3">
@@ -102,7 +108,7 @@ export default async function Home() {
           </Card>
           <Card className="border-brand/20 bg-brand/5">
             <CardContent className="flex flex-col items-center gap-1 py-4">
-              <DailyProgressRing completed={dailyProgress.completed} goal={dailyProgress.goal} className="scale-[0.55]" />
+              <DailyProgressRing completed={dailyProgress.completed} goal={dailyGoalDisplay} className="scale-[0.55]" />
               <span className="text-muted-foreground text-[11px]">오늘 목표</span>
             </CardContent>
           </Card>
