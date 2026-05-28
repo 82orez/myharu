@@ -1,16 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef, useTransition, useEffect } from "react";
+import { useState, useCallback, useRef, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Volume2, Mic, MicOff, Trash2, Check, X, Loader2, Eye, EyeOff, Trophy, Star } from "lucide-react";
+import { Volume2, Trash2, Loader2, Eye, EyeOff, Star } from "lucide-react";
 import { deleteSentence, toggleFavorite, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { textsMatch } from "@/lib/normalize-text";
 import { toast } from "sonner";
-
-type SpeechResult = { status: "correct" | "incorrect"; recognizedText: string } | { status: "idle" };
 
 export default function ReviewClient({
   initialSentences,
@@ -23,27 +19,14 @@ export default function ReviewClient({
 }) {
   const router = useRouter();
   const [sentences, setSentences] = useState(initialSentences);
-  const [results, setResults] = useState<Record<string, SpeechResult>>({});
-  const [listeningId, setListeningId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
-  const [speechSupported, setSpeechSupported] = useState(false);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const recognitionRef = useRef<any>(null);
-
-  useEffect(() => {
-    setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
-  }, []);
 
   const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-
-  const attemptedCount = Object.values(results).filter((r) => r.status === "correct" || r.status === "incorrect").length;
-  const correctCount = Object.values(results).filter((r) => r.status === "correct").length;
-  const accuracyPercent = attemptedCount > 0 ? Math.round((correctCount / attemptedCount) * 100) : 0;
-  const allAttempted = sentences.length > 0 && attemptedCount === sentences.length;
 
   const handleDateChange = (date: string) => {
     if (date) {
@@ -76,54 +59,6 @@ export default function ReviewClient({
     });
   }, []);
 
-  const startRecognition = useCallback(
-    (sentenceId: string, targetText: string) => {
-      if (!speechSupported) return;
-
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-        recognitionRef.current = null;
-      }
-
-      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
-      const recognition = new SpeechRecognition();
-      recognition.lang = "en-US";
-      recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.onresult = (event: any) => {
-        const recognizedText = event.results[0][0].transcript;
-        const { match, similarity } = textsMatch(recognizedText, targetText);
-        console.log("[Speech] 원문:", targetText);
-        console.log("[Speech] 인식:", recognizedText);
-        console.log("[Speech] 유사도:", Math.round(similarity * 100) + "%", match ? "→ 정답" : "→ 오답");
-        setResults((prev) => ({
-          ...prev,
-          [sentenceId]: { status: match ? "correct" : "incorrect", recognizedText },
-        }));
-      };
-
-      recognition.onerror = (event: any) => {
-        console.error("[Speech Recognition] 오류:", event.error);
-        if (event.error === "not-allowed") {
-          toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
-        }
-        setListeningId(null);
-      };
-
-      recognition.onend = () => {
-        setListeningId(null);
-        recognitionRef.current = null;
-      };
-
-      recognitionRef.current = recognition;
-      setListeningId(sentenceId);
-      setResults((prev) => ({ ...prev, [sentenceId]: { status: "idle" } }));
-      recognition.start();
-    },
-    [speechSupported],
-  );
-
   const handleToggleFavorite = useCallback(
     (id: string, currentValue: boolean) => {
       setSentences((prev) => prev.map((s) => (s.id === id ? { ...s, is_favorite: !currentValue } : s)));
@@ -154,11 +89,6 @@ export default function ReviewClient({
           setRemovingId(id);
           setTimeout(() => {
             setSentences((prev) => prev.filter((s) => s.id !== id));
-            setResults((prev) => {
-              const next = { ...prev };
-              delete next[id];
-              return next;
-            });
             setRemovingId(null);
           }, 300);
         }
@@ -170,7 +100,7 @@ export default function ReviewClient({
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-extrabold">복습</h1>
+        <h1 className="text-2xl font-extrabold">문장 목록</h1>
         <div className="flex items-center gap-2">
           <input
             type="date"
@@ -189,20 +119,7 @@ export default function ReviewClient({
         </div>
       </div>
 
-      {/* 세션 통계 */}
-      {sentences.length > 0 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="secondary">총 {sentences.length}문장</Badge>
-          {attemptedCount > 0 && (
-            <>
-              <Badge variant="secondary">연습 {attemptedCount}문장</Badge>
-              <Badge variant={accuracyPercent >= 80 ? "default" : "secondary"} className={accuracyPercent >= 80 ? "bg-brand text-brand-foreground" : ""}>
-                정답률 {accuracyPercent}%
-              </Badge>
-            </>
-          )}
-        </div>
-      )}
+      {sentences.length > 0 && <p className="text-sm text-muted-foreground">총 {sentences.length}문장</p>}
 
       {initialError && (
         <p className="text-sm text-destructive" role="alert">
@@ -210,27 +127,11 @@ export default function ReviewClient({
         </p>
       )}
 
-      {!speechSupported && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          이 브라우저에서는 음성 인식이 지원되지 않습니다. Chrome 또는 Edge 브라우저를 사용해 주세요.
-        </p>
-      )}
-
       {sentences.length === 0 && !initialError && <p className="py-12 text-center text-muted-foreground">저장된 문장이 없습니다.</p>}
-
-      {/* 세션 완료 배너 */}
-      {allAttempted && (
-        <div className="animate-in fade-in zoom-in-95 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3">
-          <Trophy className="h-5 w-5 text-green-600" />
-          <p className="text-sm font-medium text-green-700">수고했어요! 모든 문장을 연습했습니다.</p>
-        </div>
-      )}
 
       <div className="flex flex-col gap-4">
         {sentences.map((sentence, index) => {
-          const result = results[sentence.id];
           const isPlaying = playingId === sentence.id;
-          const isListening = listeningId === sentence.id;
           const isDeleting = deletingId === sentence.id;
           const isRemoving = removingId === sentence.id;
           const busyPlaying = playingId !== null;
@@ -249,33 +150,6 @@ export default function ReviewClient({
                     <Button variant="outline" size="sm" disabled={busyPlaying && !isPlaying} onClick={() => playAudio(sentence.id, sentence.audio_url)}>
                       {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
                       듣기
-                    </Button>
-                  )}
-
-                  {speechSupported && (
-                    <Button
-                      variant={isListening ? "destructive" : "outline"}
-                      size="sm"
-                      disabled={busyPlaying}
-                      onClick={() => {
-                        if (isListening && recognitionRef.current) {
-                          recognitionRef.current.abort();
-                          setListeningId(null);
-                        } else {
-                          startRecognition(sentence.id, sentence.english_text);
-                        }
-                      }}>
-                      {isListening ? (
-                        <>
-                          <MicOff className="mr-1 h-4 w-4" />
-                          중지
-                        </>
-                      ) : (
-                        <>
-                          <Mic className="mr-1 h-4 w-4" />
-                          말하기
-                        </>
-                      )}
                     </Button>
                   )}
 
@@ -311,23 +185,6 @@ export default function ReviewClient({
                     삭제
                   </Button>
                 </div>
-
-                {result && result.status === "correct" && (
-                  <div className="animate-in fade-in slide-in-from-top-1 flex items-center gap-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700">
-                    <Check className="h-4 w-4" />
-                    정확합니다!
-                  </div>
-                )}
-
-                {result && result.status === "incorrect" && (
-                  <div className="animate-in fade-in slide-in-from-top-1 flex flex-col gap-1 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-                    <div className="flex items-center gap-2">
-                      <X className="h-4 w-4" />
-                      다시 시도하세요.
-                    </div>
-                    <p className="text-xs text-red-500">인식된 문장: &quot;{result.recognizedText}&quot;</p>
-                  </div>
-                )}
               </CardContent>
             </Card>
           );
