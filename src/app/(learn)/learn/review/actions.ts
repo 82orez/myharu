@@ -10,6 +10,7 @@ export type Sentence = {
   audio_url: string;
   created_at: string;
   is_favorite: boolean;
+  is_memorized: boolean;
 };
 
 export async function getSentences(dateFilter?: string): Promise<{ sentences?: Sentence[]; error?: string }> {
@@ -33,12 +34,19 @@ export async function getSentences(dateFilter?: string): Promise<{ sentences?: S
 
   query = query.order("created_at", { ascending: false });
 
-  const { data, error } = await query;
+  const [sentenceRes, memorizedRes] = await Promise.all([
+    query,
+    supabase.from("practice_results").select("sentence_id").eq("user_id", user.id).eq("is_correct", true),
+  ]);
+
+  const { data, error } = sentenceRes;
 
   if (error) {
     console.error("[Supabase DB] 문장 조회 실패:", error);
     return { error: "문장 목록을 불러오는 중 오류가 발생했습니다." };
   }
+
+  const memorizedIds = new Set((memorizedRes.data ?? []).map((r: { sentence_id: string }) => r.sentence_id));
 
   const sentences: Sentence[] = await Promise.all(
     (data ?? []).map(async (row) => {
@@ -51,6 +59,7 @@ export async function getSentences(dateFilter?: string): Promise<{ sentences?: S
         audio_url: signedData?.signedUrl ?? "",
         created_at: row.created_at,
         is_favorite: row.is_favorite,
+        is_memorized: memorizedIds.has(row.id),
       };
     }),
   );

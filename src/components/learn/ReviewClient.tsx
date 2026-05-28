@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useTransition, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff } from "lucide-react";
+import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
@@ -129,6 +129,7 @@ export default function ReviewClient({
           }
           triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
           if (match) {
+            setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, is_memorized: true } : s)));
             toast.success("정확합니다!");
           } else {
             toast.error("다시 시도하세요.", { description: `인식된 문장: "${recognizedText}"` });
@@ -303,10 +304,16 @@ export default function ReviewClient({
           return (
             <Card
               key={sentence.id}
-              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
+              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-2 border-l-success" : ""} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
               style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
+              {sentence.is_memorized && !isThisEditing && (
+                <span className="bg-success/10 text-success absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                  <Check size={11} />
+                  암기 완료
+                </span>
+              )}
               {isFeedback && feedbackStatus === "correct" && feedbackXp > 0 && (
-                <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 text-lg font-bold">
+                <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 z-20 text-lg font-bold">
                   +{feedbackXp} XP
                 </span>
               )}
