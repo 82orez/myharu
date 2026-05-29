@@ -44,10 +44,14 @@ export default function GoalProgressCard({ goal }: { goal: GoalProgress | null }
             <Target size={18} className="text-brand" />
             <span className="font-semibold">학습 목표</span>
           </div>
-          <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/learn/goal" />}>
+          <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/learn/goal" />} className="shrink-0">
             수정
           </Button>
         </div>
+
+        <p className="text-center text-xl font-bold tracking-tight">
+          {goal.periodDays}일 동안 <span className="text-brand">{goal.totalGoal.toLocaleString()}문장</span> 암기
+        </p>
 
         <div className="flex justify-center">
           <div className="relative inline-flex items-center justify-center">

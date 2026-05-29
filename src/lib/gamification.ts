@@ -129,6 +129,27 @@ export async function fetchMemorizedCount(supabase: SupabaseClient, userId: stri
   return unique.size;
 }
 
+export async function fetchDailyMemorized(supabase: SupabaseClient, userId: string): Promise<Record<string, number>> {
+  const { data } = await supabase.from("practice_results").select("sentence_id, practiced_at").eq("user_id", userId).eq("is_correct", true);
+
+  if (!data) return {};
+
+  // 문장별 최초 정답 KST 날짜(YYYY-MM-DD) 산출
+  const firstDate = new Map<string, string>();
+  for (const row of data as { sentence_id: string; practiced_at: string }[]) {
+    const kstDate = new Date(row.practiced_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+    const prev = firstDate.get(row.sentence_id);
+    if (!prev || kstDate < prev) firstDate.set(row.sentence_id, kstDate);
+  }
+
+  // 최초 암기 날짜별 신규 암기 문장 수
+  const counts: Record<string, number> = {};
+  firstDate.forEach((date) => {
+    counts[date] = (counts[date] ?? 0) + 1;
+  });
+  return counts;
+}
+
 export async function fetchGoalProgress(supabase: SupabaseClient, userId: string): Promise<GoalProgress | null> {
   const stats = await fetchUserStats(supabase, userId);
   if (!stats?.total_goal || !stats.goal_period_days || !stats.goal_start_date) return null;

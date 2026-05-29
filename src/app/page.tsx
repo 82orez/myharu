@@ -4,10 +4,11 @@ import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress, fetchGoalProgress } from "@/lib/gamification";
+import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized } from "@/lib/gamification";
 import StreakBadge from "@/components/learn/StreakBadge";
 import DailyProgressRing from "@/components/learn/DailyProgressRing";
 import GoalProgressCard from "@/components/learn/GoalProgressCard";
+import LearningCalendar from "@/components/learn/LearningCalendar";
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "My Haru";
 
@@ -63,11 +64,12 @@ export default async function Home() {
 
   if (user) {
     const username = user.email?.split("@")[0] ?? "회원";
-    const [{ count }, stats, dailyProgress, goalProgress] = await Promise.all([
+    const [{ count }, stats, dailyProgress, goalProgress, dailyMemorized] = await Promise.all([
       supabase.from("sentences").select("*", { count: "exact", head: true }),
       fetchUserStats(supabase, user.id),
       fetchDailyProgress(supabase, user.id),
       fetchGoalProgress(supabase, user.id),
+      fetchDailyMemorized(supabase, user.id),
     ]);
     const hasSentences = (count ?? 0) > 0;
     const dailyGoalDisplay = goalProgress?.dailyMinimum && goalProgress.dailyMinimum > 0 ? goalProgress.dailyMinimum : dailyProgress.goal;
@@ -113,6 +115,9 @@ export default async function Home() {
             </CardContent>
           </Card>
         </div>
+
+        {/* 학습 달력 (월간 암기 히트맵) */}
+        <LearningCalendar history={dailyMemorized} dailyGoal={dailyGoalDisplay} />
 
         {/* 온보딩 */}
         {!hasSentences && (
