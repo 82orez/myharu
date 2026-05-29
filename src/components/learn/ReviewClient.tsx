@@ -400,7 +400,7 @@ export default function ReviewClient({ initialSentences, initialError }: { initi
                   className="hover:bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-30">
                   <ChevronLeft size={18} />
                 </button>
-                <span className={`min-w-[10rem] text-center text-sm font-medium tabular-nums ${showAll ? "text-muted-foreground/60" : ""}`}>
+                <span className={`min-w-[11rem] text-center text-base font-medium tabular-nums ${showAll ? "text-muted-foreground/60" : ""}`}>
                   {(() => {
                     const [, m, day] = validSelected.split("-");
                     return `${dayMeta.dayNumber.get(validSelected)}일차 (${validSelected === todayKst ? "오늘, " : ""}${Number(m)}/${Number(day)}) · ${dayMeta.counts.get(validSelected)}문장`;
