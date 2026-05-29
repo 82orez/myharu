@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import TagInput from "@/components/learn/TagInput";
+import TagPicker from "@/components/learn/TagPicker";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,10 +24,11 @@ const WARN_THRESHOLD = 450;
 
 type Phase = "input" | "preview" | "saving";
 
-export default function InputForm({ suggestedTags = [] }: { suggestedTags?: string[] }) {
+export default function InputForm({ initialPresets = [] }: { initialPresets?: string[] }) {
   const [englishText, setEnglishText] = useState("");
   const [koreanText, setKoreanText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [presets, setPresets] = useState<string[]>(initialPresets);
   const [phase, setPhase] = useState<Phase>("input");
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -190,7 +191,7 @@ export default function InputForm({ suggestedTags = [] }: { suggestedTags?: stri
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="tags">태그 (선택)</Label>
-            <TagInput value={tags} onChange={setTags} suggestions={suggestedTags} disabled={pending} />
+            <TagPicker value={tags} onChange={setTags} presets={presets} onPresetsChange={setPresets} disabled={pending} />
           </div>
 
           {isPreview && audioUrl && (

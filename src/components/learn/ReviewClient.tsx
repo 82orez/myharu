@@ -29,7 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import TagInput from "@/components/learn/TagInput";
+import TagPicker from "@/components/learn/TagPicker";
 import { textsMatch } from "@/lib/normalize-text";
 import { toast } from "sonner";
 
@@ -55,8 +55,17 @@ type EditState = {
   tags: string[];
 };
 
-export default function ReviewClient({ initialSentences, initialError }: { initialSentences: Sentence[]; initialError?: string }) {
+export default function ReviewClient({
+  initialSentences,
+  initialError,
+  initialPresets = [],
+}: {
+  initialSentences: Sentence[];
+  initialError?: string;
+  initialPresets?: string[];
+}) {
   const [sentences, setSentences] = useState(initialSentences);
+  const [presets, setPresets] = useState<string[]>(initialPresets);
   const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
   const [showAll, setShowAll] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
@@ -572,7 +581,12 @@ export default function ReviewClient({ initialSentences, initialError }: { initi
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label className="text-muted-foreground text-xs">태그</Label>
-                      <TagInput value={editing.tags} onChange={(next) => setEditing({ ...editing, tags: next })} suggestions={allTags} />
+                      <TagPicker
+                        value={editing.tags}
+                        onChange={(next) => setEditing({ ...editing, tags: next })}
+                        presets={presets}
+                        onPresetsChange={setPresets}
+                      />
                     </div>
                     {editing.englishText.trim() !== editing.originalEnglish && (
                       <label className="text-muted-foreground flex items-center gap-2 text-sm">

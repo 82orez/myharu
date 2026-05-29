@@ -92,7 +92,7 @@ npm run dev
 - 영어 문장 + 한국어 뜻 입력 후 "음성 생성" 클릭
 - 생성된 원어민 음성 미리듣기 (오디오 플레이어)
 - 마음에 들면 "저장", 아니면 "다시 생성" (확인창 후 재생성)
-- **태그** 자유 입력 (Enter/쉼표로 추가, 기존 태그 자동완성) — 나중에 주제별로 관리
+- **태그**: 내 프리셋에서 선택 (칩 토글) + "새 태그 추가"(즉석 등록) + "태그 관리" 다이얼로그로 추가/삭제 — 일관된 분류로 관리
 - 글자수 카운터 (500자 제한, 경고 표시), 예시 문장 힌트
 
 **문장 목록 (기본 탭, 학습 인정 경로):**
@@ -105,9 +105,10 @@ npm run dev
 - 상태 필터: 상단 세그먼트 버튼(`전체` / `암기 완료` / `미학습`)으로 원하는 상태의 문장만 보기, 각 버튼에 개수 배지
 - 일차 필터: 입력 날짜별 "N일차"를 ◀/▶ 좌우 버튼으로 하루씩 이동하며 보기 (기본값은 오늘 일차, `전체 일차` 토글로 전체 보기, 가장 처음 입력한 날이 1일차, 상태 필터와 함께 적용)
 - 태그 표시·필터: 카드에 태그 배지 표시, 태그 칩(또는 배지 클릭)으로 해당 태그만 필터링
-- 본문 검색: 영어/한국어/태그 부분일치 검색
+- 본문 검색: 영어/한국어/태그 부분일치 검색 (X 버튼으로 초기화)
 - 정렬: 최신순 / 오래된순 / 가나다순
-- 편집 시 태그도 함께 수정
+- 검색창·태그 필터는 평소 숨김 → "검색·태그" 토글 버튼으로 펼치기 (필터 적용 중이면 토글 강조)
+- 편집 시 태그도 같은 프리셋 선택 방식으로 수정 (프리셋에 없는 기존 태그도 표시·해제 가능)
 - 즐겨찾기 토글 (별 아이콘, 낙관적 업데이트)
 - 편집 (한국어 뜻/영어 문장 수정, 영어 변경 시 음성 재생성 선택)
 - 삭제 (DB + Storage 동시 삭제)
@@ -129,7 +130,7 @@ npm run dev
 - **일일 진도**: "오늘 처음 정답을 맞춰 새로 암기된 문장 수". 분모는 동적 일일 페이스(목표 미설정 시 5문장 fallback). 같은 문장 반복 정답이나 이미 암기된 문장 재연습은 가산되지 않음
 - **학습 달력**: 홈 대시보드의 월간 히트맵. 문장별 최초 정답 날짜 기준으로 그날 새로 암기한 문장 수를 색 농도(일일 목표 대비 비율)로 시각화하고, 목표 달성도 기호를 함께 표시: `○` 목표 달성(신규 암기 ≥ 일일 목표), `△` 부분 달성(목표 미달), `✕` 미학습(목표 시작일 이후의 지난 날). 이전/다음 달 이동(현재 월 이후는 비활성), 오늘 날짜 강조
 - **즐겨찾기**: 문장별 즐겨찾기 토글 (별 아이콘), `sentences.is_favorite` 컬럼
-- DB 테이블: `sentences` (문장/음성/즐겨찾기/태그), `user_stats` (XP/스트릭/일일 목표 + 장기 목표 `total_goal`/`goal_period_days`/`goal_start_date`), `practice_results` (문장별 연습 기록 + `mode`: `'speech' | 'text'`)
+- DB 테이블: `sentences` (문장/음성/즐겨찾기/태그), `user_stats` (XP/스트릭/일일 목표 + 장기 목표 `total_goal`/`goal_period_days`/`goal_start_date` + 태그 프리셋 `tag_presets`), `practice_results` (문장별 연습 기록 + `mode`: `'speech' | 'text'`)
 
 ### Supabase 인증
 
@@ -188,7 +189,7 @@ src/
 │   └── globals.css            # Tailwind v4 + 시맨틱 컬러 토큰 + 커스텀 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm / SignupForm / KakaoButton / AuthLayout / 등
-│   ├── learn/                 # ReviewTabs (탭 전환) / ReviewClient (문장 목록 + 학습 인정) / QuizView (퀴즈 드릴 엔진) / SessionSummary / InputForm / TagInput (태그 칩 입력) / GoalForm / GoalProgressCard / LearningCalendar (월간 암기 히트맵) / StreakBadge / XpBadge / DailyProgressRing
+│   ├── learn/                 # ReviewTabs (탭 전환) / ReviewClient (문장 목록 + 학습 인정) / QuizView (퀴즈 드릴 엔진) / SessionSummary / InputForm / TagPicker (프리셋 태그 선택/관리) / GoalForm / GoalProgressCard / LearningCalendar (월간 암기 히트맵) / StreakBadge / XpBadge / DailyProgressRing
 │   ├── ui/                    # shadcn 컴포넌트
 │   ├── Navbar.tsx
 │   ├── BottomNav.tsx          # 모바일 하단 4탭 네비게이션

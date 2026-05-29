@@ -105,21 +105,3 @@ export async function saveSentence(englishText: string, koreanText: string, audi
 
   return { success: "문장이 저장되었습니다!" };
 }
-
-// 입력 폼 자동완성용: 사용자가 이전에 사용한 태그를 distinct 정렬해 반환
-export async function getUserTags(): Promise<string[]> {
-  const supabase = createClient(await cookies());
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return [];
-
-  const { data } = await supabase.from("sentences").select("tags").eq("user_id", user.id);
-
-  const set = new Set<string>();
-  for (const row of data ?? []) {
-    for (const tag of (row.tags ?? []) as string[]) set.add(tag);
-  }
-  return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
-}
