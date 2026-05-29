@@ -16,6 +16,7 @@ import {
   Keyboard,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
   Search,
   Tag,
   X,
@@ -62,6 +63,7 @@ export default function ReviewClient({ initialSentences, initialError }: { initi
   const [search, setSearch] = useState("");
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [sort, setSort] = useState<SortMode>("latest");
+  const [showFind, setShowFind] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -437,48 +439,59 @@ export default function ReviewClient({ initialSentences, initialError }: { initi
               <Circle className="mr-1 h-4 w-4" />
               미학습 {unmemorizedCount}
             </Button>
-            <select
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortMode)}
-              aria-label="정렬"
-              className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 ml-auto h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]">
-              <option value="latest">최신순</option>
-              <option value="oldest">오래된순</option>
-              <option value="alpha">가나다순(A–Z)</option>
-            </select>
-          </div>
-
-          <div className="relative">
-            <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
-            <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="문장·뜻·태그 검색" className="h-9 pr-9 pl-9" />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="검색어 지우기"
-                className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
-                <X size={14} />
-              </button>
-            )}
-          </div>
-
-          {allTags.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Tag size={14} className="text-muted-foreground mr-0.5" />
-              <Button variant={tagFilter === null ? "brand" : "outline"} size="sm" className="h-7" onClick={() => setTagFilter(null)}>
-                전체
+            <div className="ml-auto flex items-center gap-2">
+              <Button variant={showFind || search || tagFilter ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
+                <Search className="mr-1 h-4 w-4" />
+                검색·태그
+                <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${showFind ? "rotate-180" : ""}`} />
               </Button>
-              {allTags.map((t) => (
-                <Button
-                  key={t}
-                  variant={tagFilter === t ? "brand" : "outline"}
-                  size="sm"
-                  className="h-7"
-                  onClick={() => setTagFilter((prev) => (prev === t ? null : t))}>
-                  {t}
-                </Button>
-              ))}
+              <select
+                value={sort}
+                onChange={(e) => setSort(e.target.value as SortMode)}
+                aria-label="정렬"
+                className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]">
+                <option value="latest">최신순</option>
+                <option value="oldest">오래된순</option>
+                <option value="alpha">가나다순(A–Z)</option>
+              </select>
             </div>
+          </div>
+
+          {showFind && (
+            <>
+              <div className="relative">
+                <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
+                <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="문장·뜻·태그 검색" className="h-9 pr-9 pl-9" />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    aria-label="검색어 지우기"
+                    className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              {allTags.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <Tag size={14} className="text-muted-foreground mr-0.5" />
+                  <Button variant={tagFilter === null ? "brand" : "outline"} size="sm" className="h-7" onClick={() => setTagFilter(null)}>
+                    전체
+                  </Button>
+                  {allTags.map((t) => (
+                    <Button
+                      key={t}
+                      variant={tagFilter === t ? "brand" : "outline"}
+                      size="sm"
+                      className="h-7"
+                      onClick={() => setTagFilter((prev) => (prev === t ? null : t))}>
+                      {t}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
