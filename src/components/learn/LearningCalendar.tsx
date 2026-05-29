@@ -22,10 +22,31 @@ function levelOf(count: number, dailyGoal: number): number {
   return 4;
 }
 
-export default function LearningCalendar({ history, dailyGoal }: { history: Record<string, number>; dailyGoal: number }) {
+// 일일 목표 달성도로 기호 산출. O=목표 달성, triangle=부분 달성, X=미학습(지난 날), null=기호 없음
+function markOf(count: number, dailyGoal: number, dateStr: string, startBoundary: string, todayKst: string): "O" | "triangle" | "X" | null {
+  const goalThreshold = dailyGoal > 0 ? dailyGoal : 1;
+  if (count >= goalThreshold) return "O";
+  if (count > 0) return "triangle";
+  // count === 0: 시작일 이후의 지난 날에만 X (오늘/미래/시작 전은 표시 안 함)
+  if (dateStr < todayKst && dateStr >= startBoundary) return "X";
+  return null;
+}
+
+export default function LearningCalendar({
+  history,
+  dailyGoal,
+  startDate,
+}: {
+  history: Record<string, number>;
+  dailyGoal: number;
+  startDate?: string | null;
+}) {
   // 현재 KST 연/월/일
   const todayKst = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
   const [ty, tm] = todayKst.split("-").map(Number);
+
+  // X 표시의 시작 경계: 장기 목표 시작일 → 없으면 history 최초 암기일 → 없으면 오늘
+  const startBoundary = startDate ?? Object.keys(history).sort()[0] ?? todayKst;
 
   const [view, setView] = useState<{ year: number; month: number }>({ year: ty, month: tm });
 
@@ -90,6 +111,7 @@ export default function LearningCalendar({ history, dailyGoal }: { history: Reco
             const dateStr = `${view.year}-${pad(view.month)}-${pad(day)}`;
             const count = history[dateStr] ?? 0;
             const level = levelOf(count, dailyGoal);
+            const mark = markOf(count, dailyGoal, dateStr, startBoundary, todayKst);
             const isToday = dateStr === todayKst;
             return (
               <div
@@ -99,18 +121,24 @@ export default function LearningCalendar({ history, dailyGoal }: { history: Reco
                   isToday ? "ring-brand ring-2" : ""
                 }`}>
                 <span className={level >= 4 ? "font-semibold" : level === 0 ? "text-muted-foreground" : "font-medium"}>{day}</span>
-                {count > 0 && <span className={`text-[10px] leading-tight ${level >= 4 ? "" : "text-muted-foreground"}`}>{count}</span>}
+                {mark === "O" && <span className={`text-[11px] leading-tight font-bold ${level >= 4 ? "" : "text-success"}`}>○</span>}
+                {mark === "triangle" && <span className="text-streak-orange text-[11px] leading-tight font-bold">△</span>}
+                {mark === "X" && <span className="text-muted-foreground/70 text-[11px] leading-tight">✕</span>}
               </div>
             );
           })}
         </div>
 
-        <div className="text-muted-foreground flex items-center justify-end gap-1.5 text-xs">
-          <span>적음</span>
-          {LEVEL_CLASS.map((cls, i) => (
-            <span key={i} className={`h-3 w-3 rounded-sm ${cls}`} />
-          ))}
-          <span>많음</span>
+        <div className="text-muted-foreground flex items-center justify-center gap-3 text-[11px]">
+          <span>
+            <span className="text-success font-bold">○</span> 목표 달성
+          </span>
+          <span>
+            <span className="text-streak-orange font-bold">△</span> 부분 달성
+          </span>
+          <span>
+            <span className="text-muted-foreground/70">✕</span> 미학습
+          </span>
         </div>
       </CardContent>
     </Card>

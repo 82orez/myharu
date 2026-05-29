@@ -117,7 +117,7 @@ export default async function Home() {
         </div>
 
         {/* 학습 달력 (월간 암기 히트맵) */}
-        <LearningCalendar history={dailyMemorized} dailyGoal={dailyGoalDisplay} />
+        <LearningCalendar history={dailyMemorized} dailyGoal={dailyGoalDisplay} startDate={goalProgress?.startDate ?? null} />
 
         {/* 온보딩 */}
         {!hasSentences && (
