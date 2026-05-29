@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useCallback, useRef, useTransition, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Keyboard } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
@@ -24,13 +23,10 @@ type EditState = {
 export default function ReviewClient({
   initialSentences,
   initialError,
-  dateFilter,
 }: {
   initialSentences: Sentence[];
   initialError?: string;
-  dateFilter?: string;
 }) {
-  const router = useRouter();
   const [sentences, setSentences] = useState(initialSentences);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -64,16 +60,6 @@ export default function ReviewClient({
   useEffect(() => {
     setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
   }, []);
-
-  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-
-  const handleDateChange = (date: string) => {
-    if (date) {
-      router.push(`/learn/review?date=${date}`);
-    } else {
-      router.push("/learn/review");
-    }
-  };
 
   const playAudio = useCallback((sentenceId: string, audioUrl: string) => {
     if (audioRef.current) {
@@ -292,25 +278,7 @@ export default function ReviewClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-2xl font-extrabold">문장 목록</h1>
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={dateFilter ?? ""}
-            onChange={(e) => handleDateChange(e.target.value)}
-            className="border-input bg-background rounded-md border px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:outline-none"
-          />
-          <Button variant="outline" onClick={() => handleDateChange(today)} className="text-sm">
-            오늘
-          </Button>
-          {dateFilter && (
-            <Button variant="ghost" onClick={() => handleDateChange("")} className="text-sm">
-              전체
-            </Button>
-          )}
-        </div>
-      </div>
+      <h1 className="text-2xl font-extrabold">문장 목록</h1>
 
       {sentences.length > 0 && <p className="text-sm text-muted-foreground">총 {sentences.length}문장</p>}
 

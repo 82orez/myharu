@@ -9,7 +9,7 @@ type BottomNavUser = { email?: string | null } | null;
 const tabs = [
   { href: "/", icon: Home, label: "홈" },
   { href: "/learn/input", icon: PenLine, label: "입력" },
-  { href: "/learn/review", icon: BookOpen, label: "복습" },
+  { href: "/learn/review", icon: BookOpen, label: "학습" },
   { href: "/", icon: User, label: "프로필" },
 ];
 

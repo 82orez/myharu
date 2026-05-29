@@ -13,7 +13,7 @@ export type Sentence = {
   is_memorized: boolean;
 };
 
-export async function getSentences(dateFilter?: string): Promise<{ sentences?: Sentence[]; error?: string }> {
+export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: string }> {
   const supabase = createClient(await cookies());
   const {
     data: { user },
@@ -23,16 +23,11 @@ export async function getSentences(dateFilter?: string): Promise<{ sentences?: S
     return { error: "로그인이 필요합니다." };
   }
 
-  let query = supabase.from("sentences").select("id, english_text, korean_text, audio_path, created_at, is_favorite").eq("user_id", user.id);
-
-  if (dateFilter) {
-    const start = `${dateFilter}T00:00:00+09:00`;
-    const nextDay = new Date(start);
-    nextDay.setDate(nextDay.getDate() + 1);
-    query = query.gte("created_at", start).lt("created_at", nextDay.toISOString());
-  }
-
-  query = query.order("created_at", { ascending: false });
+  const query = supabase
+    .from("sentences")
+    .select("id, english_text, korean_text, audio_path, created_at, is_favorite")
+    .eq("user_id", user.id)
+    .order("created_at", { ascending: false });
 
   const [sentenceRes, memorizedRes] = await Promise.all([
     query,

@@ -21,8 +21,8 @@ const steps = [
   {
     icon: Mic,
     step: "2",
-    title: "퀴즈 복습",
-    description: "한국어 뜻만 보고 영어로 말하세요. 음성 인식이 발음을 분석하고 즉시 정답을 확인합니다.",
+    title: "말하기·쓰기 학습",
+    description: "한국어 뜻을 보고 영어로 말하거나 입력하세요. 정확하면 학습 완료로 인정됩니다.",
   },
   {
     icon: Trophy,
@@ -147,8 +147,8 @@ export default async function Home() {
                 <div className="bg-brand/10 text-brand group-hover:bg-brand/20 flex h-14 w-14 items-center justify-center rounded-full transition-colors">
                   <CalendarDays size={28} />
                 </div>
-                <h2 className="text-lg font-semibold">복습하기</h2>
-                <p className="text-muted-foreground text-sm">저장한 문장을 연습하세요</p>
+                <h2 className="text-lg font-semibold">학습하기</h2>
+                <p className="text-muted-foreground text-sm">말하기·쓰기로 학습하세요</p>
               </CardContent>
             </Card>
           </Link>
@@ -165,7 +165,7 @@ export default async function Home() {
         <div className="mx-auto max-w-3xl">
           <div className="bg-brand/10 text-brand mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium">
             <Flame size={16} />
-            퀴즈 모드 · XP · 스트릭
+            말하기·쓰기 · XP · 스트릭
           </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
             영어 한 문장으로 시작하는
@@ -173,7 +173,7 @@ export default async function Home() {
             <span className="text-brand">나의 하루</span>
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 퀴즈 모드로 복습하세요. XP를 모으고 스트릭을 이어가며 매일 성장하는 학습 습관을 만들어
+            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. XP를 모으고 스트릭을 이어가며 매일 성장하는 학습 습관을 만들어
             보세요.
           </p>
           <div className="mt-10">
@@ -188,7 +188,7 @@ export default async function Home() {
       <section className="px-6 py-20">
         <div className="mx-auto max-w-5xl">
           <h2 className="mb-4 text-center text-2xl font-bold tracking-tight">3단계로 영어를 익혀요</h2>
-          <p className="text-muted-foreground mb-12 text-center">입력 → 퀴즈 → 성장, 심플하지만 효과적인 학습 사이클</p>
+          <p className="text-muted-foreground mb-12 text-center">입력 → 학습 → 성장, 심플하지만 효과적인 학습 사이클</p>
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             {steps.map((item, i) => (
               <Card
@@ -239,7 +239,7 @@ export default async function Home() {
       <section className="px-6 py-20">
         <div className="mx-auto max-w-xl text-center">
           <h2 className="text-2xl font-bold tracking-tight">오늘 첫 문장을 시작하세요</h2>
-          <p className="text-muted-foreground mt-4">가입 후 바로 문장을 입력하고 퀴즈로 복습할 수 있습니다. 완전 무료입니다.</p>
+          <p className="text-muted-foreground mt-4">가입 후 바로 문장을 입력하고 학습을 시작할 수 있습니다. 완전 무료입니다.</p>
           <div className="mt-8">
             <Button nativeButton={false} render={<Link href="/signup" />} variant="brand" className="h-11 px-6 font-semibold">
               무료로 시작하기

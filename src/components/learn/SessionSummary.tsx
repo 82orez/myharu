@@ -58,7 +58,7 @@ export default function SessionSummary({ summary, onRestart }: { summary: Sessio
 
       <div className="animate-in fade-in slide-in-from-bottom-2 mt-2 flex gap-3" style={{ animationDelay: "900ms", animationFillMode: "both" }}>
         <Button variant="brand" onClick={onRestart} className="h-12 px-6 text-base font-semibold">
-          다시 복습
+          다시 풀기
         </Button>
         <Button nativeButton={false} variant="outline" render={<Link href="/" />} className="h-12 px-6 text-base font-semibold">
           홈으로

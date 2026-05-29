@@ -19,7 +19,7 @@ export default function Footer() {
             문장 입력
           </Link>
           <Link href="/learn/review" className="text-xs text-muted-foreground hover:text-foreground">
-            복습
+            학습하기
           </Link>
         </nav>
       </div>

@@ -168,7 +168,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
               <li className="border-b border-border py-4">
                 <Link href="/learn/review" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
                   <BookOpen size={18} className="text-brand" />
-                  복습
+                  학습하기
                 </Link>
               </li>
               <li className="border-b border-border py-4">

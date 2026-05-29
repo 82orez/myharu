@@ -13,12 +13,10 @@ export default function ReviewTabs({
   sentences,
   stats,
   error,
-  dateFilter,
 }: {
   sentences: Sentence[];
   stats?: UserStats;
   error?: string;
-  dateFilter?: string;
 }) {
   const [tab, setTab] = useState<Tab>("list");
 
@@ -46,9 +44,9 @@ export default function ReviewTabs({
       </div>
 
       {tab === "quiz" ? (
-        <QuizView sentences={sentences} initialStats={stats} initialError={error} dateFilter={dateFilter} />
+        <QuizView sentences={sentences} initialStats={stats} initialError={error} />
       ) : (
-        <ReviewClient initialSentences={sentences} initialError={error} dateFilter={dateFilter} />
+        <ReviewClient initialSentences={sentences} initialError={error} />
       )}
     </div>
   );

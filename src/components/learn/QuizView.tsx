@@ -84,12 +84,10 @@ export default function QuizView({
   sentences,
   initialStats,
   initialError,
-  dateFilter,
 }: {
   sentences: Sentence[];
   initialStats?: UserStats;
   initialError?: string;
-  dateFilter?: string;
 }) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, initialState);
@@ -214,17 +212,11 @@ export default function QuizView({
     }
   }, [state.currentIndex, sentences.length]);
 
-  const handleDateChange = (date: string) => {
-    router.push(date ? `/learn/review?date=${date}` : "/learn/review");
-  };
-
-  const today = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-
   // 빈 상태
   if (sentences.length === 0 && !initialError) {
     return (
       <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-        <p className="text-lg font-medium">복습할 문장이 없습니다</p>
+        <p className="text-lg font-medium">퀴즈할 문장이 없습니다</p>
         <p className="text-sm text-muted-foreground">먼저 영어 문장을 입력해 보세요.</p>
         <Button nativeButton={false} variant="brand" render={<Link href="/learn/input" />} className="mt-2 h-12 px-6 text-base font-semibold">
           문장 입력하러 가기
@@ -246,25 +238,8 @@ export default function QuizView({
   if (state.phase === "ready") {
     return (
       <div className="flex flex-col items-center gap-6 py-12 text-center">
-        <h1 className="text-3xl font-bold">복습</h1>
+        <h1 className="text-3xl font-bold">퀴즈</h1>
         <p className="text-muted-foreground">총 {sentences.length}문장을 연습합니다.</p>
-
-        <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={dateFilter ?? ""}
-            onChange={(e) => handleDateChange(e.target.value)}
-            className="border-input bg-background rounded-lg border px-3 py-2 text-sm focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/20 focus-visible:outline-none"
-          />
-          <Button variant="outline" onClick={() => handleDateChange(today)} className="text-sm">
-            오늘
-          </Button>
-          {dateFilter && (
-            <Button variant="ghost" onClick={() => handleDateChange("")} className="text-sm">
-              전체
-            </Button>
-          )}
-        </div>
 
         <div className="flex flex-col items-center gap-2">
           <p className="text-sm font-medium text-muted-foreground">학습 모드</p>
@@ -336,8 +311,8 @@ export default function QuizView({
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>복습 종료</AlertDialogTitle>
-              <AlertDialogDescription>진행 중인 복습을 종료하시겠습니까? 현재까지의 기록은 저장됩니다.</AlertDialogDescription>
+              <AlertDialogTitle>퀴즈 종료</AlertDialogTitle>
+              <AlertDialogDescription>진행 중인 퀴즈를 종료하시겠습니까? 현재까지의 기록은 저장됩니다.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>계속하기</AlertDialogCancel>
