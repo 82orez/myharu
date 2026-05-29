@@ -78,7 +78,7 @@ npm run dev
 ### 랜딩 페이지
 
 - **비로그인**: 히어로(말하기·쓰기 · XP · 스트릭 배지) + 3단계 학습 흐름 소개(입력 → 말하기·쓰기 학습 → 성장 확인) + 게이미피케이션 하이라이트 4종 + CTA
-- **로그인**: 게이미피케이션 대시보드 (장기 목표 진도 원형 차트 + XP/스트릭/오늘 진도 3카드 + 액션 카드) + 신규 사용자 온보딩 안내
+- **로그인**: 게이미피케이션 대시보드 (장기 목표 진도 원형 차트 + XP/스트릭/오늘 진도 3카드 + 월간 학습 달력 + 액션 카드) + 신규 사용자 온보딩 안내
 
 ### 영어 학습
 
@@ -120,6 +120,7 @@ npm run dev
 - **암기 정의**: 문장 카드에서 정답을 한 번이라도 맞히면 "암기 완료"(`practice_results.is_correct = true` 1회). 카드 보더/배지로 시각화
 - **장기 학습 목표**: 사용자가 "총 N문장, M일" 설정 시 일일 페이스가 동적 계산됨(예: 100일 1000문장 → 처음엔 하루 10문장, 진도가 늦으면 남은 일수에서 차감해 페이스 상향). 홈에 원형 진도 차트 + 남은 일수 + 오늘 최소 + 페이스 상태 표시
 - **일일 진도**: "오늘 처음 정답을 맞춰 새로 암기된 문장 수". 분모는 동적 일일 페이스(목표 미설정 시 5문장 fallback). 같은 문장 반복 정답이나 이미 암기된 문장 재연습은 가산되지 않음
+- **학습 달력**: 홈 대시보드의 월간 히트맵. 문장별 최초 정답 날짜 기준으로 그날 새로 암기한 문장 수를 색 농도(일일 목표 대비 비율)로 시각화. 이전/다음 달 이동(현재 월 이후는 비활성), 오늘 날짜 강조
 - **즐겨찾기**: 문장별 즐겨찾기 토글 (별 아이콘), `sentences.is_favorite` 컬럼
 - DB 테이블: `sentences` (문장/음성/즐겨찾기), `user_stats` (XP/스트릭/일일 목표 + 장기 목표 `total_goal`/`goal_period_days`/`goal_start_date`), `practice_results` (문장별 연습 기록 + `mode`: `'speech' | 'text'`)
 
@@ -180,7 +181,7 @@ src/
 │   └── globals.css            # Tailwind v4 + 시맨틱 컬러 토큰 + 커스텀 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm / SignupForm / KakaoButton / AuthLayout / 등
-│   ├── learn/                 # ReviewTabs (탭 전환) / ReviewClient (문장 목록 + 학습 인정) / QuizView (퀴즈 드릴 엔진) / SessionSummary / InputForm / GoalForm / GoalProgressCard / StreakBadge / XpBadge / DailyProgressRing
+│   ├── learn/                 # ReviewTabs (탭 전환) / ReviewClient (문장 목록 + 학습 인정) / QuizView (퀴즈 드릴 엔진) / SessionSummary / InputForm / GoalForm / GoalProgressCard / LearningCalendar (월간 암기 히트맵) / StreakBadge / XpBadge / DailyProgressRing
 │   ├── ui/                    # shadcn 컴포넌트
 │   ├── Navbar.tsx
 │   ├── BottomNav.tsx          # 모바일 하단 4탭 네비게이션
@@ -196,7 +197,7 @@ src/
 │   ├── rate-limit.ts          # in-memory 토큰 버킷
 │   ├── normalize-text.ts      # 텍스트 정규화 + 축약형 확장 + 유사도 비교
 │   ├── openai.ts              # OpenAI 클라이언트 (TTS 음성 생성)
-│   └── gamification.ts        # 서버 전용 게이미피케이션 쿼리 (XP/스트릭/일일 진도/암기 수/장기 목표 진도)
+│   └── gamification.ts        # 서버 전용 게이미피케이션 쿼리 (XP/스트릭/일일 진도/암기 수/장기 목표 진도/월간 암기 달력)
 ├── utils/supabase/
 │   ├── client.ts              # 브라우저 클라이언트
 │   ├── server.ts              # 서버 컴포넌트/액션 클라이언트
