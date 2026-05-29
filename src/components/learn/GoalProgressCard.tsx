@@ -33,7 +33,9 @@ export default function GoalProgressCard({ goal }: { goal: GoalProgress | null }
 
   const goalCompleted = goal.memorized >= goal.totalGoal;
   const periodEnded = goal.daysRemaining === 0 && !goalCompleted;
-  const dashOffset = RING_CIRCUMFERENCE - (goal.percentage / 100) * RING_CIRCUMFERENCE;
+  // 소수 첫째 자리까지 표시하기 위해 memorized/totalGoal로 재계산 (goal.percentage는 정수 반올림값)
+  const percentExact = goal.totalGoal > 0 ? Math.min((goal.memorized / goal.totalGoal) * 100, 100) : 0;
+  const dashOffset = RING_CIRCUMFERENCE - (percentExact / 100) * RING_CIRCUMFERENCE;
   const ringColorClass = goalCompleted || goal.isOnTrack ? "text-success" : "text-streak-orange";
 
   return (
@@ -50,13 +52,22 @@ export default function GoalProgressCard({ goal }: { goal: GoalProgress | null }
         </div>
 
         <p className="text-center text-xl font-bold tracking-tight">
-          {goal.periodDays}일 동안 <span className="text-brand">{goal.totalGoal.toLocaleString()}문장</span> 암기
+          <span className="text-brand">{goal.periodDays}</span>일 동안 <span className="text-brand">{goal.totalGoal.toLocaleString()} 문장</span>{" "}
+          암기하기
         </p>
 
         <div className="flex justify-center">
           <div className="relative inline-flex items-center justify-center">
             <svg width={RING_SIZE} height={RING_SIZE} className="-rotate-90" aria-hidden="true">
-              <circle cx={RING_SIZE / 2} cy={RING_SIZE / 2} r={RING_RADIUS} fill="none" stroke="currentColor" strokeWidth={RING_STROKE} className="text-muted" />
+              <circle
+                cx={RING_SIZE / 2}
+                cy={RING_SIZE / 2}
+                r={RING_RADIUS}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={RING_STROKE}
+                className="text-muted"
+              />
               <circle
                 cx={RING_SIZE / 2}
                 cy={RING_SIZE / 2}
@@ -71,7 +82,7 @@ export default function GoalProgressCard({ goal }: { goal: GoalProgress | null }
               />
             </svg>
             <div className="absolute flex flex-col items-center leading-none">
-              <span className="text-4xl font-bold tabular-nums">{goal.percentage}%</span>
+              <span className="text-4xl font-bold tabular-nums">{percentExact.toFixed(1)}%</span>
               <div className="text-muted-foreground mt-2 flex items-baseline gap-1 text-sm">
                 <span className="text-foreground text-base font-semibold tabular-nums">{goal.memorized.toLocaleString()}</span>
                 <span>/</span>

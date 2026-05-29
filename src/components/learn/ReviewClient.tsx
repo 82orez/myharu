@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useTransition, useEffect } from "react";
-import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Keyboard } from "lucide-react";
+import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Circle, Keyboard } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
@@ -28,6 +28,7 @@ export default function ReviewClient({
   initialError?: string;
 }) {
   const [sentences, setSentences] = useState(initialSentences);
+  const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -276,11 +277,38 @@ export default function ReviewClient({
   const isEditing = editing !== null;
   const isBusy = playingId !== null || isEditing || listeningId !== null || writingId !== null;
 
+  const memorizedCount = sentences.filter((s) => s.is_memorized).length;
+  const unmemorizedCount = sentences.length - memorizedCount;
+  const visibleSentences =
+    filter === "memorized" ? sentences.filter((s) => s.is_memorized) : filter === "unmemorized" ? sentences.filter((s) => !s.is_memorized) : sentences;
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-extrabold">문장 목록</h1>
 
-      {sentences.length > 0 && <p className="text-sm text-muted-foreground">총 {sentences.length}문장</p>}
+      {sentences.length > 0 && (
+        <div className="flex flex-wrap gap-2">
+          <Button variant={filter === "all" ? "brand" : "outline"} size="sm" onClick={() => setFilter("all")}>
+            전체 {sentences.length}
+          </Button>
+          <Button
+            variant={filter === "memorized" ? "success" : "outline"}
+            size="sm"
+            onClick={() => setFilter("memorized")}
+            className={filter === "memorized" ? "" : "text-success"}>
+            <Check className="mr-1 h-4 w-4" />
+            암기 완료 {memorizedCount}
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setFilter("unmemorized")}
+            className={filter === "unmemorized" ? "border-streak-orange bg-streak-orange/10 text-streak-orange" : "text-streak-orange"}>
+            <Circle className="mr-1 h-4 w-4" />
+            미학습 {unmemorizedCount}
+          </Button>
+        </div>
+      )}
 
       {!speechSupported && (
         <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
@@ -296,8 +324,14 @@ export default function ReviewClient({
 
       {sentences.length === 0 && !initialError && <p className="py-12 text-center text-muted-foreground">저장된 문장이 없습니다.</p>}
 
+      {sentences.length > 0 && visibleSentences.length === 0 && (
+        <p className="py-12 text-center text-muted-foreground">
+          {filter === "memorized" ? "암기 완료한 문장이 없습니다." : "미학습 문장이 없습니다."}
+        </p>
+      )}
+
       <div className="flex flex-col gap-4">
-        {sentences.map((sentence, index) => {
+        {visibleSentences.map((sentence, index) => {
           const isPlaying = playingId === sentence.id;
           const isListening = listeningId === sentence.id;
           const isWriting = writingId === sentence.id;
@@ -316,14 +350,20 @@ export default function ReviewClient({
           return (
             <Card
               key={sentence.id}
-              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-2 border-l-success" : ""} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
+              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-2 border-l-success" : "border-l-2 border-l-streak-orange/40"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
               style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
-              {sentence.is_memorized && !isThisEditing && (
-                <span className="bg-success/10 text-success absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
-                  <Check size={11} />
-                  암기 완료
-                </span>
-              )}
+              {!isThisEditing &&
+                (sentence.is_memorized ? (
+                  <span className="bg-success/10 text-success absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                    <Check size={11} />
+                    암기 완료
+                  </span>
+                ) : (
+                  <span className="bg-streak-orange/10 text-streak-orange absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                    <Circle size={11} />
+                    미학습
+                  </span>
+                ))}
               {isFeedback && feedbackStatus === "correct" && feedbackXp > 0 && (
                 <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 z-20 text-lg font-bold">
                   +{feedbackXp} XP
