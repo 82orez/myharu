@@ -417,19 +417,6 @@ export default function ReviewClient({ initialSentences, initialError }: { initi
               </div>
             </div>
           )}
-          <div className="relative">
-            <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
-            <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="문장·뜻·태그 검색" className="h-9 pr-9 pl-9" />
-            {search && (
-              <button
-                type="button"
-                onClick={() => setSearch("")}
-                aria-label="검색어 지우기"
-                className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
-                <X size={14} />
-              </button>
-            )}
-          </div>
           <div className="flex flex-wrap gap-2">
             <Button variant={filter === "all" ? "brand" : "outline"} size="sm" onClick={() => setFilter("all")}>
               전체 {pool.length}
@@ -459,6 +446,20 @@ export default function ReviewClient({ initialSentences, initialError }: { initi
               <option value="oldest">오래된순</option>
               <option value="alpha">가나다순(A–Z)</option>
             </select>
+          </div>
+
+          <div className="relative">
+            <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
+            <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="문장·뜻·태그 검색" className="h-9 pr-9 pl-9" />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="검색어 지우기"
+                className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
+                <X size={14} />
+              </button>
+            )}
           </div>
 
           {allTags.length > 0 && (
