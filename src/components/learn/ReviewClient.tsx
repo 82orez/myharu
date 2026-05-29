@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useTransition, useEffect } from "react";
-import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Circle, Keyboard } from "lucide-react";
+import { useState, useCallback, useRef, useTransition, useEffect, useMemo } from "react";
+import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Circle, Keyboard, ChevronLeft, ChevronRight } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
@@ -11,6 +11,17 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { textsMatch } from "@/lib/normalize-text";
 import { toast } from "sonner";
+
+// created_at(ISO) → KST 날짜 문자열(YYYY-MM-DD)
+const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+
+// 스테퍼 기본 일차: 오늘 입력이 있으면 오늘, 없으면 가장 최신 입력일 (둘 다 없으면 "")
+function computeDefaultDay(sents: Sentence[]): string {
+  const dates = Array.from(new Set(sents.map((s) => kstDate(s.created_at)))).sort();
+  if (dates.length === 0) return "";
+  const today = kstDate(new Date().toISOString());
+  return dates.includes(today) ? today : dates[dates.length - 1];
+}
 
 type EditState = {
   id: string;
@@ -29,6 +40,8 @@ export default function ReviewClient({
 }) {
   const [sentences, setSentences] = useState(initialSentences);
   const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
+  const [showAll, setShowAll] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -277,20 +290,91 @@ export default function ReviewClient({
   const isEditing = editing !== null;
   const isBusy = playingId !== null || isEditing || listeningId !== null || writingId !== null;
 
-  const memorizedCount = sentences.filter((s) => s.is_memorized).length;
-  const unmemorizedCount = sentences.length - memorizedCount;
+  // 입력 날짜(KST)별 일차 메타: 가장 이른 날 = 1일차, 날짜별 문장 수 집계
+  const dayMeta = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of sentences) {
+      const d = kstDate(s.created_at);
+      counts.set(d, (counts.get(d) ?? 0) + 1);
+    }
+    const dates = Array.from(counts.keys()).sort();
+    const dayNumber = new Map<string, number>();
+    dates.forEach((d, i) => dayNumber.set(d, i + 1));
+    return { counts, dayNumber, dates };
+  }, [sentences]);
+
+  const todayKst = kstDate(new Date().toISOString());
+
+  const ascDates = dayMeta.dates;
+  const validSelected = ascDates.includes(selectedDay) ? selectedDay : (ascDates[ascDates.length - 1] ?? "");
+  const idx = ascDates.indexOf(validSelected);
+
+  const goPrev = () => {
+    setShowAll(false);
+    if (idx > 0) setSelectedDay(ascDates[idx - 1]);
+  };
+  const goNext = () => {
+    setShowAll(false);
+    if (idx < ascDates.length - 1) setSelectedDay(ascDates[idx + 1]);
+  };
+
+  const byDay = showAll ? sentences : sentences.filter((s) => kstDate(s.created_at) === validSelected);
+  const memorizedCount = byDay.filter((s) => s.is_memorized).length;
+  const unmemorizedCount = byDay.length - memorizedCount;
   const visibleSentences =
-    filter === "memorized" ? sentences.filter((s) => s.is_memorized) : filter === "unmemorized" ? sentences.filter((s) => !s.is_memorized) : sentences;
+    filter === "memorized" ? byDay.filter((s) => s.is_memorized) : filter === "unmemorized" ? byDay.filter((s) => !s.is_memorized) : byDay;
 
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-2xl font-extrabold">문장 목록</h1>
 
       {sentences.length > 0 && (
-        <div className="flex flex-wrap gap-2">
-          <Button variant={filter === "all" ? "brand" : "outline"} size="sm" onClick={() => setFilter("all")}>
-            전체 {sentences.length}
-          </Button>
+        <div className="flex flex-col gap-3">
+          {ascDates.length > 1 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant={showAll ? "brand" : "outline"} size="sm" onClick={() => setShowAll(true)}>
+                전체 일차
+              </Button>
+              <Button
+                variant={!showAll && validSelected === todayKst ? "brand" : "outline"}
+                size="sm"
+                disabled={!ascDates.includes(todayKst)}
+                onClick={() => {
+                  setShowAll(false);
+                  setSelectedDay(todayKst);
+                }}>
+                오늘
+              </Button>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={goPrev}
+                  disabled={idx <= 0}
+                  aria-label="이전 일차"
+                  className="hover:bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-30">
+                  <ChevronLeft size={18} />
+                </button>
+                <span className={`min-w-[10rem] text-center text-sm font-medium tabular-nums ${showAll ? "text-muted-foreground/60" : ""}`}>
+                  {(() => {
+                    const [, m, day] = validSelected.split("-");
+                    return `${dayMeta.dayNumber.get(validSelected)}일차 (${validSelected === todayKst ? "오늘, " : ""}${Number(m)}/${Number(day)}) · ${dayMeta.counts.get(validSelected)}문장`;
+                  })()}
+                </span>
+                <button
+                  type="button"
+                  onClick={goNext}
+                  disabled={idx >= ascDates.length - 1}
+                  aria-label="다음 일차"
+                  className="hover:bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-30">
+                  <ChevronRight size={18} />
+                </button>
+              </div>
+            </div>
+          )}
+          <div className="flex flex-wrap gap-2">
+            <Button variant={filter === "all" ? "brand" : "outline"} size="sm" onClick={() => setFilter("all")}>
+              전체 {byDay.length}
+            </Button>
           <Button
             variant={filter === "memorized" ? "success" : "outline"}
             size="sm"
@@ -307,6 +391,7 @@ export default function ReviewClient({
             <Circle className="mr-1 h-4 w-4" />
             미학습 {unmemorizedCount}
           </Button>
+          </div>
         </div>
       )}
 
@@ -325,9 +410,7 @@ export default function ReviewClient({
       {sentences.length === 0 && !initialError && <p className="py-12 text-center text-muted-foreground">저장된 문장이 없습니다.</p>}
 
       {sentences.length > 0 && visibleSentences.length === 0 && (
-        <p className="py-12 text-center text-muted-foreground">
-          {filter === "memorized" ? "암기 완료한 문장이 없습니다." : "미학습 문장이 없습니다."}
-        </p>
+        <p className="py-12 text-center text-muted-foreground">선택한 조건에 해당하는 문장이 없습니다.</p>
       )}
 
       <div className="flex flex-col gap-4">
