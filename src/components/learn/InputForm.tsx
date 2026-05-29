@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import TagInput from "@/components/learn/TagInput";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,9 +24,10 @@ const WARN_THRESHOLD = 450;
 
 type Phase = "input" | "preview" | "saving";
 
-export default function InputForm() {
+export default function InputForm({ suggestedTags = [] }: { suggestedTags?: string[] }) {
   const [englishText, setEnglishText] = useState("");
   const [koreanText, setKoreanText] = useState("");
+  const [tags, setTags] = useState<string[]>([]);
   const [phase, setPhase] = useState<Phase>("input");
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -98,7 +100,7 @@ export default function InputForm() {
     setError(null);
 
     startSaving(async () => {
-      const result = await saveSentence(englishText, koreanText, audioBase64);
+      const result = await saveSentence(englishText, koreanText, audioBase64, tags);
 
       if ("error" in result) {
         setError(result.error);
@@ -109,6 +111,7 @@ export default function InputForm() {
       setRecentSave({ english: englishText, korean: koreanText });
       setEnglishText("");
       setKoreanText("");
+      setTags([]);
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioBase64(null);
       setAudioUrl(null);
@@ -183,6 +186,11 @@ export default function InputForm() {
                 {koreanText.length}/{MAX_LENGTH}
               </span>
             </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="tags">태그 (선택)</Label>
+            <TagInput value={tags} onChange={setTags} suggestions={suggestedTags} disabled={pending} />
           </div>
 
           {isPreview && audioUrl && (

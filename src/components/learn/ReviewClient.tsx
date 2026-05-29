@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef, useTransition, useEffect, useMemo } from "react";
-import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Circle, Keyboard, ChevronLeft, ChevronRight } from "lucide-react";
+import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Circle, Keyboard, ChevronLeft, ChevronRight, Search, Tag } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
@@ -9,8 +9,12 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import TagInput from "@/components/learn/TagInput";
 import { textsMatch } from "@/lib/normalize-text";
 import { toast } from "sonner";
+
+type SortMode = "latest" | "oldest" | "alpha";
 
 // created_at(ISO) → KST 날짜 문자열(YYYY-MM-DD)
 const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
@@ -29,6 +33,7 @@ type EditState = {
   koreanText: string;
   originalEnglish: string;
   regenAudio: boolean;
+  tags: string[];
 };
 
 export default function ReviewClient({
@@ -42,6 +47,9 @@ export default function ReviewClient({
   const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
   const [showAll, setShowAll] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
+  const [search, setSearch] = useState("");
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [sort, setSort] = useState<SortMode>("latest");
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -245,6 +253,7 @@ export default function ReviewClient({
       koreanText: sentence.korean_text,
       originalEnglish: sentence.english_text,
       regenAudio: true,
+      tags: sentence.tags,
     });
   };
 
@@ -268,7 +277,7 @@ export default function ReviewClient({
         audioBase64 = audioResult.audioBase64;
       }
 
-      const result = await updateSentence(editing.id, editing.englishText, editing.koreanText, audioBase64);
+      const result = await updateSentence(editing.id, editing.englishText, editing.koreanText, audioBase64, editing.tags);
 
       if ("error" in result) {
         toast.error(result.error);
@@ -278,7 +287,7 @@ export default function ReviewClient({
       setSentences((prev) =>
         prev.map((s) =>
           s.id === editing.id
-            ? { ...s, english_text: editing.englishText.trim(), korean_text: editing.koreanText.trim(), audio_url: result.audioUrl }
+            ? { ...s, english_text: editing.englishText.trim(), korean_text: editing.koreanText.trim(), audio_url: result.audioUrl, tags: editing.tags }
             : s,
         ),
       );
@@ -318,11 +327,29 @@ export default function ReviewClient({
     if (idx < ascDates.length - 1) setSelectedDay(ascDates[idx + 1]);
   };
 
+  // 전체 문장의 distinct 태그(태그 필터 칩 / 편집 자동완성용)
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const s of sentences) for (const t of s.tags) set.add(t);
+    return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
+  }, [sentences]);
+
+  // 필터 결합: 일차 → 검색 → 태그 → (상태)
   const byDay = showAll ? sentences : sentences.filter((s) => kstDate(s.created_at) === validSelected);
-  const memorizedCount = byDay.filter((s) => s.is_memorized).length;
-  const unmemorizedCount = byDay.length - memorizedCount;
-  const visibleSentences =
-    filter === "memorized" ? byDay.filter((s) => s.is_memorized) : filter === "unmemorized" ? byDay.filter((s) => !s.is_memorized) : byDay;
+  const q = search.trim().toLowerCase();
+  const pool = byDay.filter((s) => {
+    if (tagFilter && !s.tags.includes(tagFilter)) return false;
+    if (q && !`${s.english_text} ${s.korean_text} ${s.tags.join(" ")}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  const memorizedCount = pool.filter((s) => s.is_memorized).length;
+  const unmemorizedCount = pool.length - memorizedCount;
+  const filtered = filter === "memorized" ? pool.filter((s) => s.is_memorized) : filter === "unmemorized" ? pool.filter((s) => !s.is_memorized) : pool;
+  const visibleSentences = filtered.slice().sort((a, b) => {
+    if (sort === "alpha") return a.english_text.localeCompare(b.english_text, "en");
+    const cmp = a.created_at.localeCompare(b.created_at);
+    return sort === "oldest" ? cmp : -cmp;
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -330,6 +357,16 @@ export default function ReviewClient({
 
       {sentences.length > 0 && (
         <div className="flex flex-col gap-3">
+          <div className="relative">
+            <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
+            <Input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="문장·뜻·태그 검색"
+              className="h-9 pl-9"
+            />
+          </div>
           {ascDates.length > 1 && (
             <div className="flex flex-wrap items-center gap-2">
               <Button variant={showAll ? "brand" : "outline"} size="sm" onClick={() => setShowAll(true)}>
@@ -373,7 +410,7 @@ export default function ReviewClient({
           )}
           <div className="flex flex-wrap gap-2">
             <Button variant={filter === "all" ? "brand" : "outline"} size="sm" onClick={() => setFilter("all")}>
-              전체 {byDay.length}
+              전체 {pool.length}
             </Button>
           <Button
             variant={filter === "memorized" ? "success" : "outline"}
@@ -391,7 +428,35 @@ export default function ReviewClient({
             <Circle className="mr-1 h-4 w-4" />
             미학습 {unmemorizedCount}
           </Button>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortMode)}
+              aria-label="정렬"
+              className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 ml-auto h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]">
+              <option value="latest">최신순</option>
+              <option value="oldest">오래된순</option>
+              <option value="alpha">가나다순(A–Z)</option>
+            </select>
           </div>
+
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Tag size={14} className="text-muted-foreground mr-0.5" />
+              <Button variant={tagFilter === null ? "brand" : "outline"} size="sm" className="h-7" onClick={() => setTagFilter(null)}>
+                전체
+              </Button>
+              {allTags.map((t) => (
+                <Button
+                  key={t}
+                  variant={tagFilter === t ? "brand" : "outline"}
+                  size="sm"
+                  className="h-7"
+                  onClick={() => setTagFilter((prev) => (prev === t ? null : t))}>
+                  {t}
+                </Button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -468,6 +533,10 @@ export default function ReviewClient({
                         className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[60px] w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
                       />
                     </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-xs text-muted-foreground">태그</Label>
+                      <TagInput value={editing.tags} onChange={(next) => setEditing({ ...editing, tags: next })} suggestions={allTags} />
+                    </div>
                     {editing.englishText.trim() !== editing.originalEnglish && (
                       <label className="flex items-center gap-2 text-sm text-muted-foreground">
                         <input
@@ -493,6 +562,20 @@ export default function ReviewClient({
                   <>
                     <p className="text-lg font-semibold">{sentence.korean_text}</p>
                     {revealedIds.has(sentence.id) && <p className="text-sm text-muted-foreground">{sentence.english_text}</p>}
+
+                    {sentence.tags.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5">
+                        {sentence.tags.map((t) => (
+                          <Badge
+                            key={t}
+                            variant="secondary"
+                            render={<button type="button" onClick={() => setTagFilter((prev) => (prev === t ? null : t))} />}
+                            className={`cursor-pointer ${tagFilter === t ? "ring-brand ring-1" : ""}`}>
+                            {t}
+                          </Badge>
+                        ))}
+                      </div>
+                    )}
 
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       {sentence.audio_url && (

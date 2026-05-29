@@ -2,6 +2,7 @@
 
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { sanitizeTags } from "@/lib/tags";
 
 export type Sentence = {
   id: string;
@@ -11,6 +12,7 @@ export type Sentence = {
   created_at: string;
   is_favorite: boolean;
   is_memorized: boolean;
+  tags: string[];
 };
 
 export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: string }> {
@@ -25,7 +27,7 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
 
   const query = supabase
     .from("sentences")
-    .select("id, english_text, korean_text, audio_path, created_at, is_favorite")
+    .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -55,6 +57,7 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
         created_at: row.created_at,
         is_favorite: row.is_favorite,
         is_memorized: memorizedIds.has(row.id),
+        tags: row.tags ?? [],
       };
     }),
   );
@@ -84,7 +87,13 @@ export async function toggleFavorite(id: string, isFavorite: boolean): Promise<{
 
 export type UpdateSentenceResult = { audioUrl: string } | { error: string };
 
-export async function updateSentence(id: string, englishText: string, koreanText: string, newAudioBase64?: string): Promise<UpdateSentenceResult> {
+export async function updateSentence(
+  id: string,
+  englishText: string,
+  koreanText: string,
+  newAudioBase64?: string,
+  tags?: string[],
+): Promise<UpdateSentenceResult> {
   const english = englishText.trim();
   const korean = koreanText.trim();
 
@@ -136,11 +145,14 @@ export async function updateSentence(id: string, englishText: string, koreanText
     audioPath = newPath;
   }
 
-  const { error: updateError } = await supabase
-    .from("sentences")
-    .update({ english_text: english, korean_text: korean, audio_path: audioPath })
-    .eq("id", id)
-    .eq("user_id", user.id);
+  const updatePayload: { english_text: string; korean_text: string; audio_path: string; tags?: string[] } = {
+    english_text: english,
+    korean_text: korean,
+    audio_path: audioPath,
+  };
+  if (tags !== undefined) updatePayload.tags = sanitizeTags(tags);
+
+  const { error: updateError } = await supabase.from("sentences").update(updatePayload).eq("id", id).eq("user_id", user.id);
 
   if (updateError) {
     console.error("[Supabase DB] 문장 수정 실패:", updateError);

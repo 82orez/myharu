@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
+import { sanitizeTags } from "@/lib/tags";
 
 export type GenerateAudioResult = { audioBase64: string } | { error: string };
 export type SaveSentenceResult = { success: string } | { error: string };
@@ -44,9 +45,10 @@ export async function generateAudio(englishText: string): Promise<GenerateAudioR
   }
 }
 
-export async function saveSentence(englishText: string, koreanText: string, audioBase64: string): Promise<SaveSentenceResult> {
+export async function saveSentence(englishText: string, koreanText: string, audioBase64: string, tags: string[] = []): Promise<SaveSentenceResult> {
   const english = englishText.trim();
   const korean = koreanText.trim();
+  const cleanTags = sanitizeTags(tags);
 
   if (!english || !korean) {
     return { error: "영어 문장과 한국어 뜻을 모두 입력해 주세요." };
@@ -92,6 +94,7 @@ export async function saveSentence(englishText: string, koreanText: string, audi
     english_text: english,
     korean_text: korean,
     audio_path: storagePath,
+    tags: cleanTags,
   });
 
   if (insertError) {
@@ -101,4 +104,22 @@ export async function saveSentence(englishText: string, koreanText: string, audi
   }
 
   return { success: "문장이 저장되었습니다!" };
+}
+
+// 입력 폼 자동완성용: 사용자가 이전에 사용한 태그를 distinct 정렬해 반환
+export async function getUserTags(): Promise<string[]> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return [];
+
+  const { data } = await supabase.from("sentences").select("tags").eq("user_id", user.id);
+
+  const set = new Set<string>();
+  for (const row of data ?? []) {
+    for (const tag of (row.tags ?? []) as string[]) set.add(tag);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
 }
