@@ -7,6 +7,16 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 const MAX_LENGTH = 500;
 const WARN_THRESHOLD = 450;
@@ -24,6 +34,7 @@ export default function InputForm() {
   const [recentSave, setRecentSave] = useState<{ english: string; korean: string } | null>(null);
   const [generating, startGenerating] = useTransition();
   const [saving, startSaving] = useTransition();
+  const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
   useEffect(() => {
@@ -202,7 +213,7 @@ export default function InputForm() {
             </Button>
           ) : (
             <div className="mt-2 flex gap-2">
-              <Button type="button" onClick={handleRegenerate} disabled={pending} variant="outline" className="h-12 flex-1 rounded-xl font-bold">
+              <Button type="button" onClick={() => setRegenConfirmOpen(true)} disabled={pending} variant="outline" className="h-12 flex-1 rounded-xl font-bold">
                 {generating && <Loader2 className="animate-spin" />}
                 {generating ? "생성 중..." : <><RotateCcw size={16} /> 다시 생성</>}
               </Button>
@@ -212,6 +223,26 @@ export default function InputForm() {
               </Button>
             </div>
           )}
+
+          <AlertDialog open={regenConfirmOpen} onOpenChange={setRegenConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>음성을 다시 생성할까요?</AlertDialogTitle>
+                <AlertDialogDescription>현재 미리듣기 음성이 새 음성으로 교체됩니다.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="brand"
+                  onClick={() => {
+                    setRegenConfirmOpen(false);
+                    handleRegenerate();
+                  }}>
+                  다시 생성
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {isPreview && (
             <button type="button" onClick={handleReset} disabled={pending} className="text-sm text-muted-foreground underline-offset-4 hover:underline">
