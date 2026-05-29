@@ -1,7 +1,25 @@
 "use client";
 
 import { useState, useCallback, useRef, useTransition, useEffect, useMemo } from "react";
-import { Volume2, Trash2, Loader2, Eye, EyeOff, Star, Pencil, Mic, MicOff, Check, Circle, Keyboard, ChevronLeft, ChevronRight, Search, Tag } from "lucide-react";
+import {
+  Volume2,
+  Trash2,
+  Loader2,
+  Eye,
+  EyeOff,
+  Star,
+  Pencil,
+  Mic,
+  MicOff,
+  Check,
+  Circle,
+  Keyboard,
+  ChevronLeft,
+  ChevronRight,
+  Search,
+  Tag,
+  X,
+} from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
@@ -36,13 +54,7 @@ type EditState = {
   tags: string[];
 };
 
-export default function ReviewClient({
-  initialSentences,
-  initialError,
-}: {
-  initialSentences: Sentence[];
-  initialError?: string;
-}) {
+export default function ReviewClient({ initialSentences, initialError }: { initialSentences: Sentence[]; initialError?: string }) {
   const [sentences, setSentences] = useState(initialSentences);
   const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
   const [showAll, setShowAll] = useState(false);
@@ -287,7 +299,13 @@ export default function ReviewClient({
       setSentences((prev) =>
         prev.map((s) =>
           s.id === editing.id
-            ? { ...s, english_text: editing.englishText.trim(), korean_text: editing.koreanText.trim(), audio_url: result.audioUrl, tags: editing.tags }
+            ? {
+                ...s,
+                english_text: editing.englishText.trim(),
+                korean_text: editing.koreanText.trim(),
+                audio_url: result.audioUrl,
+                tags: editing.tags,
+              }
             : s,
         ),
       );
@@ -344,7 +362,8 @@ export default function ReviewClient({
   });
   const memorizedCount = pool.filter((s) => s.is_memorized).length;
   const unmemorizedCount = pool.length - memorizedCount;
-  const filtered = filter === "memorized" ? pool.filter((s) => s.is_memorized) : filter === "unmemorized" ? pool.filter((s) => !s.is_memorized) : pool;
+  const filtered =
+    filter === "memorized" ? pool.filter((s) => s.is_memorized) : filter === "unmemorized" ? pool.filter((s) => !s.is_memorized) : pool;
   const visibleSentences = filtered.slice().sort((a, b) => {
     if (sort === "alpha") return a.english_text.localeCompare(b.english_text, "en");
     const cmp = a.created_at.localeCompare(b.created_at);
@@ -353,22 +372,12 @@ export default function ReviewClient({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-2xl font-extrabold">문장 목록</h1>
+      <h1 className="text-center text-2xl font-extrabold">문장 목록</h1>
 
       {sentences.length > 0 && (
         <div className="flex flex-col gap-3">
-          <div className="relative">
-            <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
-            <Input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="문장·뜻·태그 검색"
-              className="h-9 pl-9"
-            />
-          </div>
           {ascDates.length > 1 && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center justify-center gap-2">
               <Button variant={showAll ? "brand" : "outline"} size="sm" onClick={() => setShowAll(true)}>
                 전체 일차
               </Button>
@@ -408,26 +417,39 @@ export default function ReviewClient({
               </div>
             </div>
           )}
+          <div className="relative">
+            <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
+            <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="문장·뜻·태그 검색" className="h-9 pr-9 pl-9" />
+            {search && (
+              <button
+                type="button"
+                onClick={() => setSearch("")}
+                aria-label="검색어 지우기"
+                className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
+                <X size={14} />
+              </button>
+            )}
+          </div>
           <div className="flex flex-wrap gap-2">
             <Button variant={filter === "all" ? "brand" : "outline"} size="sm" onClick={() => setFilter("all")}>
               전체 {pool.length}
             </Button>
-          <Button
-            variant={filter === "memorized" ? "success" : "outline"}
-            size="sm"
-            onClick={() => setFilter("memorized")}
-            className={filter === "memorized" ? "" : "text-success"}>
-            <Check className="mr-1 h-4 w-4" />
-            암기 완료 {memorizedCount}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setFilter("unmemorized")}
-            className={filter === "unmemorized" ? "border-streak-orange bg-streak-orange/10 text-streak-orange" : "text-streak-orange"}>
-            <Circle className="mr-1 h-4 w-4" />
-            미학습 {unmemorizedCount}
-          </Button>
+            <Button
+              variant={filter === "memorized" ? "success" : "outline"}
+              size="sm"
+              onClick={() => setFilter("memorized")}
+              className={filter === "memorized" ? "" : "text-success"}>
+              <Check className="mr-1 h-4 w-4" />
+              암기 완료 {memorizedCount}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setFilter("unmemorized")}
+              className={filter === "unmemorized" ? "border-streak-orange bg-streak-orange/10 text-streak-orange" : "text-streak-orange"}>
+              <Circle className="mr-1 h-4 w-4" />
+              미학습 {unmemorizedCount}
+            </Button>
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as SortMode)}
@@ -467,15 +489,15 @@ export default function ReviewClient({
       )}
 
       {initialError && (
-        <p className="text-sm text-destructive" role="alert">
+        <p className="text-destructive text-sm" role="alert">
           {initialError}
         </p>
       )}
 
-      {sentences.length === 0 && !initialError && <p className="py-12 text-center text-muted-foreground">저장된 문장이 없습니다.</p>}
+      {sentences.length === 0 && !initialError && <p className="text-muted-foreground py-12 text-center">저장된 문장이 없습니다.</p>}
 
       {sentences.length > 0 && visibleSentences.length === 0 && (
-        <p className="py-12 text-center text-muted-foreground">선택한 조건에 해당하는 문장이 없습니다.</p>
+        <p className="text-muted-foreground py-12 text-center">선택한 조건에 해당하는 문장이 없습니다.</p>
       )}
 
       <div className="flex flex-col gap-4">
@@ -489,16 +511,17 @@ export default function ReviewClient({
           const isThisEditing = editing?.id === sentence.id;
 
           const isFeedback = feedbackId === sentence.id;
-          const feedbackClass = isFeedback && feedbackStatus === "correct"
-            ? "animate-pulse-glow ring-2 ring-success"
-            : isFeedback && feedbackStatus === "incorrect"
-              ? "animate-shake ring-2 ring-destructive"
-              : "";
+          const feedbackClass =
+            isFeedback && feedbackStatus === "correct"
+              ? "animate-pulse-glow ring-2 ring-success"
+              : isFeedback && feedbackStatus === "incorrect"
+                ? "animate-shake ring-2 ring-destructive"
+                : "";
 
           return (
             <Card
               key={sentence.id}
-              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-2 border-l-success" : "border-l-2 border-l-streak-orange/40"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
+              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-success border-l-2" : "border-l-streak-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
               style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
               {!isThisEditing &&
                 (sentence.is_memorized ? (
@@ -521,11 +544,11 @@ export default function ReviewClient({
                 {isThisEditing && editing ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs text-muted-foreground">한국어 뜻</Label>
+                      <Label className="text-muted-foreground text-xs">한국어 뜻</Label>
                       <Input value={editing.koreanText} onChange={(e) => setEditing({ ...editing, koreanText: e.target.value })} maxLength={500} />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs text-muted-foreground">영어 문장</Label>
+                      <Label className="text-muted-foreground text-xs">영어 문장</Label>
                       <textarea
                         value={editing.englishText}
                         onChange={(e) => setEditing({ ...editing, englishText: e.target.value })}
@@ -534,11 +557,11 @@ export default function ReviewClient({
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">
-                      <Label className="text-xs text-muted-foreground">태그</Label>
+                      <Label className="text-muted-foreground text-xs">태그</Label>
                       <TagInput value={editing.tags} onChange={(next) => setEditing({ ...editing, tags: next })} suggestions={allTags} />
                     </div>
                     {editing.englishText.trim() !== editing.originalEnglish && (
-                      <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <label className="text-muted-foreground flex items-center gap-2 text-sm">
                         <input
                           type="checkbox"
                           checked={editing.regenAudio}
@@ -552,7 +575,11 @@ export default function ReviewClient({
                       <Button variant="outline" size="sm" onClick={cancelEditing} disabled={saving}>
                         취소
                       </Button>
-                      <Button variant="brand" size="sm" onClick={handleSaveEdit} disabled={saving || (!editing.englishText.trim() || !editing.koreanText.trim())}>
+                      <Button
+                        variant="brand"
+                        size="sm"
+                        onClick={handleSaveEdit}
+                        disabled={saving || !editing.englishText.trim() || !editing.koreanText.trim()}>
                         {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                         {saving ? "저장 중..." : "저장"}
                       </Button>
@@ -561,7 +588,7 @@ export default function ReviewClient({
                 ) : (
                   <>
                     <p className="text-lg font-semibold">{sentence.korean_text}</p>
-                    {revealedIds.has(sentence.id) && <p className="text-sm text-muted-foreground">{sentence.english_text}</p>}
+                    {revealedIds.has(sentence.id) && <p className="text-muted-foreground text-sm">{sentence.english_text}</p>}
 
                     {sentence.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
@@ -579,7 +606,11 @@ export default function ReviewClient({
 
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       {sentence.audio_url && (
-                        <Button variant="outline" size="sm" disabled={(busyPlaying && !isPlaying) || isEditing || listeningId !== null} onClick={() => playAudio(sentence.id, sentence.audio_url)}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={(busyPlaying && !isPlaying) || isEditing || listeningId !== null}
+                          onClick={() => playAudio(sentence.id, sentence.audio_url)}>
                           {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
                           듣기
                         </Button>
@@ -660,19 +691,29 @@ export default function ReviewClient({
                         즐겨찾기
                       </Button>
 
-                      <Button variant="ghost" size="sm" disabled={isBusy} onClick={() => startEditing(sentence)} className="text-muted-foreground hover:text-brand">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isBusy}
+                        onClick={() => startEditing(sentence)}
+                        className="text-muted-foreground hover:text-brand">
                         <Pencil className="mr-1 h-4 w-4" />
                         편집
                       </Button>
 
-                      <Button variant="ghost" size="sm" disabled={isBusy || isDeleting} onClick={() => handleDelete(sentence.id)} className="text-muted-foreground hover:text-destructive">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isBusy || isDeleting}
+                        onClick={() => handleDelete(sentence.id)}
+                        className="text-muted-foreground hover:text-destructive">
                         {isDeleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
                         삭제
                       </Button>
                     </div>
 
                     {isListening && (
-                      <p className="text-center text-sm text-muted-foreground" aria-live="polite">
+                      <p className="text-muted-foreground text-center text-sm" aria-live="polite">
                         <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
                         듣는 중...
                       </p>
