@@ -7,17 +7,7 @@ import type { GoalProgress } from "@/types/gamification";
 const RING_SIZE = 184;
 const RING_STROKE = 15;
 
-function Ring({
-  percent,
-  colorClass,
-  top,
-  bottom,
-}: {
-  percent: number;
-  colorClass: string;
-  top: React.ReactNode;
-  bottom: React.ReactNode;
-}) {
+function Ring({ percent, colorClass, top, bottom }: { percent: number; colorClass: string; top: React.ReactNode; bottom: React.ReactNode }) {
   const r = (RING_SIZE - RING_STROKE) / 2;
   const c = 2 * Math.PI * r;
   const offset = c - (Math.min(Math.max(percent, 0), 100) / 100) * c;
@@ -46,10 +36,22 @@ function Ring({
   );
 }
 
-function RingBlock({ label, percent, colorClass, top, bottom }: { label: string; percent: number; colorClass: string; top: React.ReactNode; bottom: React.ReactNode }) {
+function RingBlock({
+  label,
+  percent,
+  colorClass,
+  top,
+  bottom,
+}: {
+  label: string;
+  percent: number;
+  colorClass: string;
+  top: React.ReactNode;
+  bottom: React.ReactNode;
+}) {
   return (
     <div className="flex flex-col items-center gap-2">
-      <span className="text-muted-foreground text-xs font-medium">{label}</span>
+      <span className="text-muted-foreground text-base font-semibold">{label}</span>
       <Ring percent={percent} colorClass={colorClass} top={top} bottom={bottom} />
     </div>
   );
@@ -120,7 +122,8 @@ export default function GoalProgressCard({
         </div>
 
         <p className="text-center text-xl font-bold tracking-tight">
-          <span className="text-brand">{goal.periodDays}</span>일 동안 <span className="text-brand">{goal.totalGoal.toLocaleString()} 문장</span> 암기하기
+          <span className="text-brand">{goal.periodDays}</span>일 동안 <span className="text-brand">{goal.totalGoal.toLocaleString()} 문장</span>{" "}
+          암기하기
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-10">
