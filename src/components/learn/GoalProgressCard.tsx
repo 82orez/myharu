@@ -126,7 +126,7 @@ export default function GoalProgressCard({
           암기하기
         </p>
 
-        <div className="flex flex-wrap items-center justify-center gap-10">
+        <div className="flex flex-wrap items-center justify-center gap-10 md:p-2">
           <RingBlock
             label="전체"
             percent={percentExact}
