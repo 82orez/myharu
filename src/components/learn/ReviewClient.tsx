@@ -31,6 +31,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import TagPicker from "@/components/learn/TagPicker";
 import { textsMatch } from "@/lib/normalize-text";
+import { tagColorClass } from "@/lib/tag-color";
 import { toast } from "sonner";
 
 type SortMode = "latest" | "oldest" | "alpha";
@@ -625,7 +626,7 @@ export default function ReviewClient({
                             key={t}
                             variant="secondary"
                             render={<button type="button" onClick={() => setTagFilter((prev) => (prev === t ? null : t))} />}
-                            className={`cursor-pointer ${tagFilter === t ? "ring-brand ring-1" : ""}`}>
+                            className={`${tagColorClass(t)} cursor-pointer ${tagFilter === t ? "ring-foreground/40 ring-2" : ""}`}>
                             {t}
                           </Badge>
                         ))}

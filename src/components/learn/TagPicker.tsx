@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { setTagPresets } from "@/app/(learn)/learn/tag-actions";
 import { MAX_TAG_LENGTH } from "@/lib/tags";
+import { tagColorClass } from "@/lib/tag-color";
 import {
   Dialog,
   DialogContent,
@@ -89,7 +90,7 @@ export default function TagPicker({
               disabled={disabled}
               onClick={() => toggle(tag)}
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-                selected ? "bg-brand text-brand-foreground" : "bg-muted text-muted-foreground hover:bg-muted/70"
+                selected ? "bg-brand text-brand-foreground" : `${tagColorClass(tag)} opacity-80 hover:opacity-100`
               }`}>
               {selected && <Check size={12} />}
               {tag}
@@ -171,7 +172,7 @@ export default function TagPicker({
             <div className="flex max-h-64 flex-wrap gap-1.5 overflow-y-auto">
               {presets.length === 0 && <span className="text-muted-foreground text-sm">등록된 태그가 없습니다.</span>}
               {presets.map((tag) => (
-                <span key={tag} className="bg-muted text-foreground inline-flex items-center gap-1 rounded-full py-1 pr-1 pl-2.5 text-xs font-medium">
+                <span key={tag} className={`${tagColorClass(tag)} inline-flex items-center gap-1 rounded-full py-1 pr-1 pl-2.5 text-xs font-medium`}>
                   {tag}
                   <button
                     type="button"
