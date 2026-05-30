@@ -189,7 +189,7 @@ src/
 │   └── globals.css            # Tailwind v4 + 시맨틱 컬러 토큰 + 커스텀 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm / SignupForm / KakaoButton / AuthLayout / 등
-│   ├── learn/                 # ReviewTabs (탭 전환) / ReviewClient (문장 목록 + 학습 인정) / QuizView (퀴즈 드릴 엔진) / SessionSummary / InputForm / TagPicker (프리셋 태그 선택/관리) / GoalForm / GoalProgressCard / LearningCalendar (월간 암기 히트맵) / StreakBadge / XpBadge / DailyProgressRing
+│   ├── learn/                 # ReviewTabs (탭 전환) / ReviewClient (문장 목록 + 학습 인정) / QuizView (퀴즈 드릴 엔진) / SessionSummary / InputForm / TagPicker (프리셋 태그 선택/관리) / GoalForm / GoalProgressCard / LearningCalendar (월간 암기 히트맵) / StreakBadge / XpBadge
 │   ├── ui/                    # shadcn 컴포넌트
 │   ├── Navbar.tsx
 │   ├── BottomNav.tsx          # 모바일 하단 4탭 네비게이션

@@ -143,7 +143,7 @@ src/
 │   └── globals.css            # Tailwind v4 + 시맨틱 컬러 토큰 + 커스텀 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm/SignupForm/ForgotPasswordForm/ResetPasswordForm/KakaoButton/AuthBannerSlot/AuthHashHandler/AuthLayout
-│   ├── learn/                 # ReviewTabs (탭 전환), ReviewClient (문장 목록 + 학습 인정), QuizView (퀴즈 드릴 엔진), SessionSummary, InputForm, TagPicker (프리셋 태그 선택/관리), GoalForm, GoalProgressCard, LearningCalendar (월간 암기 히트맵), StreakBadge, XpBadge, DailyProgressRing
+│   ├── learn/                 # ReviewTabs (탭 전환), ReviewClient (문장 목록 + 학습 인정), QuizView (퀴즈 드릴 엔진), SessionSummary, InputForm, TagPicker (프리셋 태그 선택/관리), GoalForm, GoalProgressCard, LearningCalendar (월간 암기 히트맵), StreakBadge, XpBadge
 │   ├── ui/                    # shadcn: button, card, input, label, alert-dialog, skeleton, badge, sonner, progress, dialog, separator, tooltip
 │   ├── Navbar.tsx             # "use client", 프로스티드 글래스, 데스크톱 인라인에는 이메일+로그아웃만 표시, 사이드바에 문장 입력/학습하기/학습 목표 메뉴 포함
 │   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭 (홈/입력/학습/프로필), md:hidden
