@@ -170,17 +170,31 @@ export async function fetchGoalProgress(supabase: SupabaseClient, userId: string
   const stats = await fetchUserStats(supabase, userId);
   if (!stats?.total_goal || !stats.goal_period_days || !stats.goal_start_date) return null;
 
-  const memorized = await fetchMemorizedCount(supabase, userId);
   const totalGoal = stats.total_goal;
   const periodDays = stats.goal_period_days;
   const startDate = stats.goal_start_date;
-
   const today = todayKST();
+
+  // 문장별 최초 정답 KST 날짜 → 전체 누적(memorized) / 오늘 이전 누적(memorizedBeforeToday) 동시 산출
+  const { data } = await supabase.from("practice_results").select("sentence_id, practiced_at").eq("user_id", userId).eq("is_correct", true);
+  const firstDate = new Map<string, string>();
+  for (const row of (data ?? []) as { sentence_id: string; practiced_at: string }[]) {
+    const d = new Date(row.practiced_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+    const prev = firstDate.get(row.sentence_id);
+    if (!prev || d < prev) firstDate.set(row.sentence_id, d);
+  }
+  const memorized = firstDate.size;
+  let memorizedBeforeToday = 0;
+  firstDate.forEach((d) => {
+    if (d < today) memorizedBeforeToday++;
+  });
+
   const elapsed = Math.max(0, Math.min(periodDays, diffDays(startDate, today)));
   const remaining = Math.max(0, periodDays - elapsed);
 
-  const left = Math.max(0, totalGoal - memorized);
-  const dailyMinimum = left === 0 ? 0 : remaining === 0 ? left : Math.ceil(left / remaining);
+  // 오늘 최소 목표: 오늘 시작 시점의 미암기 수 기준 → 당일 진척이 분모를 깎지 않음(하루 동안 고정, 다음 날 재계산)
+  const leftBeforeToday = Math.max(0, totalGoal - memorizedBeforeToday);
+  const dailyMinimum = leftBeforeToday === 0 ? 0 : remaining === 0 ? leftBeforeToday : Math.ceil(leftBeforeToday / remaining);
 
   const percentage = totalGoal > 0 ? Math.min(Math.round((memorized / totalGoal) * 100), 100) : 0;
   const isOnTrack = memorized * periodDays >= totalGoal * elapsed;
