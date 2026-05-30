@@ -587,6 +587,10 @@ export default function ReviewClient({
                         onChange={(next) => setEditing({ ...editing, tags: next })}
                         presets={presets}
                         onPresetsChange={setPresets}
+                        onTagRenamed={(oldName, newName) => {
+                          setSentences((prev) => prev.map((s) => ({ ...s, tags: s.tags.map((t) => (t === oldName ? newName : t)) })));
+                          setTagFilter((prev) => (prev === oldName ? newName : prev));
+                        }}
                       />
                     </div>
                     {editing.englishText.trim() !== editing.originalEnglish && (
