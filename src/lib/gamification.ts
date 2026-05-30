@@ -18,6 +18,19 @@ function diffDays(fromISO: string, toISO: string): number {
   return Math.round((to - from) / 86_400_000);
 }
 
+// 읽기 시점 스트릭 보정: last_practice_date(= 마지막 일일 목표 달성일)가 오늘도 어제도 아니면 이미 끊긴 것으로 보고 0 반환.
+// current_streak은 recordPractice가 돌 때만 갱신되므로, 공백 기간 동안 옛 값이 남는 문제를 표시 단계에서 보정한다.
+// (오늘이 last_practice_date면 오늘 목표 달성 완료, 어제면 오늘 목표를 채울 때까지 유지 상태로 본다.)
+export function effectiveStreak(stats: Pick<UserStats, "current_streak" | "last_practice_date"> | null): number {
+  if (!stats?.last_practice_date) return 0;
+  const today = todayKST();
+  const yesterday = yesterdayKST();
+  if (stats.last_practice_date === today || stats.last_practice_date === yesterday) {
+    return stats.current_streak;
+  }
+  return 0;
+}
+
 export async function fetchUserStats(supabase: SupabaseClient, userId: string): Promise<UserStats | null> {
   const { data } = await supabase.from("user_stats").select("*").eq("user_id", userId).single();
 
@@ -84,27 +97,31 @@ export async function recordPractice(
 
   const stats = await fetchUserStats(supabase, userId);
   if (!stats) {
-    return { xpEarned, totalXp: xpEarned, currentStreak: 1, dailyCompleted: 1, isNewStreakDay: true };
+    return { xpEarned, totalXp: xpEarned, currentStreak: 0, dailyCompleted: isCorrect ? 1 : 0, isNewStreakDay: false };
   }
+
+  const newTotalXp = stats.total_xp + xpEarned;
+
+  // 오늘 신규 암기 수와 "오늘의 일일 목표"(홈 표시와 동일: 장기 목표가 있으면 동적 dailyMinimum, 없으면 daily_goal)
+  const { completed } = await fetchDailyProgress(supabase, userId);
+  const goalProgress = await fetchGoalProgress(supabase, userId);
+  const dailyGoal = goalProgress?.dailyMinimum && goalProgress.dailyMinimum > 0 ? goalProgress.dailyMinimum : (stats.daily_goal ?? 5);
+  // 스트릭은 "일일 목표를 달성한 날"만 카운트. 장기 목표를 이미 모두 채운 경우(dailyMinimum===0)는 학습만 해도 유지.
+  const goalMet = goalProgress && goalProgress.dailyMinimum === 0 ? completed > 0 : completed >= dailyGoal;
 
   const today = todayKST();
   const yesterday = yesterdayKST();
   let { current_streak, longest_streak } = stats;
   let isNewStreakDay = false;
 
-  if (stats.last_practice_date !== today) {
+  // last_practice_date = 마지막으로 일일 목표를 달성한 날. 하루 한 번만 반영.
+  if (goalMet && stats.last_practice_date !== today) {
     isNewStreakDay = true;
-    if (stats.last_practice_date === yesterday) {
-      current_streak += 1;
-    } else {
-      current_streak = 1;
-    }
+    current_streak = stats.last_practice_date === yesterday ? current_streak + 1 : 1;
     if (current_streak > longest_streak) {
       longest_streak = current_streak;
     }
   }
-
-  const newTotalXp = stats.total_xp + xpEarned;
 
   await supabase
     .from("user_stats")
@@ -112,11 +129,10 @@ export async function recordPractice(
       total_xp: newTotalXp,
       current_streak,
       longest_streak,
-      last_practice_date: today,
+      // 목표를 달성해 새로 카운트한 날만 갱신 (미달이면 직전 달성일 유지 → 그날 안에 목표를 채우면 스트릭 유지)
+      ...(isNewStreakDay ? { last_practice_date: today } : {}),
     })
     .eq("user_id", userId);
-
-  const { completed } = await fetchDailyProgress(supabase, userId);
 
   return { xpEarned, totalXp: newTotalXp, currentStreak: current_streak, dailyCompleted: completed, isNewStreakDay };
 }

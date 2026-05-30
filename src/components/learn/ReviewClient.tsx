@@ -29,6 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 import TagPicker from "@/components/learn/TagPicker";
 import { textsMatch } from "@/lib/normalize-text";
 import { tagColorClass } from "@/lib/tag-color";
@@ -348,6 +349,10 @@ export default function ReviewClient({
   const validSelected = ascDates.includes(selectedDay) ? selectedDay : (ascDates[ascDates.length - 1] ?? "");
   const idx = ascDates.indexOf(validSelected);
 
+  // 오늘 입력한 문장이 없어 자동으로 마지막(최신) 일차를 보고 있는 상태: 안내 배너 표시
+  const noTodayInput = ascDates.length > 0 && !ascDates.includes(todayKst);
+  const showNoTodayNotice = noTodayInput && !showAll && validSelected === ascDates[ascDates.length - 1];
+
   const goPrev = () => {
     setShowAll(false);
     if (idx > 0) setSelectedDay(ascDates[idx - 1]);
@@ -388,6 +393,14 @@ export default function ReviewClient({
 
       {sentences.length > 0 && (
         <div className="flex flex-col gap-3">
+          {showNoTodayNotice && (
+            <div className="border-brand/20 bg-brand/5 rounded-lg border p-4 text-center">
+              <p className="text-muted-foreground mb-3 text-sm">오늘 학습할 문장이 아직 없습니다. 최근 학습일차를 표시하고 있어요.</p>
+              <Button variant="brand" size="sm" nativeButton={false} render={<Link href="/learn/input" />}>
+                문장 입력하러 가기
+              </Button>
+            </div>
+          )}
           {ascDates.length > 1 && (
             <div className="flex flex-wrap items-center justify-center gap-2">
               <Button variant={showAll ? "brand" : "outline"} size="sm" onClick={() => setShowAll(true)}>

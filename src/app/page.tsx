@@ -4,7 +4,7 @@ import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized } from "@/lib/gamification";
+import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized, effectiveStreak } from "@/lib/gamification";
 import StreakBadge from "@/components/learn/StreakBadge";
 import GoalProgressCard from "@/components/learn/GoalProgressCard";
 import LearningCalendar from "@/components/learn/LearningCalendar";
@@ -72,6 +72,7 @@ export default async function Home() {
     ]);
     const hasSentences = (count ?? 0) > 0;
     const dailyGoalDisplay = goalProgress?.dailyMinimum && goalProgress.dailyMinimum > 0 ? goalProgress.dailyMinimum : dailyProgress.goal;
+    const currentStreak = effectiveStreak(stats);
 
     return (
       <main className="mx-auto flex min-h-[calc(100vh-200px)] max-w-3xl flex-col gap-8 px-6 py-10">
@@ -81,10 +82,10 @@ export default async function Home() {
             <h1 className="text-2xl font-bold tracking-tight">
               안녕하세요, <span className="text-brand">{username}</span>님!
             </h1>
-            {stats && <StreakBadge streak={stats.current_streak} />}
+            {stats && <StreakBadge streak={currentStreak} />}
           </div>
           <p className="text-muted-foreground">
-            {stats?.current_streak && stats.current_streak > 0 ? "꾸준히 잘 하고 있어요! 오늘도 이어가세요." : "오늘 첫 학습을 시작해 볼까요?"}
+            {currentStreak > 0 ? "꾸준히 잘 하고 있어요! 오늘도 이어가세요." : "오늘 첫 학습을 시작해 볼까요?"}
           </p>
         </div>
 
@@ -103,7 +104,7 @@ export default async function Home() {
           <Card className="border-streak-orange/20 bg-streak-orange/5">
             <CardContent className="flex flex-col items-center gap-1 py-4">
               <Flame size={20} className="text-streak-orange" />
-              <span className="text-streak-orange text-xl font-bold">{stats?.current_streak ?? 0}일</span>
+              <span className="text-streak-orange text-xl font-bold">{currentStreak}일</span>
               <span className="text-muted-foreground text-[11px]">연속</span>
             </CardContent>
           </Card>
