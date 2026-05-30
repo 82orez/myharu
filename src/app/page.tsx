@@ -6,7 +6,6 @@ import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
 import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized } from "@/lib/gamification";
 import StreakBadge from "@/components/learn/StreakBadge";
-import DailyProgressRing from "@/components/learn/DailyProgressRing";
 import GoalProgressCard from "@/components/learn/GoalProgressCard";
 import LearningCalendar from "@/components/learn/LearningCalendar";
 
@@ -89,11 +88,11 @@ export default async function Home() {
           </p>
         </div>
 
-        {/* 장기 목표 진도 */}
-        <GoalProgressCard goal={goalProgress} />
+        {/* 장기 목표 진도 + 당일 진행률 */}
+        <GoalProgressCard goal={goalProgress} dailyCompleted={dailyProgress.completed} dailyGoal={dailyGoalDisplay} />
 
         {/* 스탯 카드 */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <Card className="border-xp-gold/20 bg-xp-gold/5">
             <CardContent className="flex flex-col items-center gap-1 py-4">
               <Star size={20} className="text-xp-gold" />
@@ -106,12 +105,6 @@ export default async function Home() {
               <Flame size={20} className="text-streak-orange" />
               <span className="text-streak-orange text-xl font-bold">{stats?.current_streak ?? 0}일</span>
               <span className="text-muted-foreground text-[11px]">연속</span>
-            </CardContent>
-          </Card>
-          <Card className="border-brand/20 bg-brand/5">
-            <CardContent className="flex flex-col items-center gap-1 py-4">
-              <DailyProgressRing completed={dailyProgress.completed} goal={dailyGoalDisplay} className="scale-[0.55]" />
-              <span className="text-muted-foreground text-[11px]">오늘 목표</span>
             </CardContent>
           </Card>
         </div>
