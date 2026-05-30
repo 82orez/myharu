@@ -136,7 +136,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     <Card className="mx-auto w-full max-w-md">
       <CardHeader className="pb-2">
         <div className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-full bg-brand/10 text-brand">
+          <div className="bg-brand/10 text-brand flex h-8 w-8 items-center justify-center rounded-full">
             <PenLine size={16} />
           </div>
           <CardTitle className="text-2xl font-extrabold">문장 입력</CardTitle>
@@ -157,11 +157,11 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               readOnly={isPreview}
               aria-invalid={!!error}
               aria-describedby={error ? "input-error" : undefined}
-              className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[80px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 read-only:bg-muted/50"
+              className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 read-only:bg-muted/50 flex min-h-[80px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
               maxLength={MAX_LENGTH}
             />
             <div className="flex items-center justify-between">
-              <p className="text-xs text-muted-foreground">예시: I&apos;m really glad to see you again after such a long time.</p>
+              <p className="text-muted-foreground text-xs">예시: I&apos;m really glad to see you again after such a long time.</p>
               <span className={`text-xs ${englishText.length > WARN_THRESHOLD ? "text-destructive" : "text-muted-foreground"}`}>
                 {englishText.length}/{MAX_LENGTH}
               </span>
@@ -179,7 +179,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               value={koreanText}
               onChange={(e) => setKoreanText(e.target.value)}
               readOnly={isPreview}
-              className="h-10 read-only:bg-muted/50"
+              className="read-only:bg-muted/50 h-10"
               maxLength={MAX_LENGTH}
             />
             <div className="flex justify-end">
@@ -190,13 +190,13 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
           </div>
 
           <div className="flex flex-col gap-2">
-            <Label htmlFor="tags">태그 (선택)</Label>
+            <Label htmlFor="tags">Tag (Optional)</Label>
             <TagPicker value={tags} onChange={setTags} presets={presets} onPresetsChange={setPresets} disabled={pending} />
           </div>
 
           {isPreview && audioUrl && (
-            <div className="animate-in fade-in slide-in-from-bottom-2 flex flex-col gap-3 rounded-xl border border-brand/20 bg-brand/5 p-4">
-              <div className="flex items-center gap-2 text-sm font-medium text-brand">
+            <div className="animate-in fade-in slide-in-from-bottom-2 border-brand/20 bg-brand/5 flex flex-col gap-3 rounded-xl border p-4">
+              <div className="text-brand flex items-center gap-2 text-sm font-medium">
                 <Volume2 size={16} />
                 음성 미리듣기
               </div>
@@ -205,7 +205,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
           )}
 
           {error && (
-            <p id="input-error" className="text-sm text-destructive" role="alert">
+            <p id="input-error" className="text-destructive text-sm" role="alert">
               {error}
             </p>
           )}
@@ -218,13 +218,24 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
           {!isPreview ? (
             <Button type="button" onClick={handleGenerate} disabled={pending} variant="brand" className="mt-2 h-12 rounded-xl text-lg font-bold">
               {generating && <Loader2 className="animate-spin" />}
-              {generating ? "음성 생성 중..." : "음성 생성"}
+              {generating ? "음성 생성 중" : "AI 음성 생성"}
             </Button>
           ) : (
             <div className="mt-2 flex gap-2">
-              <Button type="button" onClick={() => setRegenConfirmOpen(true)} disabled={pending} variant="outline" className="h-12 flex-1 rounded-xl font-bold">
+              <Button
+                type="button"
+                onClick={() => setRegenConfirmOpen(true)}
+                disabled={pending}
+                variant="outline"
+                className="h-12 flex-1 rounded-xl font-bold">
                 {generating && <Loader2 className="animate-spin" />}
-                {generating ? "생성 중..." : <><RotateCcw size={16} /> 다시 생성</>}
+                {generating ? (
+                  "생성 중"
+                ) : (
+                  <>
+                    <RotateCcw size={16} /> 다시 생성
+                  </>
+                )}
               </Button>
               <Button type="button" onClick={handleSave} disabled={pending} variant="brand" className="h-12 flex-1 rounded-xl text-lg font-bold">
                 {saving && <Loader2 className="animate-spin" />}
@@ -254,17 +265,21 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
           </AlertDialog>
 
           {isPreview && (
-            <button type="button" onClick={handleReset} disabled={pending} className="text-sm text-muted-foreground underline-offset-4 hover:underline">
+            <button
+              type="button"
+              onClick={handleReset}
+              disabled={pending}
+              className="text-muted-foreground text-sm underline-offset-4 hover:underline">
               처음부터 다시 입력
             </button>
           )}
         </div>
 
         {recentSave && (
-          <div className="animate-in fade-in slide-in-from-bottom-2 mt-4 rounded-md border border-border bg-muted/40 px-3 py-2">
-            <p className="mb-1 text-xs font-medium text-muted-foreground">최근 저장</p>
+          <div className="animate-in fade-in slide-in-from-bottom-2 border-border bg-muted/40 mt-4 rounded-md border px-3 py-2">
+            <p className="text-muted-foreground mb-1 text-xs font-medium">최근 저장</p>
             <p className="text-sm">{recentSave.english}</p>
-            <p className="text-xs text-muted-foreground">{recentSave.korean}</p>
+            <p className="text-muted-foreground text-xs">{recentSave.korean}</p>
           </div>
         )}
       </CardContent>
