@@ -49,11 +49,40 @@ const CONTRACTIONS: Record<string, string> = {
 
 const CONTRACTION_PATTERN = new RegExp("\\b(" + Object.keys(CONTRACTIONS).join("|").replace(/'/g, "'") + ")\\b", "g");
 
+// 구어 변형 철자 → 표준형. 정답·입력 양쪽에 동일하게 적용되므로 거짓 오답만 줄어든다.
+const VARIANTS: Record<string, string> = {
+  // ok 계열 → 표준 "ok"
+  okay: "ok",
+  okey: "ok",
+  // 구어 긍정/부정
+  yeah: "yes",
+  yep: "yes",
+  yup: "yes",
+  nope: "no",
+  // 구어 축약 (going to 류)
+  gonna: "going to",
+  wanna: "want to",
+  gotta: "got to",
+  gimme: "give me",
+  lemme: "let me",
+  kinda: "kind of",
+  sorta: "sort of",
+  // 접속/전치사 변형
+  cause: "because",
+  cuz: "because",
+  til: "until",
+  till: "until",
+  thru: "through",
+};
+
+const VARIANT_PATTERN = new RegExp("\\b(" + Object.keys(VARIANTS).join("|") + ")\\b", "g");
+
 export function normalizeText(text: string): string {
   return text
     .replace(/[‘’′]/g, "'")
     .toLowerCase()
     .replace(CONTRACTION_PATTERN, (match) => CONTRACTIONS[match] ?? match)
+    .replace(VARIANT_PATTERN, (match) => VARIANTS[match] ?? match)
     .replace(/[^\w\s]|_/g, "")
     .replace(/\s+/g, " ")
     .trim();
