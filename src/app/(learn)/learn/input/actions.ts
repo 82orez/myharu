@@ -45,7 +45,29 @@ export async function generateAudio(englishText: string): Promise<GenerateAudioR
   }
 }
 
-export async function saveSentence(englishText: string, koreanText: string, audioBase64: string, tags: string[] = []): Promise<SaveSentenceResult> {
+// 업로드 허용 오디오 포맷 화이트리스트 (mime → 확장자)
+const ALLOWED_AUDIO: Record<string, string> = {
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/aac": "aac",
+  "audio/ogg": "ogg",
+  "audio/webm": "webm",
+};
+const ALLOWED_EXT = new Set(["mp3", "wav", "m4a", "aac", "ogg", "webm"]);
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10MB
+
+export async function saveSentence(
+  englishText: string,
+  koreanText: string,
+  audioBase64: string,
+  tags: string[] = [],
+  audioMime: string = "audio/mpeg",
+  audioExt: string = "mp3",
+): Promise<SaveSentenceResult> {
   const english = englishText.trim();
   const korean = koreanText.trim();
   const cleanTags = sanitizeTags(tags);
@@ -63,7 +85,11 @@ export async function saveSentence(englishText: string, koreanText: string, audi
   }
 
   if (!audioBase64) {
-    return { error: "음성 데이터가 없습니다. 음성을 먼저 생성해 주세요." };
+    return { error: "음성 데이터가 없습니다. 음성을 먼저 생성하거나 파일을 업로드해 주세요." };
+  }
+
+  if (!ALLOWED_AUDIO[audioMime] || !ALLOWED_EXT.has(audioExt)) {
+    return { error: "지원하지 않는 오디오 형식입니다." };
   }
 
   const supabase = createClient(await cookies());
@@ -76,11 +102,16 @@ export async function saveSentence(englishText: string, koreanText: string, audi
   }
 
   const audioBuffer = Buffer.from(audioBase64, "base64");
+
+  if (audioBuffer.length > MAX_AUDIO_BYTES) {
+    return { error: "파일 크기는 10MB 이하여야 합니다." };
+  }
+
   const fileId = crypto.randomUUID();
-  const storagePath = `${user.id}/${fileId}.mp3`;
+  const storagePath = `${user.id}/${fileId}.${audioExt}`;
 
   const { error: uploadError } = await supabase.storage.from("tts-audio").upload(storagePath, audioBuffer, {
-    contentType: "audio/mpeg",
+    contentType: audioMime,
     upsert: false,
   });
 

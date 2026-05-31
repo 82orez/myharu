@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Loader2, PenLine, Volume2, RotateCcw } from "lucide-react";
+import { Loader2, PenLine, Volume2, RotateCcw, Upload } from "lucide-react";
 import { generateAudio, saveSentence } from "@/app/(learn)/learn/input/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,8 +21,34 @@ import {
 
 const MAX_LENGTH = 500;
 const WARN_THRESHOLD = 450;
+const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10MB
+
+// 업로드 허용 오디오 포맷 (mime → 확장자)
+const ALLOWED_AUDIO: Record<string, string> = {
+  "audio/mpeg": "mp3",
+  "audio/mp3": "mp3",
+  "audio/wav": "wav",
+  "audio/x-wav": "wav",
+  "audio/mp4": "m4a",
+  "audio/x-m4a": "m4a",
+  "audio/aac": "aac",
+  "audio/ogg": "ogg",
+  "audio/webm": "webm",
+};
+
+// ArrayBuffer → base64 (큰 파일도 안전하게 청크 처리)
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
+  }
+  return btoa(binary);
+}
 
 type Phase = "input" | "preview" | "saving";
+type AudioSource = "ai" | "upload";
 
 export default function InputForm({ initialPresets = [] }: { initialPresets?: string[] }) {
   const [englishText, setEnglishText] = useState("");
@@ -32,6 +58,9 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
   const [phase, setPhase] = useState<Phase>("input");
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
+  const [audioSource, setAudioSource] = useState<AudioSource>("ai");
+  const [audioMime, setAudioMime] = useState<string>("audio/mpeg");
+  const [audioExt, setAudioExt] = useState<string>("mp3");
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [recentSave, setRecentSave] = useState<{ english: string; korean: string } | null>(null);
@@ -39,6 +68,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
   const [saving, startSaving] = useTransition();
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     return () => {
@@ -73,8 +103,49 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       const url = base64ToBlobUrl(result.audioBase64);
       setAudioBase64(result.audioBase64);
       setAudioUrl(url);
+      setAudioSource("ai");
+      setAudioMime("audio/mpeg");
+      setAudioExt("mp3");
       setPhase("preview");
     });
+  }
+
+  function handleUploadClick() {
+    if (!englishText.trim() || !koreanText.trim()) {
+      setError("영어 문장과 한국어 뜻을 모두 입력해 주세요.");
+      return;
+    }
+    setError(null);
+    fileInputRef.current?.click();
+  }
+
+  async function handleFileSelected(file: File) {
+    setError(null);
+    setSuccess(null);
+
+    const ext = ALLOWED_AUDIO[file.type];
+    if (!file.type.startsWith("audio/") || !ext) {
+      setError("오디오 파일만 업로드할 수 있습니다. (mp3, wav, m4a, aac, ogg, webm)");
+      return;
+    }
+    if (file.size > MAX_AUDIO_BYTES) {
+      setError("파일 크기는 10MB 이하여야 합니다.");
+      return;
+    }
+
+    try {
+      const buffer = await file.arrayBuffer();
+      const base64 = arrayBufferToBase64(buffer);
+      if (audioUrl) URL.revokeObjectURL(audioUrl);
+      setAudioBase64(base64);
+      setAudioUrl(URL.createObjectURL(file));
+      setAudioSource("upload");
+      setAudioMime(file.type);
+      setAudioExt(ext);
+      setPhase("preview");
+    } catch {
+      setError("파일을 읽는 중 오류가 발생했습니다. 다시 시도해 주세요.");
+    }
   }
 
   function handleRegenerate() {
@@ -101,7 +172,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setError(null);
 
     startSaving(async () => {
-      const result = await saveSentence(englishText, koreanText, audioBase64, tags);
+      const result = await saveSentence(englishText, koreanText, audioBase64, tags, audioMime, audioExt);
 
       if ("error" in result) {
         setError(result.error);
@@ -116,6 +187,9 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioBase64(null);
       setAudioUrl(null);
+      setAudioSource("ai");
+      setAudioMime("audio/mpeg");
+      setAudioExt("mp3");
       setPhase("input");
     });
   }
@@ -124,6 +198,9 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioBase64(null);
     setAudioUrl(null);
+    setAudioSource("ai");
+    setAudioMime("audio/mpeg");
+    setAudioExt("mp3");
     setError(null);
     setSuccess(null);
     setPhase("input");
@@ -198,7 +275,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
             <div className="animate-in fade-in slide-in-from-bottom-2 border-brand/20 bg-brand/5 flex flex-col gap-3 rounded-xl border p-4">
               <div className="text-brand flex items-center gap-2 text-sm font-medium">
                 <Volume2 size={16} />
-                음성 미리듣기
+                {audioSource === "upload" ? "업로드한 음성" : "음성 미리듣기"}
               </div>
               <audio ref={audioRef} src={audioUrl} controls className="w-full" />
             </div>
@@ -215,28 +292,61 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
             </p>
           )}
 
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileSelected(file);
+              e.target.value = ""; // 같은 파일 재선택 허용
+            }}
+          />
+
           {!isPreview ? (
-            <Button type="button" onClick={handleGenerate} disabled={pending} variant="brand" className="mt-2 h-12 rounded-xl text-lg font-bold">
-              {generating && <Loader2 className="animate-spin" />}
-              {generating ? "음성 생성 중" : "AI 음성 생성"}
-            </Button>
-          ) : (
-            <div className="mt-2 flex gap-2">
+            <div className="mt-2 flex flex-col gap-2">
+              <Button type="button" onClick={handleGenerate} disabled={pending} variant="brand" className="h-12 rounded-xl text-lg font-bold">
+                {generating && <Loader2 className="animate-spin" />}
+                {generating ? "음성 생성 중" : "AI 음성 생성"}
+              </Button>
               <Button
                 type="button"
-                onClick={() => setRegenConfirmOpen(true)}
+                onClick={handleUploadClick}
                 disabled={pending}
                 variant="outline"
-                className="h-12 flex-1 rounded-xl font-bold">
-                {generating && <Loader2 className="animate-spin" />}
-                {generating ? (
-                  "생성 중"
-                ) : (
-                  <>
-                    <RotateCcw size={16} /> 다시 생성
-                  </>
-                )}
+                className="h-12 rounded-xl font-bold">
+                <Upload size={16} /> 음원 파일 업로드
               </Button>
+            </div>
+          ) : (
+            <div className="mt-2 flex gap-2">
+              {audioSource === "ai" ? (
+                <Button
+                  type="button"
+                  onClick={() => setRegenConfirmOpen(true)}
+                  disabled={pending}
+                  variant="outline"
+                  className="h-12 flex-1 rounded-xl font-bold">
+                  {generating && <Loader2 className="animate-spin" />}
+                  {generating ? (
+                    "생성 중"
+                  ) : (
+                    <>
+                      <RotateCcw size={16} /> 다시 생성
+                    </>
+                  )}
+                </Button>
+              ) : (
+                <Button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={pending}
+                  variant="outline"
+                  className="h-12 flex-1 rounded-xl font-bold">
+                  <Upload size={16} /> 다른 파일 선택
+                </Button>
+              )}
               <Button type="button" onClick={handleSave} disabled={pending} variant="brand" className="h-12 flex-1 rounded-xl text-lg font-bold">
                 {saving && <Loader2 className="animate-spin" />}
                 {saving ? "저장 중..." : "저장"}
