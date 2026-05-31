@@ -28,6 +28,10 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - `NEXT_PUBLIC_SITE_NAME` — Navbar/Footer 표시명. 기본 "My Haru".
 - `OPENAI_API_KEY` — 서버 전용. TTS 음성 생성(`lib/openai.ts`)에 필요.
 
+## 배포
+
+`vercel.json` `regions: ["icn1"]`(서울) — 서버리스 함수(Server Actions·route handler·SSR) 실행 리전. 정적 에셋은 글로벌 CDN. **함수↔Supabase 왕복이 지연 좌우** → Supabase도 서울(`ap-northeast-2`)이어야 효과. Hobby는 단일 리전만 허용.
+
 ## 인증 아키텍처
 
 **흐름**: ① 프록시(`src/proxy.ts`)가 모든 요청에서 `updateSession`으로 토큰 갱신 → ② 서버 컴포넌트/액션은 `createClient(await cookies())`(`@/utils/supabase/server`)로 `getUser()` → ③ 브라우저는 `@/utils/supabase/client`의 `createClient()`로 세션 변화 구독 → ④ 이메일/OAuth callback은 `src/app/auth/confirm/route.ts`에서 `verifyOtp`/`exchangeCodeForSession` 후 redirect.

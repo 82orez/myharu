@@ -1,0 +1,13 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "deny": [
+      "Read(.next/**)",
+      "Read(node_modules/**)",
+      "Read(out/**)",
+      "Read(build/**)",
+      "Read(coverage/**)",
+      "Read(package-lock.json)"
+    ]
+  }
+}
