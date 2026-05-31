@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
-import { Loader2, PenLine, Volume2, RotateCcw, Upload } from "lucide-react";
+import Link from "next/link";
+import { Loader2, PenLine, Volume2, RotateCcw, Upload, CalendarDays } from "lucide-react";
 import { generateAudio, saveSentence } from "@/app/(learn)/learn/input/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -310,13 +311,11 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                 {generating && <Loader2 className="animate-spin" />}
                 {generating ? "음성 생성 중" : "AI 음성 생성"}
               </Button>
-              <Button
-                type="button"
-                onClick={handleUploadClick}
-                disabled={pending}
-                variant="outline"
-                className="h-12 rounded-xl font-bold">
+              <Button type="button" onClick={handleUploadClick} disabled={pending} variant="outline" className="h-12 rounded-xl font-bold">
                 <Upload size={16} /> 음원 파일 업로드
+              </Button>
+              <Button nativeButton={false} render={<Link href="/learn/review" />} variant="secondary" className="mt-4 h-12 rounded-xl font-bold">
+                <CalendarDays size={16} /> 학습하러 가기
               </Button>
             </div>
           ) : (

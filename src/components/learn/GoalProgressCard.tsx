@@ -66,14 +66,13 @@ export default function GoalProgressCard({
   dailyCompleted: number;
   dailyGoal: number;
 }) {
-  // 당일 진행률
+  // 당일 진행률 (색은 "오늘" 고정 = 금색, 상태와 무관하게 "전체"(인디고)와 구분)
   const dailyPct = dailyGoal > 0 ? Math.min((dailyCompleted / dailyGoal) * 100, 100) : 0;
-  const dailyDone = dailyGoal > 0 && dailyCompleted >= dailyGoal;
   const dailyRing = (
     <RingBlock
       label="오늘"
       percent={dailyPct}
-      colorClass={dailyDone ? "text-success" : "text-brand"}
+      colorClass="text-xp-gold"
       top={<span className="text-4xl font-bold tabular-nums">{Math.round(dailyPct)}%</span>}
       bottom={
         <div className="text-muted-foreground mt-1.5 flex items-baseline gap-1 text-sm">
@@ -106,7 +105,8 @@ export default function GoalProgressCard({
   const periodEnded = goal.daysRemaining === 0 && !goalCompleted;
   // 소수 첫째 자리까지 표시하기 위해 memorized/totalGoal로 재계산 (goal.percentage는 정수 반올림값)
   const percentExact = goal.totalGoal > 0 ? Math.min((goal.memorized / goal.totalGoal) * 100, 100) : 0;
-  const overallColor = goalCompleted || goal.isOnTrack ? "text-success" : "text-streak-orange";
+  // "전체" 링은 인디고 고정 (달성 상태는 하단 페이스 배너가 표현, 색은 "오늘"(금색)과 구분 용도)
+  const overallColor = "text-brand";
 
   return (
     <Card className="border-brand/20">
