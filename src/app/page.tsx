@@ -84,30 +84,39 @@ export default async function Home() {
             </h1>
             {stats && <StreakBadge streak={currentStreak} />}
           </div>
-          <p className="text-muted-foreground">
-            {currentStreak > 0 ? "꾸준히 잘 하고 있어요! 오늘도 이어가세요." : "오늘 첫 학습을 시작해 볼까요?"}
-          </p>
+          <p className="text-muted-foreground">{currentStreak > 0 ? "꾸준히 잘 하고 있어요! 오늘도 이어가세요." : "오늘 첫 학습을 시작해 볼까요?"}</p>
         </div>
 
         {/* 장기 목표 진도 + 당일 진행률 */}
         <GoalProgressCard goal={goalProgress} dailyCompleted={dailyProgress.completed} dailyGoal={dailyGoalDisplay} />
 
         {/* 스탯 카드 */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className={`grid gap-3 ${goalProgress ? "grid-cols-3" : "grid-cols-2"}`}>
           <Card className="border-xp-gold/20 bg-xp-gold/5">
             <CardContent className="flex flex-col items-center gap-1 py-4">
               <Star size={20} className="text-xp-gold" />
-              <span className="text-xp-gold text-xl font-bold">{stats?.total_xp?.toLocaleString() ?? 0}</span>
-              <span className="text-muted-foreground text-[11px]">XP</span>
+              <span className="text-muted-foreground text-sm font-medium">획득한 XP</span>
+              <span className="text-xp-gold text-3xl font-bold tabular-nums">{stats?.total_xp?.toLocaleString() ?? 0}</span>
             </CardContent>
           </Card>
           <Card className="border-streak-orange/20 bg-streak-orange/5">
             <CardContent className="flex flex-col items-center gap-1 py-4">
               <Flame size={20} className="text-streak-orange" />
-              <span className="text-streak-orange text-xl font-bold">{currentStreak}일</span>
-              <span className="text-muted-foreground text-[11px]">연속</span>
+              <span className="text-muted-foreground text-sm font-medium">연속 성공 날짜수</span>
+              <span className="text-streak-orange text-3xl font-bold tabular-nums">{currentStreak}일</span>
             </CardContent>
           </Card>
+          {goalProgress && (
+            <Card className="border-brand/20 bg-brand/5">
+              <CardContent className="flex flex-col items-center gap-1 py-4">
+                <Target size={20} className="text-brand" />
+                <span className="text-muted-foreground text-sm font-medium">도전 시작</span>
+                <span className="text-brand text-3xl font-bold tabular-nums">
+                  {Math.min(goalProgress.daysElapsed + 1, goalProgress.periodDays)}일차
+                </span>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         {/* 학습 달력 (월간 암기 히트맵) */}
@@ -172,8 +181,8 @@ export default async function Home() {
             <span className="text-brand">나의 하루</span>
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. XP를 모으고 스트릭을 이어가며 매일 성장하는 학습 습관을 만들어
-            보세요.
+            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. XP를 모으고 스트릭을 이어가며 매일 성장하는 학습 습관을
+            만들어 보세요.
           </p>
           <div className="mt-10">
             <Button nativeButton={false} render={<Link href="/signup" />} variant="brand" className="h-12 px-8 text-base font-semibold">
