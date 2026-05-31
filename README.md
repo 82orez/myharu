@@ -184,7 +184,7 @@ src/
 │   ├── (auth)/                # 로그인/회원가입/비밀번호 찾기·재설정/로그아웃/OAuth
 │   ├── (learn)/               # 영어 학습: learn/input (문장 입력), learn/review (학습), learn/goal (장기 목표 설정)
 │   ├── auth/confirm/          # 이메일·OAuth callback 라우트
-│   ├── layout.tsx             # Pretendard + Navbar + Footer + BottomNav + AuthHashHandler + Toaster
+│   ├── layout.tsx             # Pretendard + Navbar + Footer + BottomNav + AuthHashHandler + ScrollToTop + Toaster
 │   ├── page.tsx               # 랜딩 페이지 (비로그인: 마케팅 / 로그인: 게이미피케이션 대시보드)
 │   ├── loading.tsx            # 글로벌 로딩 스피너
 │   ├── error.tsx              # 글로벌 에러 바운더리
@@ -196,6 +196,7 @@ src/
 │   ├── ui/                    # shadcn 컴포넌트
 │   ├── Navbar.tsx
 │   ├── BottomNav.tsx          # 모바일 하단 4탭 네비게이션
+│   ├── ScrollToTop.tsx        # 라우트 이동 시 페이지 최상단으로 스크롤
 │   └── Footer.tsx
 ├── types/
 │   └── gamification.ts        # UserStats, PracticeResult, SessionSummary, QuizMode, GoalProgress 타입

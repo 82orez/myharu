@@ -135,7 +135,7 @@ src/
 │   │   ├── */loading.tsx      # 학습 페이지별 스켈레톤 로딩 UI
 │   │   └── error.tsx          # 학습 영역 에러 바운더리
 │   ├── auth/confirm/route.ts  # OTP/code 처리 (recovery vs OAuth vs signup 분기)
-│   ├── layout.tsx             # Pretendard + Navbar + Footer + BottomNav + AuthHashHandler + Toaster
+│   ├── layout.tsx             # Pretendard + Navbar + Footer + BottomNav + AuthHashHandler + ScrollToTop + Toaster
 │   ├── loading.tsx            # 글로벌 로딩 스피너
 │   ├── error.tsx              # 글로벌 에러 바운더리
 │   ├── not-found.tsx          # 404 페이지
@@ -147,6 +147,7 @@ src/
 │   ├── ui/                    # shadcn: button, card, input, label, alert-dialog, skeleton, badge, sonner, progress, dialog, separator, tooltip
 │   ├── Navbar.tsx             # "use client", 프로스티드 글래스, 데스크톱 인라인에는 이메일+로그아웃만 표시, 사이드바에 문장 입력/학습하기/학습 목표 메뉴 포함
 │   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭 (홈/입력/학습/프로필), md:hidden
+│   ├── ScrollToTop.tsx        # "use client", 라우트(pathname) 변경 시 window.scrollTo(0,0)로 최상단 이동 (브라우저 자동 복원 보완), 렌더 없음
 │   └── Footer.tsx             # 태그라인 + 네비 링크 + 저작권, 모바일 숨김 (hidden md:block)
 ├── types/gamification.ts      # UserStats, PracticeResult, SessionSummary, QuizMode, GoalProgress 타입
 ├── hooks/use-caps-lock.ts
