@@ -33,6 +33,7 @@ import Link from "next/link";
 import TagPicker from "@/components/learn/TagPicker";
 import { textsMatch } from "@/lib/normalize-text";
 import { tagColorClass } from "@/lib/tag-color";
+import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { toast } from "sonner";
 
 type SortMode = "latest" | "oldest" | "alpha";
@@ -68,6 +69,7 @@ export default function ReviewClient({
 }) {
   const [sentences, setSentences] = useState(initialSentences);
   const [presets, setPresets] = useState<string[]>(initialPresets);
+  const [voice] = useSelectedVoice();
   const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
   const [showAll, setShowAll] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
@@ -294,7 +296,7 @@ export default function ReviewClient({
       let audioBase64: string | undefined;
 
       if (needRegen) {
-        const audioResult = await generateAudio(editing.englishText);
+        const audioResult = await generateAudio(editing.englishText, voice);
         if ("error" in audioResult) {
           toast.error(audioResult.error);
           return;

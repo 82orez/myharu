@@ -4,12 +4,14 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 import { sanitizeTags } from "@/lib/tags";
+import { DEFAULT_VOICE, isValidVoice } from "@/lib/tts-voices";
 
 export type GenerateAudioResult = { audioBase64: string } | { error: string };
 export type SaveSentenceResult = { success: string } | { error: string };
 
-export async function generateAudio(englishText: string): Promise<GenerateAudioResult> {
+export async function generateAudio(englishText: string, voice?: string): Promise<GenerateAudioResult> {
   const text = englishText.trim();
+  const safeVoice = isValidVoice(voice) ? voice : DEFAULT_VOICE;
 
   if (!text) {
     return { error: "영어 문장을 입력해 주세요." };
@@ -32,7 +34,7 @@ export async function generateAudio(englishText: string): Promise<GenerateAudioR
     const openai = getOpenAIClient();
     const mp3Response = await openai.audio.speech.create({
       model: "tts-1",
-      voice: "alloy",
+      voice: safeVoice,
       input: text,
       response_format: "mp3",
     });

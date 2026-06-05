@@ -9,6 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import TagPicker from "@/components/learn/TagPicker";
+import VoicePicker from "@/components/learn/VoicePicker";
+import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,6 +58,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
   const [koreanText, setKoreanText] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [presets, setPresets] = useState<string[]>(initialPresets);
+  const [voice, setVoice] = useSelectedVoice();
   const [phase, setPhase] = useState<Phase>("input");
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
@@ -93,7 +96,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setSuccess(null);
 
     startGenerating(async () => {
-      const result = await generateAudio(englishText);
+      const result = await generateAudio(englishText, voice);
 
       if ("error" in result) {
         setError(result.error);
@@ -153,7 +156,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setError(null);
 
     startGenerating(async () => {
-      const result = await generateAudio(englishText);
+      const result = await generateAudio(englishText, voice);
 
       if ("error" in result) {
         setError(result.error);
@@ -307,10 +310,18 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
 
           {!isPreview ? (
             <div className="mt-2 flex flex-col gap-2">
-              <Button type="button" onClick={handleGenerate} disabled={pending} variant="brand" className="h-12 rounded-xl text-lg font-bold">
-                {generating && <Loader2 className="animate-spin" />}
-                {generating ? "음성 생성 중" : "AI 음성 생성"}
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  onClick={handleGenerate}
+                  disabled={pending}
+                  variant="brand"
+                  className="h-12 flex-1 rounded-xl text-lg font-bold">
+                  {generating && <Loader2 className="animate-spin" />}
+                  {generating ? "음성 생성 중" : "AI 음성 생성"}
+                </Button>
+                <VoicePicker value={voice} onChange={setVoice} disabled={pending} />
+              </div>
               <Button type="button" onClick={handleUploadClick} disabled={pending} variant="outline" className="h-12 rounded-xl font-bold">
                 <Upload size={16} /> 음원 파일 업로드
               </Button>
