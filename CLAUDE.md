@@ -48,7 +48,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 세부 UI 동작은 각 컴포넌트 코드 참조. 여기선 구조·데이터 흐름만.
 
-- **문장 입력** (`/learn/input`, `InputForm`): 영어+한국어 입력 → **두 경로 택1** ① AI 음성(`generateAudio`, OpenAI TTS) ② 파일 업로드 → 미리듣기 → `saveSentence`로 Storage 업로드 + `sentences` 저장. 업로드는 `arrayBufferToBase64`로 변환해 AI 경로와 동일 state/UI 공유, `audioSource`로 분기. 허용 포맷(mp3/wav/m4a/aac/ogg/webm)·10MB를 **클라이언트와 `saveSentence` 양쪽 검증**, Storage 경로 `{userId}/{uuid}.{ext}`. 태그는 `TagPicker`로 **프리셋에서 선택**(아래 태그 항목).
+- **문장 입력** (`/learn/input`, `InputForm`): 영어+한국어 입력 → **두 경로 택1** ① AI 음성(`generateAudio`, OpenAI TTS — `VoicePicker`로 음색 선택) ② 파일 업로드 → 미리듣기 → `saveSentence`로 Storage 업로드 + `sentences` 저장. 업로드는 `arrayBufferToBase64`로 변환해 AI 경로와 동일 state/UI 공유, `audioSource`로 분기. 허용 포맷(mp3/wav/m4a/aac/ogg/webm)·10MB를 **클라이언트와 `saveSentence` 양쪽 검증**, Storage 경로 `{userId}/{uuid}.{ext}`. 태그는 `TagPicker`로 **프리셋에서 선택**(아래 태그 항목).
 - **학습** (`/learn/review`, `ReviewTabs`): "문장 목록"(기본) / "퀴즈" 탭. **학습 인정은 문장 목록 탭에서만**.
   - **문장 목록** (`ReviewClient`): 카드별 듣기/말하기(Web Speech API)/쓰기(텍스트)/정답 보기/즐겨찾기/편집/삭제. 말하기·쓰기·오디오는 **한 번에 한 카드만 활성**(상호 배제). 정답 시 `recordPracticeResult(sentenceId, isCorrect, mode)` 호출(`mode: 'speech'|'text'`) + 첫 정답이면 `is_memorized` 즉시 갱신. 필터(모두 클라이언트 AND 결합): 상태(전체/암기 완료/미학습), 일차(입력일별 스테퍼), 본문 검색, 태그, 정렬. 편집은 `generateAudio` 재활용 → `updateSentence(..., tags)`.
   - **퀴즈** (`QuizView`): 한 문제씩(`useReducer` 상태머신 `ready→question→listening→result→summary`). 스피킹/텍스트 모드. **`recordPracticeResult` 미호출(점수 무관)**, 요약은 정확도만.
@@ -81,7 +81,9 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 ### OpenAI (`lib/openai.ts`)
 
-`"server-only"`, 싱글턴. `OPENAI_API_KEY` 미설정 시 throw. TTS: `tts-1`/`alloy`/mp3.
+`"server-only"`, 싱글턴. `OPENAI_API_KEY` 미설정 시 throw. TTS: `tts-1`/mp3, 음성은 선택형.
+
+**음성 선택** (`lib/tts-voices.ts`): `tts-1` 지원 3종(`alloy`/`onyx`/`nova`). 클라/서버 공용이라 **`"server-only"` 금지**. `generateAudio(text, voice?)`는 `isValidVoice`로 검증 후 미지정/무효 시 `DEFAULT_VOICE`(alloy) fallback. 선택 UI는 `VoicePicker`(Dialog), 마지막 선택은 `useSelectedVoice` 훅이 localStorage(`myharu:tts-voice`)에 기억(SSR-safe: 초기값 default → mount 후 보정). `InputForm`·`ReviewClient`(편집 재생성)에서 사용.
 
 ## 컴포넌트/디자인 규칙
 
@@ -114,15 +116,15 @@ src/
 │   └── globals.css            # Tailwind v4 + 컬러 토큰 + 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm/SignupForm/ForgotPasswordForm/ResetPasswordForm/KakaoButton/AuthHashHandler/AuthLayout
-│   ├── learn/                 # ReviewTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/GoalForm/GoalProgressCard/LearningCalendar/StreakBadge/XpBadge
+│   ├── learn/                 # ReviewTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/VoicePicker/GoalForm/GoalProgressCard/LearningCalendar/StreakBadge/XpBadge
 │   ├── ui/                    # shadcn
 │   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=입력/학습/목표 메뉴
 │   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/입력/학습/프로필), md:hidden
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
-├── hooks/use-caps-lock.ts
-├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color}.ts
+├── hooks/{use-caps-lock,use-selected-voice}.ts
+├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices}.ts
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts
 ```
