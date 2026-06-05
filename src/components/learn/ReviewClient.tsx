@@ -74,7 +74,7 @@ export default function ReviewClient({
   const [showAll, setShowAll] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
   const [search, setSearch] = useState("");
-  const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<SortMode>("latest");
   const [showFind, setShowFind] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -371,12 +371,14 @@ export default function ReviewClient({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
   }, [sentences]);
 
-  // 필터 결합: 일차 → 검색 → 태그 → (상태)
+  const toggleTag = (t: string) => setTagFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+
+  // 필터 결합: 일차 → 검색(문장·뜻) → 태그(다중 AND) → (상태)
   const byDay = showAll ? sentences : sentences.filter((s) => kstDate(s.created_at) === validSelected);
   const q = search.trim().toLowerCase();
   const pool = byDay.filter((s) => {
-    if (tagFilter && !s.tags.includes(tagFilter)) return false;
-    if (q && !`${s.english_text} ${s.korean_text} ${s.tags.join(" ")}`.toLowerCase().includes(q)) return false;
+    if (tagFilters.length > 0 && !tagFilters.every((t) => s.tags.includes(t))) return false;
+    if (q && !`${s.english_text} ${s.korean_text}`.toLowerCase().includes(q)) return false;
     return true;
   });
   const memorizedCount = pool.filter((s) => s.is_memorized).length;
@@ -465,7 +467,7 @@ export default function ReviewClient({
               미학습 {unmemorizedCount}
             </Button>
             <div className="ml-auto flex items-center gap-2">
-              <Button variant={showFind || search || tagFilter ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
+              <Button variant={showFind || search || tagFilters.length > 0 ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
                 <Search className="mr-1 h-4 w-4" />
                 검색·태그
                 <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${showFind ? "rotate-180" : ""}`} />
@@ -486,7 +488,7 @@ export default function ReviewClient({
             <>
               <div className="relative">
                 <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
-                <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="문장·뜻·태그 검색" className="h-9 pr-9 pl-9" />
+                <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="문장·뜻 검색" className="h-9 pr-9 pl-9" />
                 {search && (
                   <button
                     type="button"
@@ -501,16 +503,11 @@ export default function ReviewClient({
               {allTags.length > 0 && (
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Tag size={14} className="text-muted-foreground mr-0.5" />
-                  <Button variant={tagFilter === null ? "brand" : "outline"} size="sm" className="h-7" onClick={() => setTagFilter(null)}>
+                  <Button variant={tagFilters.length === 0 ? "brand" : "outline"} size="sm" className="h-7" onClick={() => setTagFilters([])}>
                     전체
                   </Button>
                   {allTags.map((t) => (
-                    <Button
-                      key={t}
-                      variant={tagFilter === t ? "brand" : "outline"}
-                      size="sm"
-                      className="h-7"
-                      onClick={() => setTagFilter((prev) => (prev === t ? null : t))}>
+                    <Button key={t} variant={tagFilters.includes(t) ? "brand" : "outline"} size="sm" className="h-7" onClick={() => toggleTag(t)}>
                       {t}
                     </Button>
                   ))}
@@ -604,7 +601,7 @@ export default function ReviewClient({
                         onPresetsChange={setPresets}
                         onTagRenamed={(oldName, newName) => {
                           setSentences((prev) => prev.map((s) => ({ ...s, tags: s.tags.map((t) => (t === oldName ? newName : t)) })));
-                          setTagFilter((prev) => (prev === oldName ? newName : prev));
+                          setTagFilters((prev) => Array.from(new Set(prev.map((t) => (t === oldName ? newName : t)))));
                         }}
                       />
                     </div>
@@ -644,8 +641,8 @@ export default function ReviewClient({
                           <Badge
                             key={t}
                             variant="secondary"
-                            render={<button type="button" onClick={() => setTagFilter((prev) => (prev === t ? null : t))} />}
-                            className={`${tagColorClass(t)} cursor-pointer ${tagFilter === t ? "ring-foreground/40 ring-2" : ""}`}>
+                            render={<button type="button" onClick={() => toggleTag(t)} />}
+                            className={`${tagColorClass(t)} cursor-pointer ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}>
                             {t}
                           </Badge>
                         ))}
