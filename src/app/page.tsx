@@ -4,7 +4,7 @@ import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized, effectiveStreak } from "@/lib/gamification";
+import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized, streakStatus, effectiveStreak } from "@/lib/gamification";
 import StreakBadge from "@/components/learn/StreakBadge";
 import GoalProgressCard from "@/components/learn/GoalProgressCard";
 import LearningCalendar from "@/components/learn/LearningCalendar";
@@ -72,7 +72,8 @@ export default async function Home() {
     ]);
     const hasSentences = (count ?? 0) > 0;
     const dailyGoalDisplay = goalProgress?.dailyMinimum && goalProgress.dailyMinimum > 0 ? goalProgress.dailyMinimum : dailyProgress.goal;
-    const currentStreak = effectiveStreak(stats);
+    const streak = streakStatus(stats);
+    const achievedStreak = effectiveStreak(stats); // 실제 달성한 연속 일수(스탯 카드용)
 
     return (
       <main className="mx-auto flex min-h-[calc(100vh-200px)] max-w-3xl flex-col gap-8 px-6 py-10">
@@ -82,9 +83,9 @@ export default async function Home() {
             <h1 className="text-2xl font-bold tracking-tight">
               안녕하세요, <span className="text-brand">{username}</span>님!
             </h1>
-            {stats && <StreakBadge streak={currentStreak} />}
+            {streak && <StreakBadge count={streak.count} achievedToday={streak.achievedToday} />}
           </div>
-          <p className="text-muted-foreground">{currentStreak > 0 ? "꾸준히 잘 하고 있어요! 오늘도 이어가세요." : "오늘 첫 학습을 시작해 볼까요?"}</p>
+          <p className="text-muted-foreground">{streak ? "꾸준히 잘 하고 있어요! 오늘도 이어가세요." : "오늘 첫 학습을 시작해 볼까요?"}</p>
         </div>
 
         {/* 장기 목표 진도 + 당일 진행률 */}
@@ -103,7 +104,7 @@ export default async function Home() {
             <CardContent className="flex flex-col items-center gap-1 py-4">
               <Flame size={20} className="text-streak-orange" />
               <span className="text-muted-foreground text-sm font-medium">연속 성공 날짜수</span>
-              <span className="text-streak-orange text-3xl font-bold tabular-nums">{currentStreak}일</span>
+              <span className="text-streak-orange text-3xl font-bold tabular-nums">{achievedStreak}일</span>
             </CardContent>
           </Card>
           {goalProgress && (

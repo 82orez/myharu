@@ -31,6 +31,19 @@ export function effectiveStreak(stats: Pick<UserStats, "current_streak" | "last_
   return 0;
 }
 
+export type StreakStatus = { count: number; achievedToday: boolean };
+
+// 배지 표시용 상태: 오늘 달성(achievedToday=true, count=current_streak)
+// vs 다음날 도전 중(achievedToday=false, count=current_streak+1). 스트릭이 끊겼거나 없으면 null.
+export function streakStatus(stats: Pick<UserStats, "current_streak" | "last_practice_date"> | null): StreakStatus | null {
+  if (!stats?.last_practice_date) return null;
+  const today = todayKST();
+  const yesterday = yesterdayKST();
+  if (stats.last_practice_date === today) return { count: stats.current_streak, achievedToday: true };
+  if (stats.last_practice_date === yesterday) return { count: stats.current_streak + 1, achievedToday: false };
+  return null;
+}
+
 export async function fetchUserStats(supabase: SupabaseClient, userId: string): Promise<UserStats | null> {
   const { data } = await supabase.from("user_stats").select("*").eq("user_id", userId).single();
 
