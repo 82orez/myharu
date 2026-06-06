@@ -2,22 +2,7 @@ export type UserStats = {
   user_id: string;
   total_xp: number;
   daily_goal: number;
-  total_goal: number | null;
-  goal_period_days: number | null;
-  goal_start_date: string | null;
   created_at: string;
-};
-
-export type GoalProgress = {
-  memorized: number;
-  totalGoal: number;
-  periodDays: number;
-  startDate: string;
-  daysElapsed: number;
-  daysRemaining: number;
-  dailyMinimum: number;
-  percentage: number;
-  isOnTrack: boolean;
 };
 
 export type QuizMode = "speech" | "text";

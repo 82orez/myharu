@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createClient } from "@/utils/supabase/server";
-import { fetchGoalProgress } from "@/lib/gamification";
+import { fetchUserStats } from "@/lib/gamification";
+import { DEFAULT_DAILY_GOAL } from "@/lib/goal-config";
 import GoalForm from "@/components/learn/GoalForm";
 
 export const metadata: Metadata = {
@@ -18,11 +19,11 @@ export default async function GoalPage() {
 
   if (!user) redirect("/login");
 
-  const goal = await fetchGoalProgress(supabase, user.id);
+  const stats = await fetchUserStats(supabase, user.id);
 
   return (
     <main className="bg-muted/30 flex min-h-[calc(100vh-200px)] items-center justify-center px-6 py-16">
-      <GoalForm initialGoal={goal} />
+      <GoalForm initialDailyGoal={stats?.daily_goal ?? DEFAULT_DAILY_GOAL} />
     </main>
   );
 }

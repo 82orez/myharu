@@ -1,15 +1,9 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { UserStats, GoalProgress, QuizMode } from "@/types/gamification";
+import type { UserStats, QuizMode } from "@/types/gamification";
 
 export function todayKST(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-}
-
-function diffDays(fromISO: string, toISO: string): number {
-  const from = new Date(`${fromISO}T00:00:00+09:00`).getTime();
-  const to = new Date(`${toISO}T00:00:00+09:00`).getTime();
-  return Math.round((to - from) / 86_400_000);
 }
 
 export async function fetchUserStats(supabase: SupabaseClient, userId: string): Promise<UserStats | null> {
@@ -115,54 +109,4 @@ export async function fetchDailyMemorized(supabase: SupabaseClient, userId: stri
     counts[date] = (counts[date] ?? 0) + 1;
   });
   return counts;
-}
-
-export async function fetchGoalProgress(supabase: SupabaseClient, userId: string): Promise<GoalProgress | null> {
-  const stats = await fetchUserStats(supabase, userId);
-  if (!stats?.total_goal || !stats.goal_period_days || !stats.goal_start_date) return null;
-
-  const totalGoal = stats.total_goal;
-  const periodDays = stats.goal_period_days;
-  const startDate = stats.goal_start_date;
-  const today = todayKST();
-
-  // 문장별 최초 정답 KST 날짜 산출. 쿼리는 전체를 가져온다(시작일 이전 최초 암기 후 재연습한 문장을
-  // 잘못 포함하지 않도록, 시작일 필터는 firstDate 기준으로 아래에서 적용).
-  const { data } = await supabase.from("practice_results").select("sentence_id, practiced_at").eq("user_id", userId).eq("is_correct", true);
-  const firstDate = new Map<string, string>();
-  for (const row of (data ?? []) as { sentence_id: string; practiced_at: string }[]) {
-    const d = new Date(row.practiced_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-    const prev = firstDate.get(row.sentence_id);
-    if (!prev || d < prev) firstDate.set(row.sentence_id, d);
-  }
-  // 목표 시작일(goal_start_date) 이전에 암기한 문장은 목표 진척에서 제외 (시작일 당일 암기분은 포함)
-  let memorized = 0;
-  let memorizedBeforeToday = 0;
-  firstDate.forEach((d) => {
-    if (d < startDate) return;
-    memorized++;
-    if (d < today) memorizedBeforeToday++;
-  });
-
-  const elapsed = Math.max(0, Math.min(periodDays, diffDays(startDate, today)));
-  const remaining = Math.max(0, periodDays - elapsed);
-
-  // 오늘 최소 목표: 오늘 시작 시점의 미암기 수 기준 → 당일 진척이 분모를 깎지 않음(하루 동안 고정, 다음 날 재계산)
-  const leftBeforeToday = Math.max(0, totalGoal - memorizedBeforeToday);
-  const dailyMinimum = leftBeforeToday === 0 ? 0 : remaining === 0 ? leftBeforeToday : Math.ceil(leftBeforeToday / remaining);
-
-  const percentage = totalGoal > 0 ? Math.min(Math.round((memorized / totalGoal) * 100), 100) : 0;
-  const isOnTrack = memorized * periodDays >= totalGoal * elapsed;
-
-  return {
-    memorized,
-    totalGoal,
-    periodDays,
-    startDate,
-    daysElapsed: elapsed,
-    daysRemaining: remaining,
-    dailyMinimum,
-    percentage,
-    isOnTrack,
-  };
 }

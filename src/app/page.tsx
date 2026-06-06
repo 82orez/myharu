@@ -4,7 +4,7 @@ import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized } from "@/lib/gamification";
+import { fetchUserStats, fetchDailyProgress, fetchMemorizedCount, fetchDailyMemorized } from "@/lib/gamification";
 import GoalProgressCard from "@/components/learn/GoalProgressCard";
 import LearningCalendar from "@/components/learn/LearningCalendar";
 
@@ -57,15 +57,15 @@ export default async function Home() {
 
   if (user) {
     const username = user.email?.split("@")[0] ?? "회원";
-    const [{ count }, stats, dailyProgress, goalProgress, dailyMemorized] = await Promise.all([
+    const [{ count }, stats, dailyProgress, memorizedCount, dailyMemorized] = await Promise.all([
       supabase.from("sentences").select("*", { count: "exact", head: true }),
       fetchUserStats(supabase, user.id),
       fetchDailyProgress(supabase, user.id),
-      fetchGoalProgress(supabase, user.id),
+      fetchMemorizedCount(supabase, user.id),
       fetchDailyMemorized(supabase, user.id),
     ]);
     const hasSentences = (count ?? 0) > 0;
-    const dailyGoalDisplay = goalProgress?.dailyMinimum && goalProgress.dailyMinimum > 0 ? goalProgress.dailyMinimum : dailyProgress.goal;
+    const dailyGoalDisplay = dailyProgress.goal;
 
     return (
       <main className="mx-auto flex min-h-[calc(100vh-200px)] max-w-3xl flex-col gap-8 px-6 py-10">
@@ -77,11 +77,11 @@ export default async function Home() {
           <p className="text-muted-foreground">오늘도 한 문장씩 학습해 볼까요?</p>
         </div>
 
-        {/* 장기 목표 진도 + 당일 진행률 */}
-        <GoalProgressCard goal={goalProgress} dailyCompleted={dailyProgress.completed} dailyGoal={dailyGoalDisplay} />
+        {/* 오늘의 목표 진행률 */}
+        <GoalProgressCard dailyCompleted={dailyProgress.completed} dailyGoal={dailyGoalDisplay} />
 
         {/* 스탯 카드 */}
-        <div className={`grid gap-3 ${goalProgress ? "grid-cols-2" : "grid-cols-1"}`}>
+        <div className="grid grid-cols-2 gap-3">
           <Card className="border-xp-gold/20 bg-xp-gold/5">
             <CardContent className="flex flex-col items-center gap-1 py-4">
               <Star size={20} className="text-xp-gold" />
@@ -89,21 +89,17 @@ export default async function Home() {
               <span className="text-xp-gold text-3xl font-bold tabular-nums">{stats?.total_xp?.toLocaleString() ?? 0}</span>
             </CardContent>
           </Card>
-          {goalProgress && (
-            <Card className="border-brand/20 bg-brand/5">
-              <CardContent className="flex flex-col items-center gap-1 py-4">
-                <Target size={20} className="text-brand" />
-                <span className="text-muted-foreground text-sm font-medium">도전 시작</span>
-                <span className="text-brand text-3xl font-bold tabular-nums">
-                  {Math.min(goalProgress.daysElapsed + 1, goalProgress.periodDays)}일차
-                </span>
-              </CardContent>
-            </Card>
-          )}
+          <Card className="border-brand/20 bg-brand/5">
+            <CardContent className="flex flex-col items-center gap-1 py-4">
+              <Target size={20} className="text-brand" />
+              <span className="text-muted-foreground text-sm font-medium">총 암기 문장</span>
+              <span className="text-brand text-3xl font-bold tabular-nums">{memorizedCount.toLocaleString()}</span>
+            </CardContent>
+          </Card>
         </div>
 
         {/* 학습 달력 (월간 암기 히트맵) */}
-        <LearningCalendar history={dailyMemorized} dailyGoal={dailyGoalDisplay} startDate={goalProgress?.startDate ?? null} />
+        <LearningCalendar history={dailyMemorized} dailyGoal={dailyGoalDisplay} />
 
         {/* 온보딩 */}
         {!hasSentences && (
