@@ -1,9 +1,6 @@
 export type UserStats = {
   user_id: string;
   total_xp: number;
-  current_streak: number;
-  longest_streak: number;
-  last_practice_date: string | null;
   daily_goal: number;
   total_goal: number | null;
   goal_period_days: number | null;
@@ -40,6 +37,4 @@ export type SessionSummary = {
   incorrectCount: number;
   xpEarned: number;
   accuracy: number;
-  currentStreak: number;
-  isNewStreakDay: boolean;
 };

@@ -46,13 +46,13 @@ export async function recordPracticeResult(
   sentenceId: string,
   isCorrect: boolean,
   mode: QuizMode = "speech",
-): Promise<{ xpEarned: number; totalXp: number; currentStreak: number; dailyCompleted: number; isNewStreakDay: boolean; error?: string }> {
+): Promise<{ xpEarned: number; totalXp: number; error?: string }> {
   const supabase = createClient(await cookies());
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { xpEarned: 0, totalXp: 0, currentStreak: 0, dailyCompleted: 0, isNewStreakDay: false, error: "로그인이 필요합니다." };
+  if (!user) return { xpEarned: 0, totalXp: 0, error: "로그인이 필요합니다." };
 
   return await recordPractice(supabase, user.id, sentenceId, isCorrect, mode);
 }

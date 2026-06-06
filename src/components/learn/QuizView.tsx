@@ -23,8 +23,6 @@ type State = {
   currentIndex: number;
   answers: Answer[];
   xpEarned: number;
-  currentStreak: number;
-  isNewStreakDay: boolean;
   resultStatus: "correct" | "incorrect" | null;
   recognizedText: string;
 };
@@ -32,7 +30,7 @@ type State = {
 type Action =
   | { type: "START" }
   | { type: "LISTEN" }
-  | { type: "SHOW_RESULT"; isCorrect: boolean; recognizedText: string; xp: number; streak: number; isNewStreakDay: boolean }
+  | { type: "SHOW_RESULT"; isCorrect: boolean; recognizedText: string; xp: number }
   | { type: "NEXT" }
   | { type: "RETRY" }
   | { type: "FINISH" }
@@ -41,7 +39,7 @@ type Action =
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "START":
-      return { ...state, phase: "question", currentIndex: 0, answers: [], xpEarned: 0, currentStreak: 0, isNewStreakDay: false };
+      return { ...state, phase: "question", currentIndex: 0, answers: [], xpEarned: 0 };
     case "LISTEN":
       return { ...state, phase: "listening", resultStatus: null, recognizedText: "" };
     case "SHOW_RESULT":
@@ -51,8 +49,6 @@ function reducer(state: State, action: Action): State {
         resultStatus: action.isCorrect ? "correct" : "incorrect",
         recognizedText: action.recognizedText,
         xpEarned: state.xpEarned + action.xp,
-        currentStreak: action.streak,
-        isNewStreakDay: state.isNewStreakDay || action.isNewStreakDay,
         answers: [...state.answers, { sentenceId: "", isCorrect: action.isCorrect, recognizedText: action.recognizedText }],
       };
     case "NEXT":
@@ -74,8 +70,6 @@ const initialState: State = {
   currentIndex: 0,
   answers: [],
   xpEarned: 0,
-  currentStreak: 0,
-  isNewStreakDay: false,
   resultStatus: null,
   recognizedText: "",
 };
@@ -136,8 +130,6 @@ export default function QuizView({
         isCorrect,
         recognizedText,
         xp: 0,
-        streak: 0,
-        isNewStreakDay: false,
       });
 
       if (isCorrect) {
@@ -188,7 +180,7 @@ export default function QuizView({
       if (event.error === "not-allowed") {
         toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
       }
-      dispatch({ type: "SHOW_RESULT", isCorrect: false, recognizedText: "", xp: 0, streak: state.currentStreak, isNewStreakDay: false });
+      dispatch({ type: "SHOW_RESULT", isCorrect: false, recognizedText: "", xp: 0 });
     };
 
     recognition.onend = () => {
@@ -197,7 +189,7 @@ export default function QuizView({
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [speechSupported, currentSentence, handleResult, state.currentStreak]);
+  }, [speechSupported, currentSentence, handleResult]);
 
   const handleRevealAnswer = useCallback(() => {
     handleResult(false, "");
@@ -294,8 +286,6 @@ export default function QuizView({
       incorrectCount: sentences.length - correctCount,
       xpEarned: state.xpEarned,
       accuracy: sentences.length > 0 ? Math.round((correctCount / sentences.length) * 100) : 0,
-      currentStreak: state.currentStreak,
-      isNewStreakDay: state.isNewStreakDay,
     };
     return <SessionSummary summary={summary} onRestart={() => dispatch({ type: "RESTART" })} />;
   }

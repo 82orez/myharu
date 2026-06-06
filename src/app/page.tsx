@@ -4,8 +4,7 @@ import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized, streakStatus, effectiveStreak } from "@/lib/gamification";
-import StreakBadge from "@/components/learn/StreakBadge";
+import { fetchUserStats, fetchDailyProgress, fetchGoalProgress, fetchDailyMemorized } from "@/lib/gamification";
 import GoalProgressCard from "@/components/learn/GoalProgressCard";
 import LearningCalendar from "@/components/learn/LearningCalendar";
 
@@ -28,7 +27,7 @@ const steps = [
     icon: Trophy,
     step: "3",
     title: "성장 확인",
-    description: "정답마다 XP를 획득하고, 매일 연속 학습으로 스트릭을 쌓으며 실력을 키워 보세요.",
+    description: "정답마다 XP를 획득하고, 일일·장기 목표 진도를 채우며 실력을 키워 보세요.",
   },
 ];
 
@@ -44,14 +43,9 @@ const highlights = [
     description: "정답 10 XP, 도전 2 XP. 쌓인 경험치로 나의 학습 성과를 한눈에 확인하세요.",
   },
   {
-    icon: Flame,
-    title: "연속 학습 스트릭",
-    description: "매일 하루 한 번 학습하면 스트릭이 올라갑니다. 기록을 깨지 마세요!",
-  },
-  {
     icon: Target,
-    title: "일일 목표",
-    description: "하루 5문장 목표를 설정하고 달성률을 원형 프로그레스로 확인할 수 있습니다.",
+    title: "일일·장기 목표",
+    description: "총 암기 목표와 기간을 정하면 하루 목표가 계산되고, 달성률을 원형 프로그레스로 확인할 수 있습니다.",
   },
 ];
 
@@ -72,39 +66,27 @@ export default async function Home() {
     ]);
     const hasSentences = (count ?? 0) > 0;
     const dailyGoalDisplay = goalProgress?.dailyMinimum && goalProgress.dailyMinimum > 0 ? goalProgress.dailyMinimum : dailyProgress.goal;
-    const streak = streakStatus(stats);
-    const achievedStreak = effectiveStreak(stats); // 실제 달성한 연속 일수(스탯 카드용)
 
     return (
       <main className="mx-auto flex min-h-[calc(100vh-200px)] max-w-3xl flex-col gap-8 px-6 py-10">
-        {/* 인사 + 스트릭 */}
+        {/* 인사 */}
         <div className="flex flex-col gap-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold tracking-tight">
-              안녕하세요, <span className="text-brand">{username}</span>님!
-            </h1>
-            {streak && <StreakBadge count={streak.count} achievedToday={streak.achievedToday} />}
-          </div>
-          <p className="text-muted-foreground">{streak ? "꾸준히 잘 하고 있어요! 오늘도 이어가세요." : "오늘 첫 학습을 시작해 볼까요?"}</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            안녕하세요, <span className="text-brand">{username}</span>님!
+          </h1>
+          <p className="text-muted-foreground">오늘도 한 문장씩 학습해 볼까요?</p>
         </div>
 
         {/* 장기 목표 진도 + 당일 진행률 */}
         <GoalProgressCard goal={goalProgress} dailyCompleted={dailyProgress.completed} dailyGoal={dailyGoalDisplay} />
 
         {/* 스탯 카드 */}
-        <div className={`grid gap-3 ${goalProgress ? "grid-cols-3" : "grid-cols-2"}`}>
+        <div className={`grid gap-3 ${goalProgress ? "grid-cols-2" : "grid-cols-1"}`}>
           <Card className="border-xp-gold/20 bg-xp-gold/5">
             <CardContent className="flex flex-col items-center gap-1 py-4">
               <Star size={20} className="text-xp-gold" />
               <span className="text-muted-foreground text-sm font-medium">획득한 XP</span>
               <span className="text-xp-gold text-3xl font-bold tabular-nums">{stats?.total_xp?.toLocaleString() ?? 0}</span>
-            </CardContent>
-          </Card>
-          <Card className="border-streak-orange/20 bg-streak-orange/5">
-            <CardContent className="flex flex-col items-center gap-1 py-4">
-              <Flame size={20} className="text-streak-orange" />
-              <span className="text-muted-foreground text-sm font-medium">연속 성공 날짜수</span>
-              <span className="text-streak-orange text-3xl font-bold tabular-nums">{achievedStreak}일</span>
             </CardContent>
           </Card>
           {goalProgress && (
@@ -174,7 +156,7 @@ export default async function Home() {
         <div className="mx-auto max-w-3xl">
           <div className="bg-brand/10 text-brand mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium">
             <Flame size={16} />
-            말하기·쓰기 · XP · 스트릭
+            말하기·쓰기 · XP · 학습 목표
           </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
             영어 한 문장으로 시작하는
@@ -182,7 +164,7 @@ export default async function Home() {
             <span className="text-brand">나의 하루</span>
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. XP를 모으고 스트릭을 이어가며 매일 성장하는 학습 습관을
+            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. XP를 모으고 목표를 향해 매일 성장하는 학습 습관을
             만들어 보세요.
           </p>
           <div className="mt-10">

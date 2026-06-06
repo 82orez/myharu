@@ -6,42 +6,10 @@ export function todayKST(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
 
-function yesterdayKST(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 1);
-  return d.toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-}
-
 function diffDays(fromISO: string, toISO: string): number {
   const from = new Date(`${fromISO}T00:00:00+09:00`).getTime();
   const to = new Date(`${toISO}T00:00:00+09:00`).getTime();
   return Math.round((to - from) / 86_400_000);
-}
-
-// 읽기 시점 스트릭 보정: last_practice_date(= 마지막 일일 목표 달성일)가 오늘도 어제도 아니면 이미 끊긴 것으로 보고 0 반환.
-// current_streak은 recordPractice가 돌 때만 갱신되므로, 공백 기간 동안 옛 값이 남는 문제를 표시 단계에서 보정한다.
-// (오늘이 last_practice_date면 오늘 목표 달성 완료, 어제면 오늘 목표를 채울 때까지 유지 상태로 본다.)
-export function effectiveStreak(stats: Pick<UserStats, "current_streak" | "last_practice_date"> | null): number {
-  if (!stats?.last_practice_date) return 0;
-  const today = todayKST();
-  const yesterday = yesterdayKST();
-  if (stats.last_practice_date === today || stats.last_practice_date === yesterday) {
-    return stats.current_streak;
-  }
-  return 0;
-}
-
-export type StreakStatus = { count: number; achievedToday: boolean };
-
-// 배지 표시용 상태: 오늘 달성(achievedToday=true, count=current_streak)
-// vs 다음날 도전 중(achievedToday=false, count=current_streak+1). 스트릭이 끊겼거나 없으면 null.
-export function streakStatus(stats: Pick<UserStats, "current_streak" | "last_practice_date"> | null): StreakStatus | null {
-  if (!stats?.last_practice_date) return null;
-  const today = todayKST();
-  const yesterday = yesterdayKST();
-  if (stats.last_practice_date === today) return { count: stats.current_streak, achievedToday: true };
-  if (stats.last_practice_date === yesterday) return { count: stats.current_streak + 1, achievedToday: false };
-  return null;
 }
 
 export async function fetchUserStats(supabase: SupabaseClient, userId: string): Promise<UserStats | null> {
@@ -97,7 +65,7 @@ export async function recordPractice(
   sentenceId: string,
   isCorrect: boolean,
   mode: QuizMode = "speech",
-): Promise<{ xpEarned: number; totalXp: number; currentStreak: number; dailyCompleted: number; isNewStreakDay: boolean }> {
+): Promise<{ xpEarned: number; totalXp: number }> {
   const xpEarned = isCorrect ? 10 : 2;
 
   await supabase.from("practice_results").insert({
@@ -110,44 +78,14 @@ export async function recordPractice(
 
   const stats = await fetchUserStats(supabase, userId);
   if (!stats) {
-    return { xpEarned, totalXp: xpEarned, currentStreak: 0, dailyCompleted: isCorrect ? 1 : 0, isNewStreakDay: false };
+    return { xpEarned, totalXp: xpEarned };
   }
 
   const newTotalXp = stats.total_xp + xpEarned;
 
-  // 오늘 신규 암기 수와 "오늘의 일일 목표"(홈 표시와 동일: 장기 목표가 있으면 동적 dailyMinimum, 없으면 daily_goal)
-  const { completed } = await fetchDailyProgress(supabase, userId);
-  const goalProgress = await fetchGoalProgress(supabase, userId);
-  const dailyGoal = goalProgress?.dailyMinimum && goalProgress.dailyMinimum > 0 ? goalProgress.dailyMinimum : (stats.daily_goal ?? 5);
-  // 스트릭은 "일일 목표를 달성한 날"만 카운트. 장기 목표를 이미 모두 채운 경우(dailyMinimum===0)는 학습만 해도 유지.
-  const goalMet = goalProgress && goalProgress.dailyMinimum === 0 ? completed > 0 : completed >= dailyGoal;
+  await supabase.from("user_stats").update({ total_xp: newTotalXp }).eq("user_id", userId);
 
-  const today = todayKST();
-  const yesterday = yesterdayKST();
-  let { current_streak, longest_streak } = stats;
-  let isNewStreakDay = false;
-
-  // last_practice_date = 마지막으로 일일 목표를 달성한 날. 하루 한 번만 반영.
-  if (goalMet && stats.last_practice_date !== today) {
-    isNewStreakDay = true;
-    current_streak = stats.last_practice_date === yesterday ? current_streak + 1 : 1;
-    if (current_streak > longest_streak) {
-      longest_streak = current_streak;
-    }
-  }
-
-  await supabase
-    .from("user_stats")
-    .update({
-      total_xp: newTotalXp,
-      current_streak,
-      longest_streak,
-      // 목표를 달성해 새로 카운트한 날만 갱신 (미달이면 직전 달성일 유지 → 그날 안에 목표를 채우면 스트릭 유지)
-      ...(isNewStreakDay ? { last_practice_date: today } : {}),
-    })
-    .eq("user_id", userId);
-
-  return { xpEarned, totalXp: newTotalXp, currentStreak: current_streak, dailyCompleted: completed, isNewStreakDay };
+  return { xpEarned, totalXp: newTotalXp };
 }
 
 export async function fetchMemorizedCount(supabase: SupabaseClient, userId: string): Promise<number> {
@@ -188,7 +126,8 @@ export async function fetchGoalProgress(supabase: SupabaseClient, userId: string
   const startDate = stats.goal_start_date;
   const today = todayKST();
 
-  // 문장별 최초 정답 KST 날짜 → 전체 누적(memorized) / 오늘 이전 누적(memorizedBeforeToday) 동시 산출
+  // 문장별 최초 정답 KST 날짜 산출. 쿼리는 전체를 가져온다(시작일 이전 최초 암기 후 재연습한 문장을
+  // 잘못 포함하지 않도록, 시작일 필터는 firstDate 기준으로 아래에서 적용).
   const { data } = await supabase.from("practice_results").select("sentence_id, practiced_at").eq("user_id", userId).eq("is_correct", true);
   const firstDate = new Map<string, string>();
   for (const row of (data ?? []) as { sentence_id: string; practiced_at: string }[]) {
@@ -196,9 +135,12 @@ export async function fetchGoalProgress(supabase: SupabaseClient, userId: string
     const prev = firstDate.get(row.sentence_id);
     if (!prev || d < prev) firstDate.set(row.sentence_id, d);
   }
-  const memorized = firstDate.size;
+  // 목표 시작일(goal_start_date) 이전에 암기한 문장은 목표 진척에서 제외 (시작일 당일 암기분은 포함)
+  let memorized = 0;
   let memorizedBeforeToday = 0;
   firstDate.forEach((d) => {
+    if (d < startDate) return;
+    memorized++;
     if (d < today) memorizedBeforeToday++;
   });
 

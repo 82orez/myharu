@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 프로젝트 개요
 
-**My Haru** — 듀오링고 스타일 개인 영어 학습 서비스. 영어 문장 입력 → AI 원어민 발음 생성 → **문장 목록의 "말하기/쓰기"** 로 학습 인정(정답 시 XP/스트릭/암기/장기 목표 진도 반영). 별도 "퀴즈" 탭은 점수 무관 드릴. Next.js 16(App Router, Turbopack) + React 19 + Tailwind v4 + Supabase Auth + shadcn/ui(base-nova) + Pretendard.
+**My Haru** — 듀오링고 스타일 개인 영어 학습 서비스. 영어 문장 입력 → AI 원어민 발음 생성 → **문장 목록의 "말하기/쓰기"** 로 학습 인정(정답 시 XP/암기/장기 목표 진도 반영). 별도 "퀴즈" 탭은 점수 무관 드릴. Next.js 16(App Router, Turbopack) + React 19 + Tailwind v4 + Supabase Auth + shadcn/ui(base-nova) + Pretendard.
 
 ## 주요 명령어
 
@@ -52,17 +52,16 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - **학습** (`/learn/review`, `ReviewTabs`): "문장 목록"(기본) / "퀴즈" 탭. **학습 인정은 문장 목록 탭에서만**.
   - **문장 목록** (`ReviewClient`): 카드별 듣기/말하기(Web Speech API)/쓰기(텍스트)/정답 보기/즐겨찾기/편집/삭제. 말하기·쓰기·오디오는 **한 번에 한 카드만 활성**(상호 배제). 정답 시 `recordPracticeResult(sentenceId, isCorrect, mode)` 호출(`mode: 'speech'|'text'`) + 첫 정답이면 `is_memorized` 즉시 갱신. 필터(모두 클라이언트 AND 결합): 상태(전체/암기 완료/미학습), 일차(입력일별 스테퍼), 본문 검색(문장·뜻만), 태그(칩 다중 선택, 선택 태그 모두 포함=AND), 정렬. 편집은 `generateAudio` 재활용 → `updateSentence(..., tags)`.
   - **퀴즈** (`QuizView`): 한 문제씩(`useReducer` 상태머신 `ready→question→listening→result→summary`). 스피킹/텍스트 모드. **`recordPracticeResult` 미호출(점수 무관)**, 요약은 정확도만.
-- **학습 목표** (`/learn/goal`, `GoalForm`): "총 암기 목표 + 기간(일)" 입력 → 장기 목표. 서버 액션 `setLearningGoal(total, periodDays)` / `resetLearningGoal()`. 저장 시 `daily_goal = ceil(total / periodDays)`.
+- **학습 목표** (`/learn/goal`, `GoalForm`): "총 암기 목표 + 기간(일)" 입력 → 장기 목표. 서버 액션 `setLearningGoal(total, periodDays)` / `resetLearningGoal()`. 저장 시 `daily_goal = ceil(total / periodDays)`, `goal_start_date=오늘` — 신규·수정 모두. `setLearningGoal`은 신규/수정 구분 없이 매번 시작일·진척을 새로 시작.
 - **태그**: `TagPicker`는 사용자 **프리셋에서 선택**(칩 토글 + 즉석 추가 + "태그 관리" Dialog). 프리셋은 `user_stats.tag_presets`에 저장, `tag-actions.ts`의 `getTagPresets`/`setTagPresets`(전체 교체)/`renameTag`(프리셋 + 해당 태그를 가진 모든 문장에 일괄 반영)로 관리. 정규화 `lib/tags.ts` `sanitizeTags`(공백/중복 제거, 각 20자, `MAX_TAGS`=10·`MAX_PRESETS`=50). 색은 `lib/tag-color.ts` `tagColorClass`(이름 해시 → 10색 팔레트, 같은 태그=같은 색).
 
 ### 게이미피케이션 (비즈니스 로직 — 정확히 유지할 것)
 
-- **서버 쿼리**: `lib/gamification.ts`(`"server-only"`) — `todayKST`, `fetchUserStats`, `fetchDailyProgress`, `recordPractice`, `fetchMemorizedCount`, `fetchDailyMemorized`, `fetchGoalProgress`, `effectiveStreak`. **서버 액션**: `(learn)/learn/review/gamification-actions.ts` — `getUserStats`/`getDailyProgress`/`getGoalProgress`/`recordPracticeResult`.
-- **XP**: 정답 10, 오답 2. `user_stats.total_xp`에 누적(중복 정답도 매번 누적).
-- **스트릭**: **일일 목표 달성한 날의 연속 수**(KST). `recordPractice`에서 오늘 신규 암기 수가 일일 목표(장기 목표 있으면 `dailyMinimum`, 없으면 `daily_goal`) 이상이면 그날 카운트(하루 1회). `last_practice_date`=마지막 달성일(미달일은 갱신 안 함), 어제면 +1·아니면 1로 리셋, `longest_streak` 추적. 표시 시 `effectiveStreak(stats)`로 보정(달성일이 오늘도 어제도 아니면 0). 배지(`StreakBadge`)는 `streakStatus(stats)`로 문구 분기: 오늘 달성=`"n일째 연속 목표 달성 성공!"`(n=`current_streak`), 다음날 미달=`"n+1일째 목표 달성에 도전 중~"`(`current_streak+1`), 끊김/없음=숨김.
+- **서버 쿼리**: `lib/gamification.ts`(`"server-only"`) — `todayKST`, `fetchUserStats`, `fetchDailyProgress`, `recordPractice`, `fetchMemorizedCount`, `fetchDailyMemorized`, `fetchGoalProgress`. **서버 액션**: `(learn)/learn/review/gamification-actions.ts` — `getUserStats`/`getDailyProgress`/`getGoalProgress`/`recordPracticeResult`.
+- **XP**: 정답 10, 오답 2. `user_stats.total_xp`에 누적(중복 정답도 매번 누적). `recordPractice`는 XP 누적만 수행(스트릭 없음).
 - **암기 정의**: `practice_results.is_correct=true`가 1회라도 있는 문장. `fetchMemorizedCount`=distinct `sentence_id`.
 - **일일 진도**: **오늘 처음 정답을 맞춰 새로 암기된 문장 수**(`fetchDailyProgress`). 분모=동적 `GoalProgress.dailyMinimum`(목표 미설정 시 `daily_goal` 기본 5). 반복 정답·이미 암기된 문장 재연습은 미가산.
-- **장기 목표**: `fetchGoalProgress` → `GoalProgress { memorized, totalGoal, periodDays, startDate, daysElapsed, daysRemaining, dailyMinimum, percentage, isOnTrack }`. `dailyMinimum`은 매 read 시 남은 일수 기준 동적 재계산(당일 진척이 분모를 깎지 않도록 오늘 시작 시점 미암기 수 기준). `isOnTrack = memorized*periodDays >= totalGoal*daysElapsed`. 홈 `GoalProgressCard`가 전체/오늘 원형 차트 2개로 표시.
+- **장기 목표**: `fetchGoalProgress` → `GoalProgress { memorized, totalGoal, periodDays, startDate, daysElapsed, daysRemaining, dailyMinimum, percentage, isOnTrack }`. `memorized`는 **최초 정답일이 `goal_start_date` 이후인 문장만** 집계(목표 설정 이전 암기분 제외, 시작일 당일 포함). `dailyMinimum`은 매 read 시 남은 일수 기준 동적 재계산(당일 진척이 분모를 깎지 않도록 오늘 시작 시점 미암기 수 기준). `isOnTrack = memorized*periodDays >= totalGoal*daysElapsed`. 홈 `GoalProgressCard`가 전체/오늘 원형 차트 2개로 표시.
 - **학습 달력**: `fetchDailyMemorized` → `Record<YYYY-MM-DD, 신규암기수>`(문장별 **최초 정답 KST 날짜**로 집계). 홈 `LearningCalendar` 월간 히트맵 + 달성도 기호(`○` 달성/`△` 미달/`✕` 0). `✕`는 시작 경계(`goal_start_date` 없으면 최초 암기일)~어제만.
 - **타입**: `src/types/gamification.ts` (`UserStats`, `PracticeResult`, `SessionSummary`, `QuizMode`, `GoalProgress`).
 
@@ -74,10 +73,10 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 3개 테이블. RLS는 모두 `user_id = auth.uid()`.
 - **`sentences`**: id, user_id, english_text, korean_text, audio_path, is_favorite(기본 false), `tags text[]`(기본 `{}`, GIN), created_at. Storage `tts-audio` 버킷 동일 RLS. `is_memorized`는 컬럼 아님 — `getSentences`에서 `practice_results` 조회로 enrich.
-- **`user_stats`**: user_id(PK), total_xp, current_streak, longest_streak, last_practice_date, daily_goal, `total_goal`/`goal_period_days`/`goal_start_date`(nullable=목표 미설정), `tag_presets text[]`, created_at. 신규 가입 시 `handle_new_user_stats` 트리거로 자동 생성.
+- **`user_stats`**: user_id(PK), total_xp, daily_goal, `total_goal`/`goal_period_days`/`goal_start_date`(nullable=목표 미설정), `tag_presets text[]`, created_at. 신규 가입 시 `handle_new_user_stats` 트리거로 자동 생성.
 - **`practice_results`**: id, user_id, sentence_id, is_correct, xp_earned, `mode`(`'speech'|'text'`, CHECK, 기본 `'speech'`), practiced_at.
 
-마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets`.
+마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(user_stats에서 streak 컬럼 3종 삭제).
 
 ### OpenAI (`lib/openai.ts`)
 
@@ -94,7 +93,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - Sonner: `layout.tsx`에 `<Toaster />` 마운트됨 → `import { toast } from "sonner"`.
 
 ### 컬러 토큰 (`globals.css`)
-- 브랜드 인디고 `text-brand`/`bg-brand`, Success 초록 `text-success`(정답), XP 금색 `text-xp-gold`, Streak 주황 `text-streak-orange`. CTA는 `variant="brand"`. 기본 radius `0.875rem`.
+- 브랜드 인디고 `text-brand`/`bg-brand`, Success 초록 `text-success`(정답), XP 금색 `text-xp-gold`, 주황 강조 `text-streak-orange`(미학습·부분달성 마커 등). CTA는 `variant="brand"`. 기본 radius `0.875rem`.
 
 ### 애니메이션 (`globals.css`)
 - `animate-shake`(오답), `animate-float-up`(+XP), `animate-pulse-glow`(정답), 카드 호버 리프트. `tw-animate-css`(`animate-in`, `fade-in`, `slide-in-from-*` 등) 사용 가능.
