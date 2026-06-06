@@ -71,6 +71,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
   const [generating, startGenerating] = useTransition();
   const [saving, startSaving] = useTransition();
   const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
+  const [genConfirmOpen, setGenConfirmOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -86,12 +87,16 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     return URL.createObjectURL(blob);
   }
 
-  function handleGenerate() {
+  function handleGenerateClick() {
     if (!englishText.trim() || !koreanText.trim()) {
       setError("영어 문장과 한국어 뜻을 모두 입력해 주세요.");
       return;
     }
+    setError(null);
+    setGenConfirmOpen(true);
+  }
 
+  function handleGenerate() {
     setError(null);
     setSuccess(null);
 
@@ -313,7 +318,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               <div className="flex gap-2">
                 <Button
                   type="button"
-                  onClick={handleGenerate}
+                  onClick={handleGenerateClick}
                   disabled={pending}
                   variant="brand"
                   className="h-12 flex-1 rounded-xl text-lg font-bold">
@@ -363,6 +368,31 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               </Button>
             </div>
           )}
+
+          <AlertDialog open={genConfirmOpen} onOpenChange={setGenConfirmOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>AI 음성을 생성할까요?</AlertDialogTitle>
+                <AlertDialogDescription render={<div />}>
+                  <ul className="list-disc space-y-1 pl-5 text-left">
+                    <li>영어 문장과 한글 뜻이 모두 올바르게 입력되었나요?</li>
+                    <li>확인 버튼을 클릭하면 Token이 소모됩니다.</li>
+                  </ul>
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction
+                  variant="brand"
+                  onClick={() => {
+                    setGenConfirmOpen(false);
+                    handleGenerate();
+                  }}>
+                  확인
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           <AlertDialog open={regenConfirmOpen} onOpenChange={setRegenConfirmOpen}>
             <AlertDialogContent>

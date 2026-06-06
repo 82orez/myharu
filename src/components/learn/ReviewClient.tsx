@@ -20,6 +20,7 @@ import {
   Search,
   Tag,
   X,
+  Plus,
 } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
@@ -530,7 +531,15 @@ export default function ReviewClient({
         </p>
       )}
 
-      {sentences.length === 0 && !initialError && <p className="text-muted-foreground py-12 text-center">저장된 문장이 없습니다.</p>}
+      {sentences.length === 0 && !initialError && (
+        <div className="flex flex-col items-center gap-4 py-16 text-center">
+          <p className="text-muted-foreground">아직 저장된 문장이 없습니다.</p>
+          <Button variant="brand" nativeButton={false} render={<Link href="/learn/input" />}>
+            <Plus size={16} />
+            첫 문장 등록하기
+          </Button>
+        </div>
+      )}
 
       {sentences.length > 0 && visibleSentences.length === 0 && (
         <p className="text-muted-foreground py-12 text-center">선택한 조건에 해당하는 문장이 없습니다.</p>
