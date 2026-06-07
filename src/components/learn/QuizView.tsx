@@ -441,9 +441,19 @@ export default function QuizView({
               className="h-12 flex-1 text-base">
               다시 시도
             </Button>
-            <Button variant="brand" onClick={handleNext} className="h-12 flex-1 text-base font-semibold">
-              다음
-            </Button>
+            <AlertDialog>
+              <AlertDialogTrigger render={<Button variant="brand" className="h-12 flex-1 text-base font-semibold" />}>다음</AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>다음 문제로 이동</AlertDialogTitle>
+                  <AlertDialogDescription>정말로 다음으로 넘어가시겠습니까? 다음으로 넘어가면 오답 처리됩니다.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>취소</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleNext}>다음</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </div>
         )}
 
