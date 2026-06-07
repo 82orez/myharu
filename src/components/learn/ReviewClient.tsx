@@ -72,6 +72,7 @@ export default function ReviewClient({
   const [presets, setPresets] = useState<string[]>(initialPresets);
   const [voice] = useSelectedVoice();
   const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
+  const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
   const [search, setSearch] = useState("");
@@ -374,10 +375,11 @@ export default function ReviewClient({
 
   const toggleTag = (t: string) => setTagFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
-  // 필터 결합: 일차 → 검색(문장·뜻) → 태그(다중 AND) → (상태)
+  // 필터 결합: 일차 → 즐겨찾기 → 검색(문장·뜻) → 태그(다중 AND) → (상태)
   const byDay = showAll ? sentences : sentences.filter((s) => kstDate(s.created_at) === validSelected);
   const q = search.trim().toLowerCase();
   const pool = byDay.filter((s) => {
+    if (favoriteOnly && !s.is_favorite) return false;
     if (tagFilters.length > 0 && !tagFilters.every((t) => s.tags.includes(t))) return false;
     if (q && !`${s.english_text} ${s.korean_text}`.toLowerCase().includes(q)) return false;
     return true;
@@ -466,6 +468,15 @@ export default function ReviewClient({
               className={filter === "unmemorized" ? "border-streak-orange bg-streak-orange/10 text-streak-orange" : "text-streak-orange"}>
               <Circle className="mr-1 h-4 w-4" />
               미학습 {unmemorizedCount}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              aria-pressed={favoriteOnly}
+              onClick={() => setFavoriteOnly((v) => !v)}
+              className={favoriteOnly ? "border-amber-500 bg-amber-500/10 text-amber-600" : "text-amber-500"}>
+              <Star className={`mr-1 h-4 w-4 ${favoriteOnly ? "fill-current" : ""}`} />
+              즐겨찾기
             </Button>
             <div className="ml-auto flex items-center gap-2">
               <Button variant={showFind || search || tagFilters.length > 0 ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
