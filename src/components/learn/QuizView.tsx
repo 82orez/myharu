@@ -30,7 +30,7 @@ type State = {
 type Action =
   | { type: "START" }
   | { type: "LISTEN" }
-  | { type: "SHOW_RESULT"; isCorrect: boolean; recognizedText: string; xp: number }
+  | { type: "SHOW_RESULT"; sentenceId: string; isCorrect: boolean; recognizedText: string; xp: number }
   | { type: "NEXT" }
   | { type: "RETRY" }
   | { type: "FINISH" }
@@ -42,15 +42,19 @@ function reducer(state: State, action: Action): State {
       return { ...state, phase: "question", currentIndex: 0, answers: [], xpEarned: 0 };
     case "LISTEN":
       return { ...state, phase: "listening", resultStatus: null, recognizedText: "" };
-    case "SHOW_RESULT":
+    case "SHOW_RESULT": {
+      // 문제당 항목 하나만 유지 — 재시도 시 같은 인덱스를 덮어써 중복 방지
+      const answers = [...state.answers];
+      answers[state.currentIndex] = { sentenceId: action.sentenceId, isCorrect: action.isCorrect, recognizedText: action.recognizedText };
       return {
         ...state,
         phase: "result",
         resultStatus: action.isCorrect ? "correct" : "incorrect",
         recognizedText: action.recognizedText,
         xpEarned: state.xpEarned + action.xp,
-        answers: [...state.answers, { sentenceId: "", isCorrect: action.isCorrect, recognizedText: action.recognizedText }],
+        answers,
       };
+    }
     case "NEXT":
       const nextIndex = state.currentIndex + 1;
       return { ...state, phase: "question", currentIndex: nextIndex, resultStatus: null, recognizedText: "" };
@@ -116,7 +120,7 @@ export default function QuizView({
   }, [writingActive, state.phase, state.currentIndex]);
 
   const currentSentence = sentences[state.currentIndex];
-  const progressPercent = sentences.length > 0 ? Math.round((state.answers.length / sentences.length) * 100) : 0;
+  const progressPercent = sentences.length > 0 ? Math.round(((state.currentIndex + 1) / sentences.length) * 100) : 0;
 
   const playAudio = useCallback((audioUrl: string) => {
     if (audioRef.current) {
@@ -147,6 +151,7 @@ export default function QuizView({
 
       dispatch({
         type: "SHOW_RESULT",
+        sentenceId: currentSentence.id,
         isCorrect,
         recognizedText,
         xp: 0,
@@ -190,7 +195,7 @@ export default function QuizView({
       if (event.error === "not-allowed") {
         toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
       }
-      dispatch({ type: "SHOW_RESULT", isCorrect: false, recognizedText: "", xp: 0 });
+      dispatch({ type: "SHOW_RESULT", sentenceId: currentSentence.id, isCorrect: false, recognizedText: "", xp: 0 });
     };
 
     recognition.onend = () => {
