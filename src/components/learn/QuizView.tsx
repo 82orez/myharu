@@ -91,17 +91,10 @@ export default function QuizView({
   const [textInput, setTextInput] = useState("");
   const [isPending, startTransition] = useTransition();
   const recognitionRef = useRef<any>(null);
-  const autoAdvanceRef = useRef<NodeJS.Timeout | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
-    };
   }, []);
 
   useEffect(() => {
@@ -133,18 +126,8 @@ export default function QuizView({
         recognizedText,
         xp: 0,
       });
-
-      if (isCorrect) {
-        autoAdvanceRef.current = setTimeout(() => {
-          if (state.currentIndex + 1 >= sentences.length) {
-            dispatch({ type: "FINISH" });
-          } else {
-            dispatch({ type: "NEXT" });
-          }
-        }, 1500);
-      }
     },
-    [currentSentence, sentences.length, state.currentIndex],
+    [currentSentence],
   );
 
   const handleTextSubmit = useCallback(() => {
@@ -198,7 +181,6 @@ export default function QuizView({
   }, [handleResult]);
 
   const handleNext = useCallback(() => {
-    if (autoAdvanceRef.current) clearTimeout(autoAdvanceRef.current);
     if (state.currentIndex + 1 >= sentences.length) {
       dispatch({ type: "FINISH" });
     } else {
