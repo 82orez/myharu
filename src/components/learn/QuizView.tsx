@@ -89,8 +89,10 @@ export default function QuizView({
   const [mode, setMode] = useState<QuizMode>("speech");
   const [writingActive, setWritingActive] = useState(false);
   const [textInput, setTextInput] = useState("");
+  const [isPlaying, setIsPlaying] = useState(false);
   const [isPending, startTransition] = useTransition();
   const recognitionRef = useRef<any>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -100,6 +102,11 @@ export default function QuizView({
   useEffect(() => {
     setTextInput("");
     setWritingActive(false);
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    setIsPlaying(false);
   }, [state.currentIndex]);
 
   useEffect(() => {
@@ -112,8 +119,26 @@ export default function QuizView({
   const progressPercent = sentences.length > 0 ? Math.round((state.answers.length / sentences.length) * 100) : 0;
 
   const playAudio = useCallback((audioUrl: string) => {
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
     const audio = new Audio(audioUrl);
-    audio.play().catch((err) => console.error("[Audio] 재생 실패:", err));
+    audioRef.current = audio;
+    setIsPlaying(true);
+    audio.onended = () => {
+      setIsPlaying(false);
+      audioRef.current = null;
+    };
+    audio.onerror = () => {
+      setIsPlaying(false);
+      audioRef.current = null;
+    };
+    audio.play().catch((err) => {
+      console.error("[Audio] 재생 실패:", err);
+      setIsPlaying(false);
+      audioRef.current = null;
+    });
   }, []);
 
   const handleResult = useCallback(
@@ -300,9 +325,9 @@ export default function QuizView({
         {state.phase === "question" && (
           <div className="flex flex-col gap-3">
             {currentSentence?.audio_url && (
-              <Button variant="outline" onClick={() => playAudio(currentSentence.audio_url)} className="h-12 text-base">
-                <Volume2 className="mr-2 h-5 w-5" />
-                듣기
+              <Button variant="outline" disabled={isPlaying} onClick={() => playAudio(currentSentence.audio_url)} className="h-12 text-base">
+                {isPlaying ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Volume2 className="mr-2 h-5 w-5" />}
+                {isPlaying ? "playing" : "듣기"}
               </Button>
             )}
 
@@ -310,7 +335,7 @@ export default function QuizView({
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                disabled={!speechSupported}
+                disabled={!speechSupported || isPlaying}
                 onClick={() => {
                   setWritingActive(false);
                   setMode("speech");
@@ -322,6 +347,7 @@ export default function QuizView({
               </Button>
               <Button
                 variant={writingActive ? "destructive" : "outline"}
+                disabled={isPlaying}
                 onClick={() => {
                   if (writingActive) {
                     setWritingActive(false);
@@ -358,10 +384,10 @@ export default function QuizView({
                   placeholder="영어 문장을 입력하세요"
                   value={textInput}
                   onChange={(e) => setTextInput(e.target.value)}
-                  disabled={isPending}
+                  disabled={isPending || isPlaying}
                   className="h-12 flex-1 text-base"
                 />
-                <Button type="submit" variant="brand" disabled={!textInput.trim() || isPending} className="h-12 px-5 text-base font-semibold">
+                <Button type="submit" variant="brand" disabled={!textInput.trim() || isPending || isPlaying} className="h-12 px-5 text-base font-semibold">
                   확인
                 </Button>
               </form>
@@ -370,7 +396,7 @@ export default function QuizView({
         )}
 
         {state.phase === "question" && (
-          <Button variant="ghost" onClick={handleRevealAnswer} className="h-10 text-sm text-muted-foreground">
+          <Button variant="ghost" disabled={isPlaying} onClick={handleRevealAnswer} className="h-10 text-sm text-muted-foreground">
             <Eye className="mr-1 h-4 w-4" />
             정답 보기
           </Button>
