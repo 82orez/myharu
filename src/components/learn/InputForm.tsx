@@ -24,6 +24,8 @@ import {
 
 const MAX_LENGTH = 500;
 const WARN_THRESHOLD = 450;
+const NOTE_MAX_LENGTH = 1000;
+const NOTE_WARN_THRESHOLD = 900;
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10MB
 
 // 업로드 허용 오디오 포맷 (mime → 확장자)
@@ -56,6 +58,7 @@ type AudioSource = "ai" | "upload";
 export default function InputForm({ initialPresets = [] }: { initialPresets?: string[] }) {
   const [englishText, setEnglishText] = useState("");
   const [koreanText, setKoreanText] = useState("");
+  const [note, setNote] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [presets, setPresets] = useState<string[]>(initialPresets);
   const [voice, setVoice] = useSelectedVoice();
@@ -181,7 +184,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setError(null);
 
     startSaving(async () => {
-      const result = await saveSentence(englishText, koreanText, audioBase64, tags, audioMime, audioExt);
+      const result = await saveSentence(englishText, koreanText, audioBase64, tags, audioMime, audioExt, note);
 
       if ("error" in result) {
         setError(result.error);
@@ -192,6 +195,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setRecentSave({ english: englishText, korean: koreanText });
       setEnglishText("");
       setKoreanText("");
+      setNote("");
       setTags([]);
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioBase64(null);
@@ -271,6 +275,25 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
             <div className="flex justify-end">
               <span className={`text-xs ${koreanText.length > WARN_THRESHOLD ? "text-destructive" : "text-muted-foreground"}`}>
                 {koreanText.length}/{MAX_LENGTH}
+              </span>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="note">메모 (선택)</Label>
+            <textarea
+              id="note"
+              name="note"
+              placeholder="이 문장과 관련된 메모를 남겨보세요. (문맥, 뉘앙스, 암기 힌트 등)"
+              value={note}
+              onChange={(e) => setNote(e.target.value)}
+              readOnly={isPreview}
+              className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 read-only:bg-muted/50 flex min-h-[60px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+              maxLength={NOTE_MAX_LENGTH}
+            />
+            <div className="flex justify-end">
+              <span className={`text-xs ${note.length > NOTE_WARN_THRESHOLD ? "text-destructive" : "text-muted-foreground"}`}>
+                {note.length}/{NOTE_MAX_LENGTH}
               </span>
             </div>
           </div>

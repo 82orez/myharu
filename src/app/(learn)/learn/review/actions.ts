@@ -13,6 +13,7 @@ export type Sentence = {
   is_favorite: boolean;
   is_memorized: boolean;
   tags: string[];
+  note: string;
 };
 
 export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: string }> {
@@ -27,7 +28,7 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
 
   const query = supabase
     .from("sentences")
-    .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags")
+    .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags, note")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -58,6 +59,7 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
         is_favorite: row.is_favorite,
         is_memorized: memorizedIds.has(row.id),
         tags: row.tags ?? [],
+        note: row.note ?? "",
       };
     }),
   );
@@ -93,6 +95,7 @@ export async function updateSentence(
   koreanText: string,
   newAudioBase64?: string,
   tags?: string[],
+  note?: string,
 ): Promise<UpdateSentenceResult> {
   const english = englishText.trim();
   const korean = koreanText.trim();
@@ -145,12 +148,13 @@ export async function updateSentence(
     audioPath = newPath;
   }
 
-  const updatePayload: { english_text: string; korean_text: string; audio_path: string; tags?: string[] } = {
+  const updatePayload: { english_text: string; korean_text: string; audio_path: string; tags?: string[]; note?: string } = {
     english_text: english,
     korean_text: korean,
     audio_path: audioPath,
   };
   if (tags !== undefined) updatePayload.tags = sanitizeTags(tags);
+  if (note !== undefined) updatePayload.note = note.trim().slice(0, 1000);
 
   const { error: updateError } = await supabase.from("sentences").update(updatePayload).eq("id", id).eq("user_id", user.id);
 

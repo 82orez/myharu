@@ -21,6 +21,7 @@ import {
   Tag,
   X,
   Plus,
+  StickyNote,
 } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
@@ -57,6 +58,7 @@ type EditState = {
   originalEnglish: string;
   regenAudio: boolean;
   tags: string[];
+  note: string;
 };
 
 export default function ReviewClient({
@@ -83,6 +85,7 @@ export default function ReviewClient({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
+  const [notesShownIds, setNotesShownIds] = useState<Set<string>>(new Set());
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [saving, startSaving] = useTransition();
@@ -283,6 +286,7 @@ export default function ReviewClient({
       originalEnglish: sentence.english_text,
       regenAudio: true,
       tags: sentence.tags,
+      note: sentence.note,
     });
   };
 
@@ -306,7 +310,7 @@ export default function ReviewClient({
         audioBase64 = audioResult.audioBase64;
       }
 
-      const result = await updateSentence(editing.id, editing.englishText, editing.koreanText, audioBase64, editing.tags);
+      const result = await updateSentence(editing.id, editing.englishText, editing.koreanText, audioBase64, editing.tags, editing.note);
 
       if ("error" in result) {
         toast.error(result.error);
@@ -322,6 +326,7 @@ export default function ReviewClient({
                 korean_text: editing.koreanText.trim(),
                 audio_url: result.audioUrl,
                 tags: editing.tags,
+                note: editing.note.trim(),
               }
             : s,
         ),
@@ -625,6 +630,16 @@ export default function ReviewClient({
                         }}
                       />
                     </div>
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-muted-foreground text-xs">메모</Label>
+                      <textarea
+                        value={editing.note}
+                        onChange={(e) => setEditing({ ...editing, note: e.target.value })}
+                        maxLength={1000}
+                        placeholder="이 문장과 관련된 메모"
+                        className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[60px] w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+                      />
+                    </div>
                     {editing.englishText.trim() !== editing.originalEnglish && (
                       <label className="text-muted-foreground flex items-center gap-2 text-sm">
                         <input
@@ -654,6 +669,13 @@ export default function ReviewClient({
                   <>
                     <p className="text-lg font-semibold">{sentence.korean_text}</p>
                     {revealedIds.has(sentence.id) && <p className="text-muted-foreground text-sm">{sentence.english_text}</p>}
+
+                    {sentence.note && notesShownIds.has(sentence.id) && (
+                      <div className="bg-muted/50 text-muted-foreground flex gap-2 rounded-lg px-3 py-2 text-sm">
+                        <StickyNote className="mt-0.5 h-4 w-4 shrink-0" />
+                        <p className="whitespace-pre-wrap">{sentence.note}</p>
+                      </div>
+                    )}
 
                     {sentence.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
@@ -745,6 +767,25 @@ export default function ReviewClient({
                         {revealedIds.has(sentence.id) ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
                         {revealedIds.has(sentence.id) ? "정답 숨기기" : "정답 보기"}
                       </Button>
+
+                      {sentence.note && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() =>
+                            setNotesShownIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(sentence.id)) next.delete(sentence.id);
+                              else next.add(sentence.id);
+                              return next;
+                            })
+                          }
+                          className={notesShownIds.has(sentence.id) ? "text-brand" : "text-muted-foreground hover:text-brand"}>
+                          <StickyNote className="mr-1 h-4 w-4" />
+                          메모
+                        </Button>
+                      )}
 
                       <Button
                         variant="ghost"

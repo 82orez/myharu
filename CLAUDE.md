@@ -48,9 +48,9 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 세부 UI 동작은 각 컴포넌트 코드 참조. 여기선 구조·데이터 흐름만.
 
-- **문장 입력** (`/learn/input`, `InputForm`): 영어+한국어 입력 → **두 경로 택1** ① AI 음성(`generateAudio`, OpenAI TTS — `VoicePicker`로 음색 선택) ② 파일 업로드 → 미리듣기 → `saveSentence`로 Storage 업로드 + `sentences` 저장. 업로드는 `arrayBufferToBase64`로 변환해 AI 경로와 동일 state/UI 공유, `audioSource`로 분기. 허용 포맷(mp3/wav/m4a/aac/ogg/webm)·10MB를 **클라이언트와 `saveSentence` 양쪽 검증**, Storage 경로 `{userId}/{uuid}.{ext}`. 태그는 `TagPicker`로 **프리셋에서 선택**(아래 태그 항목).
+- **문장 입력** (`/learn/input`, `InputForm`): 영어+한국어 입력 → **두 경로 택1** ① AI 음성(`generateAudio`, OpenAI TTS — `VoicePicker`로 음색 선택) ② 파일 업로드 → 미리듣기 → `saveSentence`로 Storage 업로드 + `sentences` 저장. 업로드는 `arrayBufferToBase64`로 변환해 AI 경로와 동일 state/UI 공유, `audioSource`로 분기. 허용 포맷(mp3/wav/m4a/aac/ogg/webm)·10MB를 **클라이언트와 `saveSentence` 양쪽 검증**, Storage 경로 `{userId}/{uuid}.{ext}`. 태그는 `TagPicker`로 **프리셋에서 선택**(아래 태그 항목). **메모**(선택, 최대 1000자)는 textarea로 입력 → `saveSentence(..., note)` → `sentences.note` 저장.
 - **학습**: **별도 라우트 2개** — 문장 목록(`/learn/review`)과 퀴즈(`/learn/quiz`). 두 페이지 상단에 공용 `LearnModeTabs`(`usePathname` 기반 `<Link>` 탭, 활성 강조)로 전환. **학습 인정은 문장 목록에서만**. (기존 nav 링크는 모두 `/learn/review`=문장 목록을 가리킴.)
-  - **문장 목록** (`/learn/review`, `ReviewClient`): 카드별 듣기/말하기(Web Speech API)/쓰기(텍스트)/정답 보기/즐겨찾기/편집/삭제. 말하기·쓰기·오디오는 **한 번에 한 카드만 활성**(상호 배제). 정답 시 `recordPracticeResult(sentenceId, isCorrect, mode)` 호출(`mode: 'speech'|'text'`) + 첫 정답이면 `is_memorized` 즉시 갱신. 필터(모두 클라이언트 AND 결합): 상태(전체/암기 완료/미학습), 즐겨찾기 전용 토글, 일차(입력일별 스테퍼), 본문 검색(문장·뜻만), 태그(칩 다중 선택, 선택 태그 모두 포함=AND), 정렬. 편집은 `generateAudio` 재활용 → `updateSentence(..., tags)`. 페이지는 `getSentences`+`getTagPresets`만 fetch.
+  - **문장 목록** (`/learn/review`, `ReviewClient`): 카드별 듣기/말하기(Web Speech API)/쓰기(텍스트)/정답 보기/메모/즐겨찾기/편집/삭제. **메모**는 `note`가 있는 카드에만 "메모" 토글 버튼 노출(`notesShownIds`, 정답 공개와 독립). 편집 폼에서 수정. 말하기·쓰기·오디오는 **한 번에 한 카드만 활성**(상호 배제). 정답 시 `recordPracticeResult(sentenceId, isCorrect, mode)` 호출(`mode: 'speech'|'text'`) + 첫 정답이면 `is_memorized` 즉시 갱신. 필터(모두 클라이언트 AND 결합): 상태(전체/암기 완료/미학습), 즐겨찾기 전용 토글, 일차(입력일별 스테퍼), 본문 검색(문장·뜻만), 태그(칩 다중 선택, 선택 태그 모두 포함=AND), 정렬. 편집은 `generateAudio` 재활용 → `updateSentence(..., tags)`. 페이지는 `getSentences`+`getTagPresets`만 fetch.
   - **퀴즈** (`/learn/quiz`, `QuizView`): 한 문제씩(`useReducer` 상태머신 `ready→question→listening→result→summary`). 스피킹/텍스트 모드. **`recordPracticeResult` 미호출(점수 무관)**, 요약은 정확도만. 페이지는 `getSentences`+`getUserStats` fetch. 진행율 바·카운터는 `currentIndex` 기준(현재 문제 = `(currentIndex+1)/total`, 오답·재시도 시 증가 안 함). `answers`는 문제당 1개(`currentIndex`로 덮어써 중복 방지). 오답 결과에서 "다음"은 `AlertDialog` 확인(오답 확정 경고) 후 이동. 듣기 오디오 재생 중(`isPlaying`)엔 모든 액션 버튼 비활성(듣기 버튼은 스피너+"playing"), 문제 전환 시 재생 정지.
 - **학습 목표** (`/learn/goal`, `GoalForm`): "하루 목표 문장 수"만 입력. 서버 액션 `setDailyGoal(n)`(`goal/actions.ts`) → `user_stats.daily_goal` 갱신. 장기 목표(총량/기간/완주선) 개념 없음. 상수 `DEFAULT_DAILY_GOAL`=5·`MAX_DAILY_GOAL`=100은 `lib/goal-config.ts`(서버 액션·서버 컴포넌트·클라 폼 공유 → 디렉티브 없는 순수 모듈).
 - **태그**: `TagPicker`는 사용자 **프리셋에서 선택**(칩 토글 + 즉석 추가 + "태그 관리" Dialog). 프리셋은 `user_stats.tag_presets`에 저장, `tag-actions.ts`의 `getTagPresets`/`setTagPresets`(전체 교체)/`renameTag`(프리셋 + 해당 태그를 가진 모든 문장에 일괄 반영)로 관리. 정규화 `lib/tags.ts` `sanitizeTags`(공백/중복 제거, 각 20자, `MAX_TAGS`=10·`MAX_PRESETS`=50). 색은 `lib/tag-color.ts` `tagColorClass`(이름 해시 → 10색 팔레트, 같은 태그=같은 색).
@@ -71,11 +71,11 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 ### DB 스키마 (`supabase/migrations/`)
 
 3개 테이블. RLS는 모두 `user_id = auth.uid()`.
-- **`sentences`**: id, user_id, english_text, korean_text, audio_path, is_favorite(기본 false), `tags text[]`(기본 `{}`, GIN), created_at. Storage `tts-audio` 버킷 동일 RLS. `is_memorized`는 컬럼 아님 — `getSentences`에서 `practice_results` 조회로 enrich.
+- **`sentences`**: id, user_id, english_text, korean_text, audio_path, is_favorite(기본 false), `tags text[]`(기본 `{}`, GIN), `note text`(기본 `''`), created_at. Storage `tts-audio` 버킷 동일 RLS. `is_memorized`는 컬럼 아님 — `getSentences`에서 `practice_results` 조회로 enrich.
 - **`user_stats`**: user_id(PK), total_xp, daily_goal(기본 5), `tag_presets text[]`, created_at. 신규 가입 시 `handle_new_user_stats` 트리거로 자동 생성.
 - **`practice_results`**: id, user_id, sentence_id, is_correct, xp_earned, `mode`(`'speech'|'text'`, CHECK, 기본 `'speech'`), practiced_at.
 
-마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(streak 컬럼 3종 삭제) → `simplify_goal_to_daily`(장기 목표 컬럼 3종 삭제, daily_goal만 유지).
+마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(streak 컬럼 3종 삭제) → `simplify_goal_to_daily`(장기 목표 컬럼 3종 삭제, daily_goal만 유지) → `add_note_to_sentences`(메모 컬럼).
 
 ### OpenAI (`lib/openai.ts`)
 

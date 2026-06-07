@@ -69,9 +69,11 @@ export async function saveSentence(
   tags: string[] = [],
   audioMime: string = "audio/mpeg",
   audioExt: string = "mp3",
+  note: string = "",
 ): Promise<SaveSentenceResult> {
   const english = englishText.trim();
   const korean = koreanText.trim();
+  const cleanNote = note.trim().slice(0, 1000);
   const cleanTags = sanitizeTags(tags);
 
   if (!english || !korean) {
@@ -128,6 +130,7 @@ export async function saveSentence(
     korean_text: korean,
     audio_path: storagePath,
     tags: cleanTags,
+    note: cleanNote,
   });
 
   if (insertError) {
