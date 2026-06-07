@@ -109,7 +109,7 @@ export default function QuizView({
   }, [writingActive, state.phase, state.currentIndex]);
 
   const currentSentence = sentences[state.currentIndex];
-  const progressPercent = sentences.length > 0 ? Math.round((state.currentIndex / sentences.length) * 100) : 0;
+  const progressPercent = sentences.length > 0 ? Math.round((state.answers.length / sentences.length) * 100) : 0;
 
   const playAudio = useCallback((audioUrl: string) => {
     const audio = new Audio(audioUrl);
