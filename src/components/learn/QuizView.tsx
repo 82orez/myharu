@@ -87,6 +87,7 @@ export default function QuizView({
   const [state, dispatch] = useReducer(reducer, initialState);
   const [speechSupported, setSpeechSupported] = useState(false);
   const [mode, setMode] = useState<QuizMode>("speech");
+  const [writingActive, setWritingActive] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [isPending, startTransition] = useTransition();
   const recognitionRef = useRef<any>(null);
@@ -105,13 +106,14 @@ export default function QuizView({
 
   useEffect(() => {
     setTextInput("");
+    setWritingActive(false);
   }, [state.currentIndex]);
 
   useEffect(() => {
-    if (mode === "text" && state.phase === "question") {
+    if (writingActive && state.phase === "question") {
       textInputRef.current?.focus();
     }
-  }, [mode, state.phase, state.currentIndex]);
+  }, [writingActive, state.phase, state.currentIndex]);
 
   const currentSentence = sentences[state.currentIndex];
   const progressPercent = sentences.length > 0 ? Math.round((state.currentIndex / sentences.length) * 100) : 0;
@@ -232,45 +234,9 @@ export default function QuizView({
       <div className="flex flex-col items-center gap-6 py-12 text-center">
         <h1 className="text-3xl font-bold">퀴즈</h1>
         <p className="text-muted-foreground">총 {sentences.length}문장을 연습합니다.</p>
+        <p className="text-sm text-muted-foreground">문제마다 말하기 또는 쓰기를 선택할 수 있어요.</p>
 
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-sm font-medium text-muted-foreground">학습 모드</p>
-          <div className="flex gap-1 rounded-full bg-muted/60 p-1">
-            <button
-              type="button"
-              onClick={() => setMode("speech")}
-              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                mode === "speech" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}>
-              <Mic size={14} />
-              스피킹
-            </button>
-            <button
-              type="button"
-              onClick={() => setMode("text")}
-              className={`flex items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-colors ${
-                mode === "text" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-              }`}>
-              <Keyboard size={14} />
-              텍스트
-            </button>
-          </div>
-          <p className="text-xs text-muted-foreground">
-            {mode === "speech" ? "한국어 뜻을 보고 영어로 말하세요" : "한국어 뜻을 보고 영어 문장을 입력하세요"}
-          </p>
-        </div>
-
-        {mode === "speech" && !speechSupported && (
-          <p className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-            이 브라우저에서는 음성 인식이 지원되지 않습니다. Chrome 또는 Edge 브라우저를 사용하거나 텍스트 모드를 선택해 주세요.
-          </p>
-        )}
-
-        <Button
-          variant="brand"
-          onClick={() => dispatch({ type: "START" })}
-          disabled={mode === "speech" && !speechSupported}
-          className="mt-4 h-14 px-10 text-lg font-bold">
+        <Button variant="brand" onClick={() => dispatch({ type: "START" })} className="mt-4 h-14 px-10 text-lg font-bold">
           시작하기
         </Button>
       </div>
@@ -325,9 +291,7 @@ export default function QuizView({
             state.resultStatus === "correct" ? "animate-pulse-glow ring-2 ring-success" : state.resultStatus === "incorrect" ? "animate-shake ring-2 ring-destructive" : ""
           }`}>
           <CardContent className="flex min-h-[240px] flex-col items-center justify-center gap-6 py-10 text-center">
-            <p className="text-sm font-medium text-muted-foreground">
-              {mode === "speech" ? "이 문장을 영어로 말하세요" : "이 문장을 영어로 입력하세요"}
-            </p>
+            <p className="text-sm font-medium text-muted-foreground">이 문장을 영어로 말하거나 입력하세요</p>
             <p className="text-2xl font-bold leading-relaxed">{currentSentence.korean_text}</p>
 
             {/* 정답 피드백 */}
@@ -351,24 +315,7 @@ export default function QuizView({
 
       {/* 액션 버튼 */}
       <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
-        {state.phase === "question" && mode === "speech" && (
-          <div className="flex gap-3">
-            {currentSentence?.audio_url && (
-              <Button variant="outline" onClick={() => playAudio(currentSentence.audio_url)} className="h-12 flex-1 text-base">
-                <Volume2 className="mr-2 h-5 w-5" />
-                듣기
-              </Button>
-            )}
-            {speechSupported && (
-              <Button variant="brand" onClick={startRecognition} className="h-12 flex-1 text-base font-semibold">
-                <Mic className="mr-2 h-5 w-5" />
-                말하기
-              </Button>
-            )}
-          </div>
-        )}
-
-        {state.phase === "question" && mode === "text" && (
+        {state.phase === "question" && (
           <div className="flex flex-col gap-3">
             {currentSentence?.audio_url && (
               <Button variant="outline" onClick={() => playAudio(currentSentence.audio_url)} className="h-12 text-base">
@@ -376,29 +323,67 @@ export default function QuizView({
                 듣기
               </Button>
             )}
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                handleTextSubmit();
-              }}
-              className="flex gap-2">
-              <Input
-                ref={textInputRef}
-                type="text"
-                autoComplete="off"
-                autoCapitalize="off"
-                autoCorrect="off"
-                spellCheck={false}
-                placeholder="영어 문장을 입력하세요"
-                value={textInput}
-                onChange={(e) => setTextInput(e.target.value)}
-                disabled={isPending}
-                className="h-12 flex-1 text-base"
-              />
-              <Button type="submit" variant="brand" disabled={!textInput.trim() || isPending} className="h-12 px-5 text-base font-semibold">
-                확인
+
+            {/* 말하기 / 쓰기 선택 */}
+            <div className="flex gap-3">
+              <Button
+                variant="outline"
+                disabled={!speechSupported}
+                onClick={() => {
+                  setWritingActive(false);
+                  setMode("speech");
+                  startRecognition();
+                }}
+                className="h-12 flex-1 text-base font-semibold">
+                <Mic className="mr-2 h-5 w-5" />
+                말하기
               </Button>
-            </form>
+              <Button
+                variant={writingActive ? "destructive" : "outline"}
+                onClick={() => {
+                  if (writingActive) {
+                    setWritingActive(false);
+                    setTextInput("");
+                  } else {
+                    setMode("text");
+                    setWritingActive(true);
+                  }
+                }}
+                className="h-12 flex-1 text-base font-semibold">
+                <Keyboard className="mr-2 h-5 w-5" />
+                {writingActive ? "닫기" : "쓰기"}
+              </Button>
+            </div>
+
+            {!speechSupported && (
+              <p className="text-center text-xs text-muted-foreground">이 브라우저는 음성 인식을 지원하지 않아요. 쓰기로 연습해 주세요.</p>
+            )}
+
+            {writingActive && (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleTextSubmit();
+                }}
+                className="flex gap-2">
+                <Input
+                  ref={textInputRef}
+                  type="text"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  placeholder="영어 문장을 입력하세요"
+                  value={textInput}
+                  onChange={(e) => setTextInput(e.target.value)}
+                  disabled={isPending}
+                  className="h-12 flex-1 text-base"
+                />
+                <Button type="submit" variant="brand" disabled={!textInput.trim() || isPending} className="h-12 px-5 text-base font-semibold">
+                  확인
+                </Button>
+              </form>
+            )}
           </div>
         )}
 
