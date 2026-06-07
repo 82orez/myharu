@@ -259,7 +259,7 @@ export default function QuizView({
           </AlertDialogContent>
         </AlertDialog>
 
-        <Progress value={progressPercent} className="h-3 flex-1" />
+        <Progress value={progressPercent} className="h-3 flex-1 items-center" />
         <span className="text-sm font-medium text-muted-foreground">
           {state.currentIndex + 1}/{sentences.length}
         </span>
