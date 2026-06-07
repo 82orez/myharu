@@ -1,20 +1,23 @@
 import type { Metadata } from "next";
 import { getSentences } from "./actions";
-import { getUserStats } from "./gamification-actions";
 import { getTagPresets } from "../tag-actions";
-import ReviewTabs from "@/components/learn/ReviewTabs";
+import LearnModeTabs from "@/components/learn/LearnModeTabs";
+import ReviewClient from "@/components/learn/ReviewClient";
 
 export const metadata: Metadata = {
-  title: "학습",
+  title: "문장 목록",
   robots: { index: false },
 };
 
 export default async function ReviewPage() {
-  const [sentencesResult, statsResult, presets] = await Promise.all([getSentences(), getUserStats(), getTagPresets()]);
+  const [sentencesResult, presets] = await Promise.all([getSentences(), getTagPresets()]);
 
   return (
     <main className="mx-auto min-h-[calc(100vh-200px)] max-w-2xl px-4 py-8">
-      <ReviewTabs sentences={sentencesResult.sentences ?? []} stats={statsResult.stats} error={sentencesResult.error} presets={presets} />
+      <div className="flex flex-col gap-6">
+        <LearnModeTabs />
+        <ReviewClient initialSentences={sentencesResult.sentences ?? []} initialError={sentencesResult.error} initialPresets={presets} />
+      </div>
     </main>
   );
 }
