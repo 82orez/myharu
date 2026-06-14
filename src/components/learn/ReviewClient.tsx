@@ -705,6 +705,9 @@ export default function ReviewClient({
                         <Keyboard className="h-3.5 w-3.5" />
                         {sentence.text_count}회
                       </span>
+                      <span className="text-foreground/70 flex items-center gap-1 font-medium" title="총 학습 횟수">
+                        합계 {sentence.speech_count + sentence.text_count}회
+                      </span>
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 pt-1">
