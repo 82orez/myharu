@@ -167,8 +167,8 @@ export default function QuizView({
     const trimmed = textInput.trim();
     if (!trimmed) return;
     const { match } = textsMatch(trimmed, currentSentence.english_text);
-    // 점수와 무관하게 모드별 학습 횟수만 누적(문장 목록에 표시)
-    void incrementPracticeCount(currentSentence.id, "text");
+    // 정답일 때만 모드별 정답 횟수 누적(문장 목록에 표시)
+    if (match) void incrementPracticeCount(currentSentence.id, "text");
     handleResult(match, trimmed);
   }, [currentSentence, textInput, handleResult]);
 
@@ -192,8 +192,8 @@ export default function QuizView({
       const text = event.results[0][0].transcript;
       const { match, similarity } = textsMatch(text, currentSentence.english_text);
       console.log("[스피킹 인식]", { 인식: text, 정답: currentSentence.english_text, 유사도: similarity, 정답여부: match });
-      // 점수와 무관하게 모드별 학습 횟수만 누적(문장 목록에 표시)
-      void incrementPracticeCount(currentSentence.id, "speech");
+      // 정답일 때만 모드별 정답 횟수 누적(문장 목록에 표시)
+      if (match) void incrementPracticeCount(currentSentence.id, "speech");
       handleResult(match, text);
     };
 

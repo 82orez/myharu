@@ -163,7 +163,7 @@ export default function ReviewClient({
         }
         triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
         setSentences((prev) =>
-          prev.map((s) => (s.id === sentenceId ? { ...s, text_count: s.text_count + 1, is_memorized: s.is_memorized || match } : s)),
+          prev.map((s) => (s.id === sentenceId ? { ...s, text_count: s.text_count + (match ? 1 : 0), is_memorized: s.is_memorized || match } : s)),
         );
         if (match) {
           toast.success("정확합니다!");
@@ -211,7 +211,7 @@ export default function ReviewClient({
           }
           triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
           setSentences((prev) =>
-            prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + 1, is_memorized: s.is_memorized || match } : s)),
+            prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + (match ? 1 : 0), is_memorized: s.is_memorized || match } : s)),
           );
           if (match) {
             toast.success("정확합니다!");
@@ -697,15 +697,19 @@ export default function ReviewClient({
                     )}
 
                     <div className="text-muted-foreground flex items-center gap-3 text-xs">
-                      <span className="flex items-center gap-1" title="스피킹 학습 횟수">
+                      <span className="text-foreground/60 flex items-center gap-1" title="정답 횟수">
+                        <Check className="h-3.5 w-3.5" />
+                        정답
+                      </span>
+                      <span className="flex items-center gap-1" title="스피킹 정답 횟수">
                         <Mic className="h-3.5 w-3.5" />
                         {sentence.speech_count}회
                       </span>
-                      <span className="flex items-center gap-1" title="쓰기 학습 횟수">
+                      <span className="flex items-center gap-1" title="쓰기 정답 횟수">
                         <Keyboard className="h-3.5 w-3.5" />
                         {sentence.text_count}회
                       </span>
-                      <span className="text-foreground/70 flex items-center gap-1 font-medium" title="총 학습 횟수">
+                      <span className="text-foreground/70 flex items-center gap-1 font-medium" title="총 정답 횟수">
                         합계 {sentence.speech_count + sentence.text_count}회
                       </span>
                     </div>
