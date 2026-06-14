@@ -91,6 +91,7 @@ export default function QuizView({
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, initialState);
   const [speechSupported, setSpeechSupported] = useState(false);
+  const [quizType, setQuizType] = useState<"translate" | "listening">("translate");
   const [mode, setMode] = useState<QuizMode>("speech");
   const [writingActive, setWritingActive] = useState(false);
   const [textInput, setTextInput] = useState("");
@@ -252,9 +253,25 @@ export default function QuizView({
       <div className="flex flex-col items-center gap-6 py-12 text-center">
         <h1 className="text-3xl font-bold">퀴즈</h1>
         <p className="text-muted-foreground">총 {sentences.length}문장을 연습합니다.</p>
-        <p className="text-sm text-muted-foreground">문제마다 말하기 또는 쓰기를 선택할 수 있어요.</p>
 
-        <Button variant="brand" onClick={() => dispatch({ type: "START" })} className="mt-4 h-14 px-10 text-lg font-bold">
+        <div className="flex w-full max-w-md flex-col gap-3">
+          <Button
+            variant={quizType === "translate" ? "brand" : "outline"}
+            onClick={() => setQuizType("translate")}
+            className="h-auto flex-col items-start gap-1 px-5 py-4 text-left">
+            <span className="text-base font-bold">일반 (한국어 → 영어)</span>
+            <span className="text-sm font-normal opacity-80">한국어 뜻을 보고 영어로 말하거나 써요.</span>
+          </Button>
+          <Button
+            variant={quizType === "listening" ? "brand" : "outline"}
+            onClick={() => setQuizType("listening")}
+            className="h-auto flex-col items-start gap-1 px-5 py-4 text-left">
+            <span className="text-base font-bold">리스닝 (듣고 따라 말하기)</span>
+            <span className="text-sm font-normal opacity-80">오디오를 듣고 영어 문장을 따라 말해요.</span>
+          </Button>
+        </div>
+
+        <Button variant="brand" onClick={() => dispatch({ type: "START" })} className="mt-2 h-14 px-10 text-lg font-bold">
           시작하기
         </Button>
       </div>
@@ -303,20 +320,40 @@ export default function QuizView({
 
       {/* 문제 카드 */}
       {currentSentence && (
+        (() => {
+          const listenClickable = quizType === "listening" && !!currentSentence.audio_url && state.phase !== "listening" && !isPlaying;
+          return (
         <Card
           key={state.currentIndex}
+          onClick={listenClickable ? () => playAudio(currentSentence.audio_url) : undefined}
+          role={listenClickable ? "button" : undefined}
+          aria-label={listenClickable ? "오디오 듣기" : undefined}
           className={`animate-in fade-in slide-in-from-right-4 mx-auto w-full max-w-lg duration-300 ${
+            listenClickable ? "hover:border-brand/50 cursor-pointer transition-colors" : ""
+          } ${
             state.resultStatus === "correct" ? "animate-pulse-glow ring-2 ring-success" : state.resultStatus === "incorrect" ? "animate-shake ring-2 ring-destructive" : ""
           }`}>
           <CardContent className="flex min-h-[240px] flex-col items-center justify-center gap-6 py-10 text-center">
-            <p className="text-sm font-medium text-muted-foreground">이 문장을 영어로 말하거나 입력하세요</p>
-            <p className="text-2xl font-bold leading-relaxed">{currentSentence.korean_text}</p>
+            {quizType === "listening" ? (
+              <>
+                <p className="text-sm font-medium text-muted-foreground">
+                  {isPlaying ? "재생 중..." : "카드를 눌러 듣고 따라 말해 보세요"}
+                </p>
+                {isPlaying ? <Loader2 className="text-brand h-12 w-12 animate-spin" /> : <Volume2 className="text-brand h-12 w-12" />}
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-muted-foreground">이 문장을 영어로 말하거나 입력하세요</p>
+                <p className="text-2xl font-bold leading-relaxed">{currentSentence.korean_text}</p>
+              </>
+            )}
 
             {/* 정답 피드백 */}
             {state.resultStatus === "correct" && (
               <div className="animate-in fade-in">
                 <p className="text-lg font-semibold text-success">정확합니다!</p>
                 <p className="mt-1 text-sm text-muted-foreground">{currentSentence.english_text}</p>
+                {quizType === "listening" && <p className="text-sm font-medium text-muted-foreground">{currentSentence.korean_text}</p>}
               </div>
             )}
 
@@ -324,25 +361,28 @@ export default function QuizView({
               <div className="animate-in fade-in flex flex-col gap-2">
                 <p className="text-lg font-semibold text-destructive">다시 시도하세요</p>
                 <p className="rounded-lg bg-success/10 px-4 py-2 text-sm font-medium text-success">{currentSentence.english_text}</p>
+                {quizType === "listening" && <p className="text-sm font-medium text-muted-foreground">{currentSentence.korean_text}</p>}
                 {state.recognizedText && <p className="text-xs text-muted-foreground">인식된 문장: &quot;{state.recognizedText}&quot;</p>}
               </div>
             )}
           </CardContent>
         </Card>
+          );
+        })()
       )}
 
       {/* 액션 버튼 */}
       <div className="mx-auto flex w-full max-w-lg flex-col gap-3">
         {state.phase === "question" && (
           <div className="flex flex-col gap-3">
-            {currentSentence?.audio_url && (
+            {quizType === "translate" && currentSentence?.audio_url && (
               <Button variant="outline" disabled={isPlaying} onClick={() => playAudio(currentSentence.audio_url)} className="h-12 text-base">
                 {isPlaying ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Volume2 className="mr-2 h-5 w-5" />}
                 {isPlaying ? "playing" : "듣기"}
               </Button>
             )}
 
-            {/* 말하기 / 쓰기 선택 */}
+            {/* 말하기 / 쓰기 선택 (리스닝 모드는 말하기만) */}
             <div className="flex gap-3">
               <Button
                 variant="outline"
@@ -356,29 +396,33 @@ export default function QuizView({
                 <Mic className="mr-2 h-5 w-5" />
                 말하기
               </Button>
-              <Button
-                variant={writingActive ? "destructive" : "outline"}
-                disabled={isPlaying}
-                onClick={() => {
-                  if (writingActive) {
-                    setWritingActive(false);
-                    setTextInput("");
-                  } else {
-                    setMode("text");
-                    setWritingActive(true);
-                  }
-                }}
-                className="h-12 flex-1 text-base font-semibold">
-                <Keyboard className="mr-2 h-5 w-5" />
-                {writingActive ? "닫기" : "쓰기"}
-              </Button>
+              {quizType === "translate" && (
+                <Button
+                  variant={writingActive ? "destructive" : "outline"}
+                  disabled={isPlaying}
+                  onClick={() => {
+                    if (writingActive) {
+                      setWritingActive(false);
+                      setTextInput("");
+                    } else {
+                      setMode("text");
+                      setWritingActive(true);
+                    }
+                  }}
+                  className="h-12 flex-1 text-base font-semibold">
+                  <Keyboard className="mr-2 h-5 w-5" />
+                  {writingActive ? "닫기" : "쓰기"}
+                </Button>
+              )}
             </div>
 
             {!speechSupported && (
-              <p className="text-center text-xs text-muted-foreground">이 브라우저는 음성 인식을 지원하지 않아요. 쓰기로 연습해 주세요.</p>
+              <p className="text-center text-xs text-muted-foreground">
+                이 브라우저는 음성 인식을 지원하지 않아요.{quizType === "translate" ? " 쓰기로 연습해 주세요." : ""}
+              </p>
             )}
 
-            {writingActive && (
+            {quizType === "translate" && writingActive && (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
