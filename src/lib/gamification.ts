@@ -70,6 +70,9 @@ export async function recordPractice(
     mode,
   });
 
+  // 모드별 학습 횟수 카운터 증가(점수와 무관, 퀴즈와 공유)
+  await supabase.rpc("increment_practice_count", { p_sentence_id: sentenceId, p_mode: mode });
+
   const stats = await fetchUserStats(supabase, userId);
   if (!stats) {
     return { xpEarned, totalXp: xpEarned };

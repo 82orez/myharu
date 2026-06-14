@@ -44,3 +44,16 @@ export async function recordPracticeResult(
 
   return await recordPractice(supabase, user.id, sentenceId, isCorrect, mode);
 }
+
+// 점수와 무관하게 모드별 학습 횟수만 증가(퀴즈 전용 — 퀴즈는 practice_results를 기록하지 않음)
+export async function incrementPracticeCount(sentenceId: string, mode: QuizMode): Promise<{ error?: string }> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  await supabase.rpc("increment_practice_count", { p_sentence_id: sentenceId, p_mode: mode });
+  return {};
+}

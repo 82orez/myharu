@@ -14,6 +14,8 @@ export type Sentence = {
   is_memorized: boolean;
   tags: string[];
   note: string;
+  speech_count: number;
+  text_count: number;
 };
 
 export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: string }> {
@@ -28,7 +30,7 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
 
   const query = supabase
     .from("sentences")
-    .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags, note")
+    .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags, note, speech_count, text_count")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -60,6 +62,8 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
         is_memorized: memorizedIds.has(row.id),
         tags: row.tags ?? [],
         note: row.note ?? "",
+        speech_count: row.speech_count ?? 0,
+        text_count: row.text_count ?? 0,
       };
     }),
   );

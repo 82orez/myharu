@@ -162,8 +162,10 @@ export default function ReviewClient({
           return;
         }
         triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
+        setSentences((prev) =>
+          prev.map((s) => (s.id === sentenceId ? { ...s, text_count: s.text_count + 1, is_memorized: s.is_memorized || match } : s)),
+        );
         if (match) {
-          setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, is_memorized: true } : s)));
           toast.success("정확합니다!");
           setWritingId(null);
           setTextInput("");
@@ -208,8 +210,10 @@ export default function ReviewClient({
             return;
           }
           triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
+          setSentences((prev) =>
+            prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + 1, is_memorized: s.is_memorized || match } : s)),
+          );
           if (match) {
-            setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, is_memorized: true } : s)));
             toast.success("정확합니다!");
           } else {
             toast.error("다시 시도하세요.", { description: `인식된 문장: "${recognizedText}"` });
@@ -691,6 +695,17 @@ export default function ReviewClient({
                         ))}
                       </div>
                     )}
+
+                    <div className="text-muted-foreground flex items-center gap-3 text-xs">
+                      <span className="flex items-center gap-1" title="스피킹 학습 횟수">
+                        <Mic className="h-3.5 w-3.5" />
+                        {sentence.speech_count}회
+                      </span>
+                      <span className="flex items-center gap-1" title="쓰기 학습 횟수">
+                        <Keyboard className="h-3.5 w-3.5" />
+                        {sentence.text_count}회
+                      </span>
+                    </div>
 
                     <div className="flex flex-wrap items-center gap-2 pt-1">
                       {sentence.audio_url && (
