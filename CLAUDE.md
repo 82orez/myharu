@@ -50,14 +50,15 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 - **문장 입력** (`/learn/input`, `InputForm`): 영어+한국어 입력 → **두 경로 택1** ① AI 음성(`generateAudio`, OpenAI TTS — `VoicePicker`로 음색 선택) ② 파일 업로드 → 미리듣기 → `saveSentence`로 Storage 업로드 + `sentences` 저장. 업로드는 `arrayBufferToBase64`로 변환해 AI 경로와 동일 state/UI 공유, `audioSource`로 분기. 허용 포맷(mp3/wav/m4a/aac/ogg/webm)·10MB를 **클라이언트와 `saveSentence` 양쪽 검증**, Storage 경로 `{userId}/{uuid}.{ext}`. 태그는 `TagPicker`로 **프리셋에서 선택**(아래 태그 항목). **메모**(선택, 최대 1000자)는 textarea로 입력 → `saveSentence(..., note)` → `sentences.note` 저장.
 - **학습**: **별도 라우트 2개** — 문장 목록(`/learn/review`)과 퀴즈(`/learn/quiz`). 두 페이지 상단에 공용 `LearnModeTabs`(`usePathname` 기반 `<Link>` 탭, 활성 강조)로 전환. **학습 인정은 문장 목록에서만**. (기존 nav 링크는 모두 `/learn/review`=문장 목록을 가리킴.)
-  - **문장 목록** (`/learn/review`, `ReviewClient`): 카드별 듣기/말하기(Web Speech API)/쓰기(텍스트)/정답 보기/메모/즐겨찾기/편집/삭제. **메모**는 `note`가 있는 카드에만 "메모" 토글 버튼 노출(`notesShownIds`, 정답 공개와 독립). 편집 폼에서 수정. 말하기·쓰기·오디오는 **한 번에 한 카드만 활성**(상호 배제). 정답 시 `recordPracticeResult(sentenceId, isCorrect, mode)` 호출(`mode: 'speech'|'text'`) + 첫 정답이면 `is_memorized` 즉시 갱신. 필터(모두 클라이언트 AND 결합): 상태(전체/암기 완료/미학습), 즐겨찾기 전용 토글, 일차(입력일별 스테퍼), 본문 검색(문장·뜻만), 태그(칩 다중 선택, 선택 태그 모두 포함=AND), 정렬. 편집은 `generateAudio` 재활용 → `updateSentence(..., tags)`. 페이지는 `getSentences`+`getTagPresets`만 fetch.
-  - **퀴즈** (`/learn/quiz`, `QuizView`): 한 문제씩(`useReducer` 상태머신 `ready→question→listening→result→summary`). 스피킹/텍스트 모드. **`recordPracticeResult` 미호출(점수 무관)**, 요약은 정확도만. 페이지는 `getSentences`+`getUserStats` fetch. 진행율 바·카운터는 `currentIndex` 기준(현재 문제 = `(currentIndex+1)/total`, 오답·재시도 시 증가 안 함). `answers`는 문제당 1개(`currentIndex`로 덮어써 중복 방지). 오답 결과에서 "다음"은 `AlertDialog` 확인(오답 확정 경고) 후 이동. 듣기 오디오 재생 중(`isPlaying`)엔 모든 액션 버튼 비활성(듣기 버튼은 스피너+"playing"), 문제 전환 시 재생 정지.
-- **학습 목표** (`/learn/goal`, `GoalForm`): "하루 목표 문장 수" + **"자신에게 한 마디"**(선택, 동기부여 문구) 입력. 서버 액션 `setDailyGoal(n)`·`setPersonalMessage(s)`(`goal/actions.ts`)를 단일 "저장" 버튼에서 `Promise.all`로 호출 → `user_stats.daily_goal`·`personal_message` 갱신. 한 마디는 홈 대시보드 `GoalProgressCard` 아래 인용 카드로 표시(비면 미노출). 장기 목표(총량/기간/완주선) 개념 없음. 상수 `DEFAULT_DAILY_GOAL`=5·`MAX_DAILY_GOAL`=100·`MAX_PERSONAL_MESSAGE`=100은 `lib/goal-config.ts`(서버 액션·서버 컴포넌트·클라 폼 공유 → 디렉티브 없는 순수 모듈).
+  - **문장 목록** (`/learn/review`, `ReviewClient`): 카드별 듣기/말하기(Web Speech API)/쓰기(텍스트)/정답 보기/메모/즐겨찾기/편집/삭제. **메모**는 `note`가 있는 카드에만 "메모" 토글 버튼 노출(`notesShownIds`, 정답 공개와 독립). 편집 폼에서 수정. 말하기·쓰기·오디오는 **한 번에 한 카드만 활성**(상호 배제). 정답 시 `recordPracticeResult(sentenceId, isCorrect, mode)` 호출(`mode: 'speech'|'text'`) + 첫 정답이면 `is_memorized` 즉시 갱신. 각 카드에 **학습 횟수**(스피킹 `speech_count`·쓰기 `text_count`·합계) 표시 — 모든 시도(정답·오답)마다 `recordPractice`가 RPC로 카운터 증가, 클라는 낙관적 +1(정답 보기는 미가산). 필터(모두 클라이언트 AND 결합): 상태(전체/암기 완료/미학습), 즐겨찾기 전용 토글, 일차(입력일별 스테퍼), 본문 검색(문장·뜻만), 태그(칩 다중 선택, 선택 태그 모두 포함=AND), 정렬. 편집은 `generateAudio` 재활용 → `updateSentence(..., tags)`. 페이지는 `getSentences`+`getTagPresets`만 fetch.
+  - **퀴즈** (`/learn/quiz`, `QuizView`): 한 문제씩(`useReducer` 상태머신 `ready→question→listening→result→summary`). 스피킹/텍스트 모드. **`recordPracticeResult` 미호출(점수·XP·암기 무관)**, 단 실제 시도 시점엔 `incrementPracticeCount(sentenceId, mode)`로 학습 횟수만 누적(정답 보기 리빌은 미가산). 요약은 정확도만. 페이지는 `getSentences`+`getUserStats` fetch. 진행율 바·카운터는 `currentIndex` 기준(현재 문제 = `(currentIndex+1)/total`, 오답·재시도 시 증가 안 함). `answers`는 문제당 1개(`currentIndex`로 덮어써 중복 방지). 오답 결과에서 "다음"은 `AlertDialog` 확인(오답 확정 경고) 후 이동. 듣기 오디오 재생 중(`isPlaying`)엔 모든 액션 버튼 비활성(듣기 버튼은 스피너+"playing"), 문제 전환 시 재생 정지.
+- **학습 목표** (`/learn/goal`, `GoalForm`): "하루 목표 문장 수"만 입력 → `setDailyGoal(n)`(`goal/actions.ts`) → `user_stats.daily_goal`. 장기 목표(총량/기간/완주선) 개념 없음.
+- **자신에게 한 마디**(동기부여 문구): 홈 대시보드 `PersonalMessageCard`(인용 카드)에서 **인플레이스 편집** — 연필 버튼 → Dialog textarea → `setPersonalMessage(s)`(`goal/actions.ts`) → `user_stats.personal_message`. 빈 값이면 `DEFAULT_PERSONAL_MESSAGE`("Do your best!")로 표시(항상 노출, 마이그레이션 없이 표시 시 fallback). 상수 `DEFAULT_DAILY_GOAL`=5·`MAX_DAILY_GOAL`=100·`MAX_PERSONAL_MESSAGE`=100·`DEFAULT_PERSONAL_MESSAGE`는 `lib/goal-config.ts`(서버 액션·서버 컴포넌트·클라 폼 공유 → 디렉티브 없는 순수 모듈).
 - **태그**: `TagPicker`는 사용자 **프리셋에서 선택**(칩 토글 + 즉석 추가 + "태그 관리" Dialog). 프리셋은 `user_stats.tag_presets`에 저장, `tag-actions.ts`의 `getTagPresets`/`setTagPresets`(전체 교체)/`renameTag`(프리셋 + 해당 태그를 가진 모든 문장에 일괄 반영)로 관리. 정규화 `lib/tags.ts` `sanitizeTags`(공백/중복 제거, 각 20자, `MAX_TAGS`=10·`MAX_PRESETS`=50). 색은 `lib/tag-color.ts` `tagColorClass`(이름 해시 → 10색 팔레트, 같은 태그=같은 색).
 
 ### 게이미피케이션 (비즈니스 로직 — 정확히 유지할 것)
 
-- **서버 쿼리**: `lib/gamification.ts`(`"server-only"`) — `todayKST`, `fetchUserStats`, `fetchDailyProgress`, `recordPractice`, `fetchMemorizedCount`, `fetchDailyMemorized`. **서버 액션**: `(learn)/learn/review/gamification-actions.ts` — `getUserStats`/`getDailyProgress`/`recordPracticeResult`.
+- **서버 쿼리**: `lib/gamification.ts`(`"server-only"`) — `todayKST`, `fetchUserStats`, `fetchDailyProgress`, `recordPractice`, `fetchMemorizedCount`, `fetchDailyMemorized`. **서버 액션**: `(learn)/learn/review/gamification-actions.ts` — `getUserStats`/`getDailyProgress`/`recordPracticeResult`/`incrementPracticeCount`(점수 무관 카운터 전용, 퀴즈용).
 - **XP**: 정답 10, 오답 2. `user_stats.total_xp`에 누적(중복 정답도 매번 누적). `recordPractice`는 XP 누적만 수행(스트릭 없음).
 - **암기 정의**: `practice_results.is_correct=true`가 1회라도 있는 문장. `fetchMemorizedCount`=distinct `sentence_id`.
 - **일일 진도**: **오늘 처음 정답을 맞춰 새로 암기된 문장 수**(`fetchDailyProgress`). 분모=`daily_goal`(기본 5). 반복 정답·이미 암기된 문장 재연습은 미가산. 홈 `GoalProgressCard`가 "오늘" 원형 차트 1개로 표시(+목표 수정 링크).
@@ -68,14 +69,16 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 정규화: 스마트 따옴표 통일 → 소문자 → 축약형 확장(`i'm`→`i am` 등) → 구어 변형 표준화(`VARIANTS`: `okay`→`ok`, `gonna`→`going to`, `yeah`→`yes` 등) → 구두점/공백 정리. 변형은 정답·입력 양쪽 대칭 적용. 판정은 단어 단위 LCS 유사도 **80% 이상이면 정답**(관사 추가/누락에 관대). 스피킹/텍스트 공용.
 
+**스피킹 디버그 로그**: `ReviewClient`·`QuizView`의 음성 인식 `onresult`에서 `console.log("[스피킹 인식]", { 인식, 정답, 유사도, 정답여부 })` 출력(브라우저가 인식한 음성 확인용).
+
 ### DB 스키마 (`supabase/migrations/`)
 
 3개 테이블. RLS는 모두 `user_id = auth.uid()`.
-- **`sentences`**: id, user_id, english_text, korean_text, audio_path, is_favorite(기본 false), `tags text[]`(기본 `{}`, GIN), `note text`(기본 `''`), created_at. Storage `tts-audio` 버킷 동일 RLS. `is_memorized`는 컬럼 아님 — `getSentences`에서 `practice_results` 조회로 enrich.
+- **`sentences`**: id, user_id, english_text, korean_text, audio_path, is_favorite(기본 false), `tags text[]`(기본 `{}`, GIN), `note text`(기본 `''`), `speech_count`·`text_count int`(기본 0, 학습 횟수), created_at. Storage `tts-audio` 버킷 동일 RLS. `is_memorized`는 컬럼 아님 — `getSentences`에서 `practice_results` 조회로 enrich. 카운터 증가는 RPC `increment_practice_count(p_sentence_id, p_mode)`(`SECURITY INVOKER`, UPDATE RLS 따름, review+퀴즈 공유, **게이미피케이션 쿼리와 분리**).
 - **`user_stats`**: user_id(PK), total_xp, daily_goal(기본 5), `tag_presets text[]`, `personal_message text`(기본 `''`), created_at. 신규 가입 시 `handle_new_user_stats` 트리거로 자동 생성.
 - **`practice_results`**: id, user_id, sentence_id, is_correct, xp_earned, `mode`(`'speech'|'text'`, CHECK, 기본 `'speech'`), practiced_at.
 
-마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(streak 컬럼 3종 삭제) → `simplify_goal_to_daily`(장기 목표 컬럼 3종 삭제, daily_goal만 유지) → `add_note_to_sentences`(메모 컬럼) → `add_personal_message_to_user_stats`(자신에게 한 마디 컬럼).
+마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(streak 컬럼 3종 삭제) → `simplify_goal_to_daily`(장기 목표 컬럼 3종 삭제, daily_goal만 유지) → `add_note_to_sentences`(메모 컬럼) → `add_personal_message_to_user_stats`(자신에게 한 마디 컬럼) → `add_practice_counts_to_sentences`(speech_count·text_count + `increment_practice_count` RPC).
 
 ### OpenAI (`lib/openai.ts`)
 
@@ -114,7 +117,7 @@ src/
 │   └── globals.css            # Tailwind v4 + 컬러 토큰 + 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm/SignupForm/ForgotPasswordForm/ResetPasswordForm/KakaoButton/AuthHashHandler/AuthLayout
-│   ├── learn/                 # LearnModeTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/VoicePicker/GoalForm/GoalProgressCard/LearningCalendar/XpBadge
+│   ├── learn/                 # LearnModeTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/VoicePicker/GoalForm/GoalProgressCard/PersonalMessageCard/LearningCalendar/XpBadge
 │   ├── ui/                    # shadcn
 │   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=입력/학습/목표 메뉴
 │   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/입력/학습/프로필), md:hidden
