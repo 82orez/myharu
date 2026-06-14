@@ -199,7 +199,8 @@ export default function ReviewClient({
 
       recognition.onresult = (event: any) => {
         const recognizedText = event.results[0][0].transcript;
-        const { match } = textsMatch(recognizedText, targetText);
+        const { match, similarity } = textsMatch(recognizedText, targetText);
+        console.log("[스피킹 인식]", { 인식: recognizedText, 정답: targetText, 유사도: similarity, 정답여부: match });
         startTransition(async () => {
           const result = await recordPracticeResult(sentenceId, match, "speech");
           if (result.error) {

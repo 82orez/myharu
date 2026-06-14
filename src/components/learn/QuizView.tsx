@@ -186,7 +186,8 @@ export default function QuizView({
 
     recognition.onresult = (event: any) => {
       const text = event.results[0][0].transcript;
-      const { match } = textsMatch(text, currentSentence.english_text);
+      const { match, similarity } = textsMatch(text, currentSentence.english_text);
+      console.log("[스피킹 인식]", { 인식: text, 정답: currentSentence.english_text, 유사도: similarity, 정답여부: match });
       handleResult(match, text);
     };
 
