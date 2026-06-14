@@ -5,3 +5,6 @@ export const MAX_DAILY_GOAL = 100;
 
 // "자신에게 한 마디"(personal_message) 최대 길이
 export const MAX_PERSONAL_MESSAGE = 100;
+
+// "자신에게 한 마디" 기본 문구. 사용자가 비워 두면 홈에서 이 값으로 표시한다.
+export const DEFAULT_PERSONAL_MESSAGE = "Do your best!";
