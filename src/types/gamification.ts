@@ -2,6 +2,7 @@ export type UserStats = {
   user_id: string;
   total_xp: number;
   daily_goal: number;
+  personal_message: string;
   created_at: string;
 };
 

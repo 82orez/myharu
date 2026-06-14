@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from "lucide-react";
+import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2, Quote } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
@@ -76,6 +76,16 @@ export default async function Home() {
           </h1>
           <p className="text-muted-foreground">오늘도 한 문장씩 학습해 볼까요?</p>
         </div>
+
+        {/* 자신에게 한 마디 */}
+        {stats?.personal_message && (
+          <Card className="border-brand/20 bg-brand/5">
+            <CardContent className="flex items-center justify-center gap-3 py-5 text-center">
+              <Quote size={24} className="text-brand shrink-0" />
+              <p className="text-foreground text-xl font-bold italic sm:text-2xl">{stats.personal_message}</p>
+            </CardContent>
+          </Card>
+        )}
 
         {/* 오늘의 목표 진행률 */}
         <GoalProgressCard dailyCompleted={dailyProgress.completed} dailyGoal={dailyGoalDisplay} />

@@ -4,8 +4,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Target } from "lucide-react";
-import { setDailyGoal } from "@/app/(learn)/learn/goal/actions";
-import { MAX_DAILY_GOAL } from "@/lib/goal-config";
+import { setDailyGoal, setPersonalMessage } from "@/app/(learn)/learn/goal/actions";
+import { MAX_DAILY_GOAL, MAX_PERSONAL_MESSAGE } from "@/lib/goal-config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 
 const PRESETS = [3, 5, 10, 20];
 
-export default function GoalForm({ initialDailyGoal }: { initialDailyGoal: number }) {
+export default function GoalForm({ initialDailyGoal, initialPersonalMessage }: { initialDailyGoal: number; initialPersonalMessage: string }) {
   const router = useRouter();
   const [goal, setGoal] = useState<string>(initialDailyGoal.toString());
+  const [message, setMessage] = useState<string>(initialPersonalMessage);
   const [saving, startSaving] = useTransition();
 
   const goalNum = Number(goal);
@@ -27,12 +28,13 @@ export default function GoalForm({ initialDailyGoal }: { initialDailyGoal: numbe
       return;
     }
     startSaving(async () => {
-      const result = await setDailyGoal(goalNum);
-      if ("error" in result) {
-        toast.error(result.error);
+      const [goalResult, messageResult] = await Promise.all([setDailyGoal(goalNum), setPersonalMessage(message)]);
+      const failed = [goalResult, messageResult].find((r) => "error" in r);
+      if (failed && "error" in failed) {
+        toast.error(failed.error);
         return;
       }
-      toast.success("하루 목표가 저장되었습니다.");
+      toast.success("설정이 저장되었습니다.");
       router.push("/");
       router.refresh();
     });
@@ -68,6 +70,25 @@ export default function GoalForm({ initialDailyGoal }: { initialDailyGoal: numbe
             onChange={(e) => setGoal(e.target.value)}
             disabled={saving}
           />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <Label htmlFor="personalMessage">자신에게 한 마디 (선택)</Label>
+          <textarea
+            id="personalMessage"
+            name="personalMessage"
+            placeholder="매일 학습할 때 떠올릴 다짐을 적어 보세요. 홈 화면에 표시됩니다."
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            disabled={saving}
+            className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[60px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+            maxLength={MAX_PERSONAL_MESSAGE}
+          />
+          <div className="flex justify-end">
+            <span className="text-muted-foreground text-xs">
+              {message.length}/{MAX_PERSONAL_MESSAGE}
+            </span>
+          </div>
         </div>
 
         <Button variant="brand" onClick={handleSave} disabled={!validInput || saving}>

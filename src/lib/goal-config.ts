@@ -2,3 +2,6 @@
 // "use server"/"server-only" 디렉티브 없는 순수 모듈로 둔다.
 export const DEFAULT_DAILY_GOAL = 5;
 export const MAX_DAILY_GOAL = 100;
+
+// "자신에게 한 마디"(personal_message) 최대 길이
+export const MAX_PERSONAL_MESSAGE = 100;
