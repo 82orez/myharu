@@ -14,7 +14,7 @@ export async function getTagPresets(): Promise<string[]> {
   if (!user) return [];
 
   const { data } = await supabase.from("user_stats").select("tag_presets").eq("user_id", user.id).single();
-  return (data?.tag_presets ?? []) as string[];
+  return data?.tag_presets ?? [];
 }
 
 // 프리셋 목록 전체 교체(추가/삭제 공용). 정규화된 목록 반환.
@@ -53,7 +53,7 @@ export async function renameTag(oldName: string, newName: string): Promise<{ pre
 
   // 1) 프리셋 갱신
   const { data: statsRow } = await supabase.from("user_stats").select("tag_presets").eq("user_id", user.id).single();
-  const current = (statsRow?.tag_presets ?? []) as string[];
+  const current = statsRow?.tag_presets ?? [];
   const presets = sanitizeTags(
     current.map((t) => (t === oldName ? clean : t)),
     MAX_PRESETS,

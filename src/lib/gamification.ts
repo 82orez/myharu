@@ -1,22 +1,25 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/types/database.types";
 import type { UserStats, QuizMode } from "@/types/gamification";
+
+type DbClient = SupabaseClient<Database>;
 
 export function todayKST(): string {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 }
 
-export async function fetchUserStats(supabase: SupabaseClient, userId: string): Promise<UserStats | null> {
+export async function fetchUserStats(supabase: DbClient, userId: string): Promise<UserStats | null> {
   const { data } = await supabase.from("user_stats").select("*").eq("user_id", userId).single();
 
-  if (data) return data as UserStats;
+  if (data) return data;
 
   await supabase.from("user_stats").upsert({ user_id: userId });
   const { data: retry } = await supabase.from("user_stats").select("*").eq("user_id", userId).single();
-  return (retry as UserStats) ?? null;
+  return retry ?? null;
 }
 
-export async function fetchDailyProgress(supabase: SupabaseClient, userId: string): Promise<{ completed: number; goal: number; percentage: number }> {
+export async function fetchDailyProgress(supabase: DbClient, userId: string): Promise<{ completed: number; goal: number; percentage: number }> {
   const today = todayKST();
   const start = `${today}T00:00:00+09:00`;
   const nextDay = new Date(start);
@@ -40,8 +43,8 @@ export async function fetchDailyProgress(supabase: SupabaseClient, userId: strin
     fetchUserStats(supabase, userId),
   ]);
 
-  const todayIds = new Set((todayRes.data ?? []).map((r: { sentence_id: string }) => r.sentence_id));
-  const priorIds = new Set((priorRes.data ?? []).map((r: { sentence_id: string }) => r.sentence_id));
+  const todayIds = new Set((todayRes.data ?? []).map((r) => r.sentence_id));
+  const priorIds = new Set((priorRes.data ?? []).map((r) => r.sentence_id));
 
   let completed = 0;
   todayIds.forEach((id) => {
@@ -54,7 +57,7 @@ export async function fetchDailyProgress(supabase: SupabaseClient, userId: strin
 }
 
 export async function recordPractice(
-  supabase: SupabaseClient,
+  supabase: DbClient,
   userId: string,
   sentenceId: string,
   isCorrect: boolean,
@@ -87,22 +90,22 @@ export async function recordPractice(
   return { xpEarned, totalXp: newTotalXp };
 }
 
-export async function fetchMemorizedCount(supabase: SupabaseClient, userId: string): Promise<number> {
+export async function fetchMemorizedCount(supabase: DbClient, userId: string): Promise<number> {
   const { data } = await supabase.from("practice_results").select("sentence_id").eq("user_id", userId).eq("is_correct", true);
 
   if (!data) return 0;
-  const unique = new Set(data.map((row: { sentence_id: string }) => row.sentence_id));
+  const unique = new Set(data.map((row) => row.sentence_id));
   return unique.size;
 }
 
-export async function fetchDailyMemorized(supabase: SupabaseClient, userId: string): Promise<Record<string, number>> {
+export async function fetchDailyMemorized(supabase: DbClient, userId: string): Promise<Record<string, number>> {
   const { data } = await supabase.from("practice_results").select("sentence_id, practiced_at").eq("user_id", userId).eq("is_correct", true);
 
   if (!data) return {};
 
   // 문장별 최초 정답 KST 날짜(YYYY-MM-DD) 산출
   const firstDate = new Map<string, string>();
-  for (const row of data as { sentence_id: string; practiced_at: string }[]) {
+  for (const row of data) {
     const kstDate = new Date(row.practiced_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
     const prev = firstDate.get(row.sentence_id);
     if (!prev || kstDate < prev) firstDate.set(row.sentence_id, kstDate);

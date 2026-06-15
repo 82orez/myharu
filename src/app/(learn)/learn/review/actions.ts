@@ -3,19 +3,12 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { sanitizeTags } from "@/lib/tags";
+import type { Tables } from "@/types/database.types";
 
-export type Sentence = {
-  id: string;
-  english_text: string;
-  korean_text: string;
+// sentences Row에서 audio_path/user_id를 빼고, 서명 URL(audio_url)·암기여부(is_memorized)를 더한 앱 표현형
+export type Sentence = Omit<Tables<"sentences">, "audio_path" | "user_id"> & {
   audio_url: string;
-  created_at: string;
-  is_favorite: boolean;
   is_memorized: boolean;
-  tags: string[];
-  note: string;
-  speech_count: number;
-  text_count: number;
 };
 
 export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: string }> {
@@ -46,7 +39,7 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
     return { error: "문장 목록을 불러오는 중 오류가 발생했습니다." };
   }
 
-  const memorizedIds = new Set((memorizedRes.data ?? []).map((r: { sentence_id: string }) => r.sentence_id));
+  const memorizedIds = new Set((memorizedRes.data ?? []).map((r) => r.sentence_id));
 
   const sentences: Sentence[] = await Promise.all(
     (data ?? []).map(async (row) => {

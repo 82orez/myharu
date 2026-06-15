@@ -14,6 +14,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 npm run dev      # 개발 서버 (http://localhost:3000)
 npm run build    # 프로덕션 빌드
 npm run start    # 빌드된 프로덕션 서버
+npm run gen:types   # 마이그레이션 후 DB 스키마 → src/types/database.types.ts 재생성 (--linked)
 npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / neutral)
 ```
 
@@ -139,5 +140,6 @@ src/
 
 - **경로 alias**: `@/*` → `./src/*`.
 - **TypeScript**: 의도적으로 `strict: false`, `noImplicitAny: false`. 임의로 strict 켜지 말 것.
+- **Supabase 타입**: 세 클라이언트(`client`/`server`/`admin`) 모두 `createClient<Database>`로 생성 타입(`src/types/database.types.ts`, `supabase gen types`로 자동 생성 — 직접 편집 금지)을 적용 → `.from().select/insert/update`가 스키마 기반으로 검증됨. **마이그레이션 후 반드시 `npm run gen:types` 실행**해 동기화. 도메인 타입은 생성 타입에서 **파생**: `UserStats = Tables<"user_stats">`, `PracticeResult = Omit<Tables<"practice_results">, "mode"> & { mode: QuizMode }`(`types/gamification.ts`), `Sentence = Omit<Tables<"sentences">, "audio_path"|"user_id"> & { audio_url; is_memorized }`(변환형, `review/actions.ts`). `QuizMode`·`SessionSummary`는 DB와 무관한 앱 전용 타입이라 직접 정의 유지. lib 헬퍼는 `SupabaseClient<Database>`(`gamification.ts`의 `DbClient`)를 받아 `as` 단언 없이 추론. 새 코드도 `as` 대신 추론 사용.
 - **Prettier**: `printWidth: 150`, `endOfLine: "crlf"`, 큰따옴표, `trailingComma: "all"`. Tailwind 클래스 수동 재정렬 금지(플러그인 자동).
 - **에러 메시지/UI 문구**: 모두 한국어.
