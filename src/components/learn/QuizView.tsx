@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { textsMatch } from "@/lib/normalize-text";
+import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import SessionSummary from "@/components/learn/SessionSummary";
 import { incrementPracticeCount } from "@/app/(learn)/learn/review/gamification-actions";
 import type { Sentence } from "@/app/(learn)/learn/review/actions";
@@ -123,6 +123,7 @@ export default function QuizView({
 
   const currentSentence = sentences[state.currentIndex];
   const progressPercent = sentences.length > 0 ? Math.round(((state.currentIndex + 1) / sentences.length) * 100) : 0;
+  const speechThreshold = initialStats?.speech_strict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
 
   const playAudio = useCallback((audioUrl: string) => {
     if (audioRef.current) {
@@ -190,7 +191,7 @@ export default function QuizView({
 
     recognition.onresult = (event: any) => {
       const text = event.results[0][0].transcript;
-      const { match, similarity } = textsMatch(text, currentSentence.english_text);
+      const { match, similarity } = textsMatch(text, currentSentence.english_text, speechThreshold);
       console.log("[스피킹 인식]", { 인식: text, 정답: currentSentence.english_text, 유사도: similarity, 정답여부: match });
       // 정답일 때만 모드별 정답 횟수 누적(문장 목록에 표시)
       if (match) void incrementPracticeCount(currentSentence.id, "speech");
@@ -211,7 +212,7 @@ export default function QuizView({
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [speechSupported, currentSentence, handleResult]);
+  }, [speechSupported, currentSentence, handleResult, speechThreshold]);
 
   const handleRevealAnswer = useCallback(() => {
     handleResult(false, "");

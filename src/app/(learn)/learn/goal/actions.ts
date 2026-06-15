@@ -31,6 +31,26 @@ export async function setDailyGoal(dailyGoal: number): Promise<GoalActionResult>
   return { success: true };
 }
 
+export async function setSpeechStrict(strict: boolean): Promise<GoalActionResult> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  const { error } = await supabase.from("user_stats").update({ speech_strict: strict }).eq("user_id", user.id);
+
+  if (error) {
+    console.error("[setSpeechStrict] 업데이트 실패:", error);
+    return { error: "저장 중 오류가 발생했습니다." };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/learn/goal");
+  return { success: true };
+}
+
 export async function setPersonalMessage(message: string): Promise<GoalActionResult> {
   const supabase = createClient(await cookies());
   const {

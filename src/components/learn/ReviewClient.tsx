@@ -33,7 +33,7 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import TagPicker from "@/components/learn/TagPicker";
-import { textsMatch } from "@/lib/normalize-text";
+import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { tagColorClass } from "@/lib/tag-color";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { toast } from "sonner";
@@ -65,10 +65,12 @@ export default function ReviewClient({
   initialSentences,
   initialError,
   initialPresets = [],
+  speechStrict = false,
 }: {
   initialSentences: Sentence[];
   initialError?: string;
   initialPresets?: string[];
+  speechStrict?: boolean;
 }) {
   const [sentences, setSentences] = useState(initialSentences);
   const [presets, setPresets] = useState<string[]>(initialPresets);
@@ -201,7 +203,8 @@ export default function ReviewClient({
 
       recognition.onresult = (event: any) => {
         const recognizedText = event.results[0][0].transcript;
-        const { match, similarity } = textsMatch(recognizedText, targetText);
+        const threshold = speechStrict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
+        const { match, similarity } = textsMatch(recognizedText, targetText, threshold);
         console.log("[스피킹 인식]", { 인식: recognizedText, 정답: targetText, 유사도: similarity, 정답여부: match });
         startTransition(async () => {
           const result = await recordPracticeResult(sentenceId, match, "speech");
@@ -238,7 +241,7 @@ export default function ReviewClient({
       setListeningId(sentenceId);
       recognition.start();
     },
-    [speechSupported, startTransition, triggerFeedback, writingId],
+    [speechSupported, startTransition, triggerFeedback, writingId, speechStrict],
   );
 
   const handleToggleFavorite = useCallback(

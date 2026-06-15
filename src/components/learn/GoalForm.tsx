@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Target } from "lucide-react";
-import { setDailyGoal } from "@/app/(learn)/learn/goal/actions";
+import { Loader2, Mic, Target } from "lucide-react";
+import { setDailyGoal, setSpeechStrict } from "@/app/(learn)/learn/goal/actions";
 import { MAX_DAILY_GOAL } from "@/lib/goal-config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -13,9 +13,10 @@ import { Label } from "@/components/ui/label";
 
 const PRESETS = [3, 5, 10, 20];
 
-export default function GoalForm({ initialDailyGoal }: { initialDailyGoal: number }) {
+export default function GoalForm({ initialDailyGoal, initialSpeechStrict }: { initialDailyGoal: number; initialSpeechStrict: boolean }) {
   const router = useRouter();
   const [goal, setGoal] = useState<string>(initialDailyGoal.toString());
+  const [speechStrict, setSpeechStrictState] = useState<boolean>(initialSpeechStrict);
   const [saving, startSaving] = useTransition();
 
   const goalNum = Number(goal);
@@ -27,9 +28,13 @@ export default function GoalForm({ initialDailyGoal }: { initialDailyGoal: numbe
       return;
     }
     startSaving(async () => {
-      const result = await setDailyGoal(goalNum);
-      if ("error" in result) {
-        toast.error(result.error);
+      const [goalResult, strictResult] = await Promise.all([setDailyGoal(goalNum), setSpeechStrict(speechStrict)]);
+      if ("error" in goalResult) {
+        toast.error(goalResult.error);
+        return;
+      }
+      if ("error" in strictResult) {
+        toast.error(strictResult.error);
         return;
       }
       toast.success("설정이 저장되었습니다.");
@@ -68,6 +73,22 @@ export default function GoalForm({ initialDailyGoal }: { initialDailyGoal: numbe
             onChange={(e) => setGoal(e.target.value)}
             disabled={saving}
           />
+        </div>
+
+        <div className="flex flex-col gap-2 border-t pt-5">
+          <Label className="flex items-center gap-2">
+            <Mic size={16} className="text-brand" />
+            스피킹 채점 난이도
+          </Label>
+          <p className="text-muted-foreground text-sm">말하기 정답 인정 기준입니다. (쓰기는 항상 보통 기준)</p>
+          <div className="flex gap-2">
+            <Button variant={speechStrict ? "outline" : "brand"} size="sm" onClick={() => setSpeechStrictState(false)} disabled={saving}>
+              보통 (80% 이상)
+            </Button>
+            <Button variant={speechStrict ? "brand" : "outline"} size="sm" onClick={() => setSpeechStrictState(true)} disabled={saving}>
+              엄격 (90% 이상)
+            </Button>
+          </div>
         </div>
 
         <Button variant="brand" onClick={handleSave} disabled={!validInput || saving}>

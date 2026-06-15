@@ -67,7 +67,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 ### 텍스트 비교 (`lib/normalize-text.ts`)
 
-정규화: 스마트 따옴표 통일 → 소문자 → 축약형 확장(`i'm`→`i am` 등) → 구어 변형 표준화(`VARIANTS`: `okay`→`ok`, `gonna`→`going to`, `yeah`→`yes` 등) → 구두점/공백 정리. 변형은 정답·입력 양쪽 대칭 적용. 판정은 단어 단위 LCS 유사도 **80% 이상이면 정답**(관사 추가/누락에 관대). 스피킹/텍스트 공용.
+정규화: 스마트 따옴표 통일 → 소문자 → 축약형 확장(`i'm`→`i am` 등) → 구어 변형 표준화(`VARIANTS`: `okay`→`ok`, `gonna`→`going to`, `yeah`→`yes` 등) → 구두점/공백 정리. 변형은 정답·입력 양쪽 대칭 적용. 판정은 단어 단위 LCS 유사도 **임계값 이상이면 정답**(관사 추가/누락에 관대). `textsMatch(a, b, threshold?)` — 기본 `SIMILARITY_THRESHOLD`(0.8). **스피킹 채점 난이도**(`user_stats.speech_strict`): 엄격이면 `STRICT_SIMILARITY_THRESHOLD`(0.9), 보통이면 0.8. **스피킹에만 적용**(ReviewClient·QuizView 음성 콜백에서 threshold 전달), 쓰기·텍스트는 항상 기본 0.8. 설정 UI는 `GoalForm`(`/learn/goal`)의 보통/엄격 버튼 → `setSpeechStrict`(`goal/actions.ts`).
 
 **스피킹 디버그 로그**: `ReviewClient`·`QuizView`의 음성 인식 `onresult`에서 `console.log("[스피킹 인식]", { 인식, 정답, 유사도, 정답여부 })` 출력(브라우저가 인식한 음성 확인용).
 
@@ -75,10 +75,10 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 3개 테이블. RLS는 모두 `user_id = auth.uid()`.
 - **`sentences`**: id, user_id, english_text, korean_text, audio_path, is_favorite(기본 false), `tags text[]`(기본 `{}`, GIN), `note text`(기본 `''`), `speech_count`·`text_count int`(기본 0, 정답 횟수), created_at. Storage `tts-audio` 버킷 동일 RLS. `is_memorized`는 컬럼 아님 — `getSentences`에서 `practice_results` 조회로 enrich. 카운터 증가는 RPC `increment_practice_count(p_sentence_id, p_mode)`(`SECURITY INVOKER`, UPDATE RLS 따름, review+퀴즈 공유, **게이미피케이션 쿼리와 분리**).
-- **`user_stats`**: user_id(PK), total_xp, daily_goal(기본 5), `tag_presets text[]`, `personal_message text`(기본 `''`), created_at. 신규 가입 시 `handle_new_user_stats` 트리거로 자동 생성.
+- **`user_stats`**: user_id(PK), total_xp, daily_goal(기본 5), `tag_presets text[]`, `personal_message text`(기본 `''`), `speech_strict boolean`(기본 false, 스피킹 채점 난이도), created_at. 신규 가입 시 `handle_new_user_stats` 트리거로 자동 생성.
 - **`practice_results`**: id, user_id, sentence_id, is_correct, xp_earned, `mode`(`'speech'|'text'`, CHECK, 기본 `'speech'`), practiced_at.
 
-마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(streak 컬럼 3종 삭제) → `simplify_goal_to_daily`(장기 목표 컬럼 3종 삭제, daily_goal만 유지) → `add_note_to_sentences`(메모 컬럼) → `add_personal_message_to_user_stats`(자신에게 한 마디 컬럼) → `add_practice_counts_to_sentences`(speech_count·text_count + `increment_practice_count` RPC).
+마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(streak 컬럼 3종 삭제) → `simplify_goal_to_daily`(장기 목표 컬럼 3종 삭제, daily_goal만 유지) → `add_note_to_sentences`(메모 컬럼) → `add_personal_message_to_user_stats`(자신에게 한 마디 컬럼) → `add_practice_counts_to_sentences`(speech_count·text_count + `increment_practice_count` RPC) → `add_speech_strict_to_user_stats`(스피킹 채점 난이도 컬럼).
 
 ### OpenAI (`lib/openai.ts`)
 

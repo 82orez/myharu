@@ -3,6 +3,7 @@ export type UserStats = {
   total_xp: number;
   daily_goal: number;
   personal_message: string;
+  speech_strict: boolean;
   created_at: string;
 };
 

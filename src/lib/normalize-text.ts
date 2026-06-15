@@ -103,9 +103,10 @@ function wordLcsLength(a: string[], b: string[]): number {
   return dp[n];
 }
 
-const SIMILARITY_THRESHOLD = 0.8;
+export const SIMILARITY_THRESHOLD = 0.8;
+export const STRICT_SIMILARITY_THRESHOLD = 0.9;
 
-export function textsMatch(a: string, b: string): { match: boolean; similarity: number } {
+export function textsMatch(a: string, b: string, threshold: number = SIMILARITY_THRESHOLD): { match: boolean; similarity: number } {
   const wordsA = normalizeText(a).split(" ").filter(Boolean);
   const wordsB = normalizeText(b).split(" ").filter(Boolean);
   if (wordsA.length === 0 && wordsB.length === 0) return { match: true, similarity: 1 };
@@ -113,5 +114,5 @@ export function textsMatch(a: string, b: string): { match: boolean; similarity: 
   if (maxLen === 0) return { match: true, similarity: 1 };
   const lcs = wordLcsLength(wordsA, wordsB);
   const similarity = lcs / maxLen;
-  return { match: similarity >= SIMILARITY_THRESHOLD, similarity };
+  return { match: similarity >= threshold, similarity };
 }
