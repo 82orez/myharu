@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Pencil, Quote } from "lucide-react";
+import { Loader2, MessageSquareQuote, Pencil, Quote } from "lucide-react";
 import { setPersonalMessage } from "@/app/(learn)/learn/goal/actions";
 import { DEFAULT_PERSONAL_MESSAGE, MAX_PERSONAL_MESSAGE } from "@/lib/goal-config";
 import { Button } from "@/components/ui/button";
@@ -40,20 +40,29 @@ export default function PersonalMessageCard({ initialMessage }: { initialMessage
 
   return (
     <>
-      <Card className="border-brand/20 bg-brand/5 relative">
-        <CardContent className="flex items-center justify-center gap-3 py-5 text-center">
-          <Quote size={24} className="text-brand shrink-0" />
-          <p className="text-foreground text-xl font-bold italic sm:text-2xl">{display}</p>
+      <Card className="border-brand/20 bg-brand/5">
+        <CardContent className="flex flex-col items-center gap-4 py-5">
+          <div className="flex w-full items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <MessageSquareQuote size={18} className="text-brand" />
+              <span className="font-semibold">자신에게 한 마디</span>
+            </div>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={openDialog}
+              aria-label="한 마디 수정"
+              className="text-muted-foreground hover:text-brand shrink-0">
+              <Pencil size={16} />
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-center gap-3 text-center">
+            <Quote size={24} className="text-brand shrink-0" />
+            <p className="text-foreground text-xl font-bold whitespace-pre-line italic sm:text-2xl">{display}</p>
+          </div>
         </CardContent>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          onClick={openDialog}
-          aria-label="한 마디 수정"
-          className="text-muted-foreground hover:text-brand absolute top-2 right-2">
-          <Pencil size={16} />
-        </Button>
       </Card>
 
       <Dialog open={open} onOpenChange={setOpen}>
