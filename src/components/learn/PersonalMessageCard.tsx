@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, MessageSquareQuote, Pencil, Quote } from "lucide-react";
+import { Loader2, MessageSquareQuote, Pencil } from "lucide-react";
 import { setPersonalMessage } from "@/app/(learn)/learn/goal/actions";
 import { DEFAULT_PERSONAL_MESSAGE, MAX_PERSONAL_MESSAGE } from "@/lib/goal-config";
 import { Button } from "@/components/ui/button";
@@ -58,10 +58,7 @@ export default function PersonalMessageCard({ initialMessage }: { initialMessage
             </Button>
           </div>
 
-          <div className="flex items-center justify-center gap-3 text-center">
-            <Quote size={24} className="text-brand shrink-0" />
-            <p className="text-foreground text-xl font-bold whitespace-pre-line italic sm:text-2xl">{display}</p>
-          </div>
+          <p className="text-foreground text-center text-xl font-bold whitespace-pre-line italic sm:text-2xl">{display}</p>
         </CardContent>
       </Card>
 
