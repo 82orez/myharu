@@ -498,7 +498,7 @@ export default function ReviewClient({
             <div className="ml-auto flex items-center gap-2">
               <Button variant={showFind || search || tagFilters.length > 0 ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
                 <Search className="mr-1 h-4 w-4" />
-                검색·태그
+                검색
                 <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${showFind ? "rotate-180" : ""}`} />
               </Button>
               <select
