@@ -480,7 +480,7 @@ export default function ReviewClient({
               size="sm"
               onClick={() => setFilter("unmemorized")}
               className={filter === "unmemorized" ? "border-streak-orange bg-streak-orange/10 text-streak-orange" : "text-streak-orange"}>
-              <Circle className="mr-1 h-4 w-4" />
+              <X className="mr-1 h-4 w-4" />
               미학습 {unmemorizedCount}
             </Button>
             <Button
@@ -713,7 +713,7 @@ export default function ReviewClient({
                         </span>
                       ) : (
                         <span className="bg-streak-orange/10 text-streak-orange flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
-                          <Circle size={11} />
+                          <X size={11} />
                           미학습
                         </span>
                       )}
