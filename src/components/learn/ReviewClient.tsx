@@ -693,6 +693,16 @@ export default function ReviewClient({
                           {koreanShownIds.has(sentence.id) ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
                           {koreanShownIds.has(sentence.id) ? "한글 숨기기" : "한글 보기"}
                         </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() => handleToggleFavorite(sentence.id, sentence.is_favorite)}
+                          className={sentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"}>
+                          <Star className={`mr-1 h-4 w-4 ${sentence.is_favorite ? "fill-current" : ""}`} />
+                          즐겨찾기
+                        </Button>
                       </div>
 
                       {sentence.is_memorized ? (
@@ -838,16 +848,6 @@ export default function ReviewClient({
                           메모
                         </Button>
                       )}
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={isBusy}
-                        onClick={() => handleToggleFavorite(sentence.id, sentence.is_favorite)}
-                        className={sentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"}>
-                        <Star className={`mr-1 h-4 w-4 ${sentence.is_favorite ? "fill-current" : ""}`} />
-                        즐겨찾기
-                      </Button>
 
                       <Button
                         variant="ghost"
