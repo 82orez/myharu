@@ -593,24 +593,12 @@ export default function ReviewClient({
               key={sentence.id}
               className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-success border-l-2" : "border-l-streak-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
               style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
-              {!isThisEditing &&
-                (sentence.is_memorized ? (
-                  <span className="bg-success/10 text-success absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
-                    <Check size={11} />
-                    암기 완료
-                  </span>
-                ) : (
-                  <span className="bg-streak-orange/10 text-streak-orange absolute top-2 right-2 z-10 flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
-                    <Circle size={11} />
-                    미학습
-                  </span>
-                ))}
               {isFeedback && feedbackStatus === "correct" && feedbackXp > 0 && (
                 <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 z-20 text-lg font-bold">
                   +{feedbackXp} XP
                 </span>
               )}
-              <CardContent className="flex flex-col gap-3 pt-6">
+              <CardContent className="flex flex-col gap-3 pt-4">
                 {isThisEditing && editing ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5">
@@ -676,6 +664,50 @@ export default function ReviewClient({
                   </div>
                 ) : (
                   <>
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        {sentence.audio_url && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={(busyPlaying && !isPlaying) || isEditing || listeningId !== null}
+                            onClick={() => playAudio(sentence.id, sentence.audio_url)}>
+                            {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
+                            듣기
+                          </Button>
+                        )}
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={isBusy}
+                          onClick={() =>
+                            setKoreanShownIds((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(sentence.id)) next.delete(sentence.id);
+                              else next.add(sentence.id);
+                              return next;
+                            })
+                          }
+                          className="text-muted-foreground">
+                          {koreanShownIds.has(sentence.id) ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
+                          {koreanShownIds.has(sentence.id) ? "한글 숨기기" : "한글 보기"}
+                        </Button>
+                      </div>
+
+                      {sentence.is_memorized ? (
+                        <span className="bg-success/10 text-success flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                          <Check size={11} />
+                          암기 완료
+                        </span>
+                      ) : (
+                        <span className="bg-streak-orange/10 text-streak-orange flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                          <Circle size={11} />
+                          미학습
+                        </span>
+                      )}
+                    </div>
+
                     {koreanShownIds.has(sentence.id) ? (
                       <p className="text-lg font-semibold">{sentence.korean_text}</p>
                     ) : (
@@ -723,17 +755,6 @@ export default function ReviewClient({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {sentence.audio_url && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          disabled={(busyPlaying && !isPlaying) || isEditing || listeningId !== null}
-                          onClick={() => playAudio(sentence.id, sentence.audio_url)}>
-                          {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
-                          듣기
-                        </Button>
-                      )}
-
                       {speechSupported && (
                         <Button
                           variant={isListening ? "destructive" : "outline"}
@@ -780,23 +801,6 @@ export default function ReviewClient({
                         }}>
                         <Keyboard className="mr-1 h-4 w-4" />
                         {isWriting ? "닫기" : "쓰기"}
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={isBusy}
-                        onClick={() =>
-                          setKoreanShownIds((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(sentence.id)) next.delete(sentence.id);
-                            else next.add(sentence.id);
-                            return next;
-                          })
-                        }
-                        className="text-muted-foreground">
-                        {koreanShownIds.has(sentence.id) ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
-                        {koreanShownIds.has(sentence.id) ? "한글 숨기기" : "한글 보기"}
                       </Button>
 
                       <Button
