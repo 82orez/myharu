@@ -77,6 +77,7 @@ export default function ReviewClient({
   const [voice] = useSelectedVoice();
   const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
   const [favoriteOnly, setFavoriteOnly] = useState(false);
+  const [showKorean, setShowKorean] = useState(false); // 한글 뜻 전체 표시 (기본 숨김)
   const [showAll, setShowAll] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
   const [search, setSearch] = useState("");
@@ -569,6 +570,20 @@ export default function ReviewClient({
         <p className="text-muted-foreground py-12 text-center">선택한 조건에 해당하는 문장이 없습니다.</p>
       )}
 
+      {visibleSentences.length > 0 && (
+        <div className="flex">
+          <Button
+            variant="outline"
+            size="sm"
+            aria-pressed={showKorean}
+            onClick={() => setShowKorean((v) => !v)}
+            className={showKorean ? "border-brand bg-brand/10 text-brand" : "text-muted-foreground"}>
+            {showKorean ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
+            {showKorean ? "한글 숨기기" : "한글 보기"}
+          </Button>
+        </div>
+      )}
+
       <div className="flex flex-col gap-4">
         {visibleSentences.map((sentence, index) => {
           const isPlaying = playingId === sentence.id;
@@ -675,7 +690,11 @@ export default function ReviewClient({
                   </div>
                 ) : (
                   <>
-                    <p className="text-lg font-semibold">{sentence.korean_text}</p>
+                    {showKorean ? (
+                      <p className="text-lg font-semibold">{sentence.korean_text}</p>
+                    ) : (
+                      <p className="text-muted-foreground text-lg font-semibold select-none">한글 숨김</p>
+                    )}
                     {revealedIds.has(sentence.id) && <p className="text-muted-foreground text-sm">{sentence.english_text}</p>}
 
                     {sentence.note && notesShownIds.has(sentence.id) && (
