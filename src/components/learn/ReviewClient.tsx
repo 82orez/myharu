@@ -695,7 +695,7 @@ export default function ReviewClient({
                     ) : (
                       <p className="text-muted-foreground text-lg font-semibold select-none">한글 숨김</p>
                     )}
-                    {revealedIds.has(sentence.id) && <p className="text-muted-foreground text-sm">{sentence.english_text}</p>}
+                    {revealedIds.has(sentence.id) && <p className="text-brand text-lg font-medium">{sentence.english_text}</p>}
 
                     {sentence.note && notesShownIds.has(sentence.id) && (
                       <div className="bg-muted/50 text-muted-foreground flex gap-2 rounded-lg px-3 py-2 text-sm">
