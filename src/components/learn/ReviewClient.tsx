@@ -226,7 +226,10 @@ export default function ReviewClient({
       };
 
       recognition.onerror = (event: any) => {
-        console.error("[Speech Recognition] 오류:", event.error);
+        // "aborted"(사용자가 중지)·"no-speech"(무음)는 정상/무해 케이스라 로깅 제외
+        if (event.error !== "aborted" && event.error !== "no-speech") {
+          console.error("[Speech Recognition] 오류:", event.error);
+        }
         if (event.error === "not-allowed") {
           toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
         }
