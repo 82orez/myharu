@@ -517,7 +517,7 @@ export default function ReviewClient({
             <>
               <div className="relative">
                 <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
-                <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="문장·뜻 검색" className="h-9 pr-9 pl-9" />
+                <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="영어 문장/한글 뜻 검색" className="h-9 pr-9 pl-9" />
                 {search && (
                   <button
                     type="button"
