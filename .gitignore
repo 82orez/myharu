@@ -36,6 +36,9 @@ yarn-error.log*
 # vercel
 .vercel
 
+# audio backup (npm run audio:download)
+audio-backup/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
