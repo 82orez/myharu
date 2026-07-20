@@ -27,6 +27,17 @@ import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
 import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -265,8 +276,6 @@ export default function ReviewClient({
 
   const handleDelete = useCallback(
     (id: string) => {
-      if (!confirm("이 문장을 삭제하시겠습니까?")) return;
-
       setDeletingId(id);
 
       startTransition(async () => {
@@ -863,15 +872,29 @@ export default function ReviewClient({
                         편집
                       </Button>
 
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        disabled={isBusy || isDeleting}
-                        onClick={() => handleDelete(sentence.id)}
-                        className="text-muted-foreground hover:text-destructive">
-                        {isDeleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-                        삭제
-                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger
+                          render={
+                            <Button variant="ghost" size="sm" disabled={isBusy || isDeleting} className="text-muted-foreground hover:text-destructive" />
+                          }>
+                          {isDeleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+                          삭제
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>문장 삭제</AlertDialogTitle>
+                            <AlertDialogDescription>이 문장을 삭제하시겠습니까? 삭제하면 되돌릴 수 없습니다.</AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>취소</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => handleDelete(sentence.id)}
+                              className="bg-destructive text-white hover:bg-destructive/90">
+                              삭제
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     </div>
 
                     {isListening && (
