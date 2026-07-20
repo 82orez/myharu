@@ -598,7 +598,7 @@ export default function ReviewClient({
                   +{feedbackXp} XP
                 </span>
               )}
-              <CardContent className="flex flex-col gap-3 pt-4">
+              <CardContent className="flex flex-col gap-3">
                 {isThisEditing && editing ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5">
