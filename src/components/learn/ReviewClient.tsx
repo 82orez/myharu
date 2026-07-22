@@ -79,7 +79,6 @@ export default function ReviewClient({
   const [sentences, setSentences] = useState(initialSentences);
   const [presets, setPresets] = useState<string[]>(initialPresets);
   const [voice] = useSelectedVoice();
-  const [filter, setFilter] = useState<"all" | "practiced" | "unpracticed">("all");
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   // "" = 전체 일자, 그 외에는 입력일(YYYY-MM-DD)
   const [dayFilter, setDayFilter] = useState<string>("");
@@ -378,7 +377,7 @@ export default function ReviewClient({
 
   const toggleTag = (t: string) => setTagFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
-  // 필터 결합: 입력일 → 즐겨찾기 → 검색(문장·뜻) → 태그(다중 AND) → (상태)
+  // 필터 결합: 입력일 → 즐겨찾기 → 태그(다중 AND) → 검색(문장·뜻)
   const byDay = activeDay ? sentences.filter((s) => kstDate(s.created_at) === activeDay) : sentences;
   const q = search.trim().toLowerCase();
   const pool = byDay.filter((s) => {
@@ -387,15 +386,7 @@ export default function ReviewClient({
     if (q && !`${s.english_text} ${s.korean_text}`.toLowerCase().includes(q)) return false;
     return true;
   });
-  const practicedCount = pool.filter((s) => practiceTotal(s) > 0).length;
-  const unpracticedCount = pool.length - practicedCount;
-  const filtered =
-    filter === "practiced"
-      ? pool.filter((s) => practiceTotal(s) > 0)
-      : filter === "unpracticed"
-        ? pool.filter((s) => practiceTotal(s) === 0)
-        : pool;
-  const visibleSentences = filtered.slice().sort((a, b) => {
+  const visibleSentences = pool.slice().sort((a, b) => {
     if (sort === "alpha") return a.english_text.localeCompare(b.english_text, "en");
     const cmp = a.created_at.localeCompare(b.created_at);
     return sort === "oldest" ? cmp : -cmp;
@@ -408,25 +399,19 @@ export default function ReviewClient({
       {sentences.length > 0 && (
         <div className="flex flex-col gap-3">
           <div className="flex flex-wrap gap-2">
-            <Button variant={filter === "all" ? "brand" : "outline"} size="sm" onClick={() => setFilter("all")}>
-              전체 {pool.length}
-            </Button>
-            <Button
-              variant={filter === "practiced" ? "success" : "outline"}
-              size="sm"
-              onClick={() => setFilter("practiced")}
-              className={filter === "practiced" ? "" : "text-success"}>
-              <Check className="mr-1 h-4 w-4" />
-              연습함 {practicedCount}
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setFilter("unpracticed")}
-              className={filter === "unpracticed" ? "border-accent-orange bg-accent-orange/10 text-accent-orange" : "text-accent-orange"}>
-              <X className="mr-1 h-4 w-4" />
-              미연습 {unpracticedCount}
-            </Button>
+            {allTags.length > 0 && (
+              <>
+                <Button variant={tagFilters.length === 0 ? "brand" : "outline"} size="sm" onClick={() => setTagFilters([])}>
+                  <Tag className="mr-1 h-4 w-4" />
+                  전체 {pool.length}
+                </Button>
+                {allTags.map((t) => (
+                  <Button key={t} variant={tagFilters.includes(t) ? "brand" : "outline"} size="sm" onClick={() => toggleTag(t)}>
+                    {t}
+                  </Button>
+                ))}
+              </>
+            )}
             <Button
               variant="outline"
               size="sm"
@@ -437,7 +422,7 @@ export default function ReviewClient({
               즐겨찾기
             </Button>
             <div className="ml-auto flex items-center gap-2">
-              <Button variant={showFind || search || tagFilters.length > 0 ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
+              <Button variant={showFind || search ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
                 <Search className="mr-1 h-4 w-4" />
                 검색
                 <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${showFind ? "rotate-180" : ""}`} />
@@ -475,35 +460,19 @@ export default function ReviewClient({
           </div>
 
           {showFind && (
-            <>
-              <div className="relative">
-                <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
-                <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="영어 문장/한글 뜻 검색" className="h-9 pr-9 pl-9" />
-                {search && (
-                  <button
-                    type="button"
-                    onClick={() => setSearch("")}
-                    aria-label="검색어 지우기"
-                    className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              {allTags.length > 0 && (
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <Tag size={14} className="text-muted-foreground mr-0.5" />
-                  <Button variant={tagFilters.length === 0 ? "brand" : "outline"} size="sm" className="h-7" onClick={() => setTagFilters([])}>
-                    전체
-                  </Button>
-                  {allTags.map((t) => (
-                    <Button key={t} variant={tagFilters.includes(t) ? "brand" : "outline"} size="sm" className="h-7" onClick={() => toggleTag(t)}>
-                      {t}
-                    </Button>
-                  ))}
-                </div>
+            <div className="relative">
+              <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
+              <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="영어 문장/한글 뜻 검색" className="h-9 pr-9 pl-9" />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch("")}
+                  aria-label="검색어 지우기"
+                  className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
+                  <X size={14} />
+                </button>
               )}
-            </>
+            </div>
           )}
         </div>
       )}
