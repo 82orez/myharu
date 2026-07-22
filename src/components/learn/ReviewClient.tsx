@@ -56,6 +56,24 @@ const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { tim
 // 문장의 총 정답 연습 횟수(스피킹 + 쓰기). 0이면 "미연습"
 const practiceTotal = (s: Sentence) => s.speech_count + s.text_count;
 
+// 입력일(KST) 기간 프리셋. days는 오늘을 포함한 일수, all은 제한 없음
+const DAY_RANGES = [
+  { value: "all", label: "전체 일자", days: 0 },
+  { value: "today", label: "오늘", days: 1 },
+  { value: "3d", label: "최근 3일", days: 3 },
+  { value: "7d", label: "최근 일주일", days: 7 },
+  { value: "30d", label: "최근 한달", days: 30 },
+] as const;
+
+type DayRange = (typeof DAY_RANGES)[number]["value"];
+
+// 프리셋의 시작 경계 날짜(YYYY-MM-DD). all이면 null
+function rangeCutoff(range: DayRange): string | null {
+  const days = DAY_RANGES.find((r) => r.value === range)?.days ?? 0;
+  if (days <= 0) return null;
+  return kstDate(new Date(Date.now() - (days - 1) * 86400000).toISOString());
+}
+
 type EditState = {
   id: string;
   englishText: string;
@@ -81,8 +99,8 @@ export default function ReviewClient({
   const [presets, setPresets] = useState<string[]>(initialPresets);
   const [voice] = useSelectedVoice();
   const [favoriteOnly, setFavoriteOnly] = useState(false);
-  // "" = 전체 일자, 그 외에는 입력일(YYYY-MM-DD)
-  const [dayFilter, setDayFilter] = useState<string>("");
+  // 입력일 기간 프리셋(DAY_RANGES)
+  const [dayFilter, setDayFilter] = useState<DayRange>("all");
   const [search, setSearch] = useState("");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   // 태그 다중 선택 결합 방식: and = 모두 포함, or = 하나라도 포함
@@ -351,22 +369,6 @@ export default function ReviewClient({
   const isEditing = editing !== null;
   const isBusy = playingId !== null || isEditing || listeningId !== null || writingId !== null;
 
-  // 입력 날짜(KST)별 일차 메타: 가장 이른 날 = 1일차, 날짜별 문장 수 집계
-  const dayMeta = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const s of sentences) {
-      const d = kstDate(s.created_at);
-      counts.set(d, (counts.get(d) ?? 0) + 1);
-    }
-    const dates = Array.from(counts.keys()).sort();
-    const dayNumber = new Map<string, number>();
-    dates.forEach((d, i) => dayNumber.set(d, i + 1));
-    return { counts, dayNumber, dates };
-  }, [sentences]);
-
-  // 문장 삭제 등으로 선택한 날짜가 사라지면 전체로 간주
-  const activeDay = dayMeta.dates.includes(dayFilter) ? dayFilter : "";
-
   // 전체 문장의 distinct 태그(태그 필터 칩 / 편집 자동완성용)
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -377,7 +379,8 @@ export default function ReviewClient({
   const toggleTag = (t: string) => setTagFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
   // 필터 결합: 입력일 → 즐겨찾기 → 태그(다중 AND) → 검색(문장·뜻)
-  const byDay = activeDay ? sentences.filter((s) => kstDate(s.created_at) === activeDay) : sentences;
+  const cutoff = rangeCutoff(dayFilter);
+  const byDay = cutoff ? sentences.filter((s) => kstDate(s.created_at) >= cutoff) : sentences;
   const q = search.trim().toLowerCase();
   const pool = byDay.filter((s) => {
     if (favoriteOnly && !s.is_favorite) return false;
@@ -402,27 +405,18 @@ export default function ReviewClient({
         <div className="flex flex-col gap-3">
           {/* 조회 조건: 입력일 · 즐겨찾기 · 검색 · 정렬 */}
           <div className="flex flex-wrap items-center gap-2">
-            {dayMeta.dates.length > 1 && (
-              <select
-                value={activeDay}
-                onChange={(e) => setDayFilter(e.target.value)}
-                aria-label="입력일"
-                className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
-              >
-                <option value="">전체 일자</option>
-                {dayMeta.dates
-                  .slice()
-                  .reverse()
-                  .map((d) => {
-                    const [, m, day] = d.split("-");
-                    return (
-                      <option key={d} value={d}>
-                        {`${dayMeta.dayNumber.get(d)}일차 · ${Number(m)}/${Number(day)} (${dayMeta.counts.get(d)}문장)`}
-                      </option>
-                    );
-                  })}
-              </select>
-            )}
+            <select
+              value={dayFilter}
+              onChange={(e) => setDayFilter(e.target.value as DayRange)}
+              aria-label="입력일"
+              className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+            >
+              {DAY_RANGES.map((r) => (
+                <option key={r.value} value={r.value}>
+                  {r.label}
+                </option>
+              ))}
+            </select>
             <Button
               variant="outline"
               size="sm"
