@@ -98,7 +98,7 @@ export default function ReviewClient({
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [revealedIds, setRevealedIds] = useState<Set<string>>(new Set());
-  const [koreanShownIds, setKoreanShownIds] = useState<Set<string>>(new Set()); // 한글 뜻 카드별 표시 (기본 숨김)
+  const [koreanHiddenIds, setKoreanHiddenIds] = useState<Set<string>>(new Set()); // 한글 뜻 카드별 숨김 (기본 표시)
   const [notesShownIds, setNotesShownIds] = useState<Set<string>>(new Set());
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
@@ -695,7 +695,7 @@ export default function ReviewClient({
                           size="sm"
                           disabled={isBusy}
                           onClick={() =>
-                            setKoreanShownIds((prev) => {
+                            setKoreanHiddenIds((prev) => {
                               const next = new Set(prev);
                               if (next.has(sentence.id)) next.delete(sentence.id);
                               else next.add(sentence.id);
@@ -703,8 +703,8 @@ export default function ReviewClient({
                             })
                           }
                           className="text-muted-foreground">
-                          {koreanShownIds.has(sentence.id) ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
-                          {koreanShownIds.has(sentence.id) ? "한글 숨기기" : "한글 보기"}
+                          {koreanHiddenIds.has(sentence.id) ? <Eye className="mr-1 h-4 w-4" /> : <EyeOff className="mr-1 h-4 w-4" />}
+                          {koreanHiddenIds.has(sentence.id) ? "한글 보기" : "한글 숨기기"}
                         </Button>
 
                         <Button
@@ -731,10 +731,10 @@ export default function ReviewClient({
                       )}
                     </div>
 
-                    {koreanShownIds.has(sentence.id) ? (
-                      <p className="text-lg font-semibold">{sentence.korean_text}</p>
-                    ) : (
+                    {koreanHiddenIds.has(sentence.id) ? (
                       <p className="text-muted-foreground text-lg font-semibold select-none">한글 숨김</p>
+                    ) : (
+                      <p className="text-lg font-semibold">{sentence.korean_text}</p>
                     )}
                     {revealedIds.has(sentence.id) && <p className="text-brand text-lg font-medium">{sentence.english_text}</p>}
 
