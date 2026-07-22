@@ -71,7 +71,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 ### 텍스트 비교 (`lib/normalize-text.ts`)
 
-정규화: 스마트 따옴표 통일 → 소문자 → 축약형 확장(`i'm`→`i am` 등) → 구어 변형 표준화(`VARIANTS`: `okay`→`ok`, `gonna`→`going to`, `yeah`→`yes` 등) → 구두점/공백 정리. 변형은 정답·입력 양쪽 대칭 적용. 판정은 단어 단위 LCS 유사도 **임계값 이상이면 정답**(관사 추가/누락에 관대). `textsMatch(a, b, threshold?)` — 기본 `SIMILARITY_THRESHOLD`(0.8). **스피킹 채점 난이도**(`user_stats.speech_strict`): 엄격이면 `STRICT_SIMILARITY_THRESHOLD`(0.9), 보통이면 0.8. **스피킹에만 적용**(ReviewClient·QuizView 음성 콜백에서 threshold 전달), 쓰기·텍스트는 항상 기본 0.8. 설정 UI는 `GoalForm`(`/learn/goal`)의 보통/엄격 버튼 → `setSpeechStrict`(`goal/actions.ts`).
+정규화: 스마트 따옴표 통일 → 소문자 → 축약형 확장(고정 맵 `CONTRACTIONS` + 접미사 일반 규칙 `n't`/`'re`/`'ve`/`'ll`/`'d`/`'m`) → 구어 변형 표준화(`VARIANTS`: `okay`→`ok`, `gonna`→`going to`, `yeah`→`yes` 등) → 구두점/공백 정리. 변형은 정답·입력 양쪽 대칭 적용. 판정은 단어 단위 LCS 유사도 **임계값 이상이면 정답**(관사 추가/누락에 관대). ⚠️ **`'s`는 소유격과 구분 불가**라 일반 규칙에 넣지 않고, `normalizedVariants`가 "그대로/`is`로 확장" 두 정규화형을 만들어 `textsMatch`가 조합 중 **최대 유사도**를 채택한다(`everything's`↔`everything is` 정답 인정 + 소유격 회귀 방지). `textsMatch(a, b, threshold?)` — 기본 `SIMILARITY_THRESHOLD`(0.8). **스피킹 채점 난이도**(`user_stats.speech_strict`): 엄격이면 `STRICT_SIMILARITY_THRESHOLD`(0.9), 보통이면 0.8. **스피킹에만 적용**(ReviewClient·QuizView 음성 콜백에서 threshold 전달), 쓰기·텍스트는 항상 기본 0.8. 설정 UI는 `GoalForm`(`/learn/goal`)의 보통/엄격 버튼 → `setSpeechStrict`(`goal/actions.ts`).
 
 **스피킹 디버그 로그**: `ReviewClient`·`QuizView`의 음성 인식 `onresult`에서 `console.log("[스피킹 인식]", { 인식, 정답, 유사도, 정답여부 })` 출력(브라우저가 인식한 음성 확인용).
 

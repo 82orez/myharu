@@ -49,6 +49,19 @@ const CONTRACTIONS: Record<string, string> = {
 
 const CONTRACTION_PATTERN = new RegExp("\\b(" + Object.keys(CONTRACTIONS).join("|").replace(/'/g, "'") + ")\\b", "g");
 
+// 위 목록에 없는 축약형을 접미사 규칙으로 일반 확장(예: everyone'll → everyone will).
+// `'s`는 소유격과 구분할 수 없어 여기 넣지 않고 normalizedVariants에서 두 갈래로 처리한다.
+const GENERIC_CONTRACTIONS: [RegExp, string][] = [
+  [/(\w+)n't\b/g, "$1 not"],
+  [/(\w+)'re\b/g, "$1 are"],
+  [/(\w+)'ve\b/g, "$1 have"],
+  [/(\w+)'ll\b/g, "$1 will"],
+  [/(\w+)'d\b/g, "$1 would"],
+  [/(\w+)'m\b/g, "$1 am"],
+];
+
+const S_CONTRACTION = /(\w+)'s\b/g;
+
 // 구어 변형 철자 → 표준형. 정답·입력 양쪽에 동일하게 적용되므로 거짓 오답만 줄어든다.
 const VARIANTS: Record<string, string> = {
   // ok 계열 → 표준 "ok"
@@ -77,15 +90,24 @@ const VARIANTS: Record<string, string> = {
 
 const VARIANT_PATTERN = new RegExp("\\b(" + Object.keys(VARIANTS).join("|") + ")\\b", "g");
 
-export function normalizeText(text: string): string {
-  return text
-    .replace(/[‘’′]/g, "'")
-    .toLowerCase()
-    .replace(CONTRACTION_PATTERN, (match) => CONTRACTIONS[match] ?? match)
+// expandS=true면 `X's`를 `X is`로도 편다(소유격일 수 있으므로 기본은 끔).
+export function normalizeText(text: string, expandS: boolean = false): string {
+  let s = text.replace(/[‘’′]/g, "'").toLowerCase();
+  s = s.replace(CONTRACTION_PATTERN, (match) => CONTRACTIONS[match] ?? match);
+  for (const [pattern, replacement] of GENERIC_CONTRACTIONS) s = s.replace(pattern, replacement);
+  if (expandS) s = s.replace(S_CONTRACTION, "$1 is");
+  return s
     .replace(VARIANT_PATTERN, (match) => VARIANTS[match] ?? match)
     .replace(/[^\w\s]|_/g, "")
     .replace(/\s+/g, " ")
     .trim();
+}
+
+// `'s` 해석이 갈리는 문장은 두 가지(그대로 / is로 확장) 정규화형을 모두 후보로 둔다.
+function normalizedVariants(text: string): string[] {
+  const plain = normalizeText(text);
+  const expanded = normalizeText(text, true);
+  return plain === expanded ? [plain] : [plain, expanded];
 }
 
 function wordLcsLength(a: string[], b: string[]): number {
@@ -107,12 +129,18 @@ export const SIMILARITY_THRESHOLD = 0.8;
 export const STRICT_SIMILARITY_THRESHOLD = 0.9;
 
 export function textsMatch(a: string, b: string, threshold: number = SIMILARITY_THRESHOLD): { match: boolean; similarity: number } {
-  const wordsA = normalizeText(a).split(" ").filter(Boolean);
-  const wordsB = normalizeText(b).split(" ").filter(Boolean);
-  if (wordsA.length === 0 && wordsB.length === 0) return { match: true, similarity: 1 };
-  const maxLen = Math.max(wordsA.length, wordsB.length);
-  if (maxLen === 0) return { match: true, similarity: 1 };
-  const lcs = wordLcsLength(wordsA, wordsB);
-  const similarity = lcs / maxLen;
+  let similarity = 0;
+
+  // `'s` 해석 조합(최대 2×2) 중 가장 잘 맞는 쪽을 채택
+  for (const variantA of normalizedVariants(a)) {
+    for (const variantB of normalizedVariants(b)) {
+      const wordsA = variantA.split(" ").filter(Boolean);
+      const wordsB = variantB.split(" ").filter(Boolean);
+      const maxLen = Math.max(wordsA.length, wordsB.length);
+      if (maxLen === 0) return { match: true, similarity: 1 };
+      similarity = Math.max(similarity, wordLcsLength(wordsA, wordsB) / maxLen);
+    }
+  }
+
   return { match: similarity >= threshold, similarity };
 }
