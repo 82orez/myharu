@@ -57,21 +57,21 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - **학습**: **별도 라우트 2개** — 문장 목록(`/learn/review`)과 퀴즈(`/learn/quiz`). 두 페이지 상단에 공용 `LearnModeTabs`(`usePathname` 기반 `<Link>` 탭, 활성 강조)로 전환. **학습 인정은 문장 목록에서만**. (기존 nav 링크는 모두 `/learn/review`=문장 목록을 가리킴.)
   - **문장 목록** (`/learn/review`, `ReviewClient`): 카드별 듣기/말하기(Web Speech API)/쓰기(텍스트)/정답 보기/메모/즐겨찾기/편집/삭제. **메모**는 `note`가 있는 카드에만 "메모" 토글 버튼 노출(`notesShownIds`, 정답 공개와 독립). 편집 폼에서 수정. 말하기·쓰기·오디오는 **한 번에 한 카드만 활성**(상호 배제). 정답 시 `recordPracticeResult(sentenceId, isCorrect, mode)` 호출(`mode: 'speech'|'text'`). 각 카드에 **정답 횟수**(스피킹 `speech_count`·쓰기 `text_count`·합계) 표시 — **정답일 때만** `recordPractice`가 RPC로 카운터 증가, 클라는 정답 시 낙관적 +1. 필터 UI는 **2줄**: 상단=입력일 드롭다운·즐겨찾기·검색▾·정렬(검색어 입력창은 토글 시 상단 줄 바로 아래), 하단=태그 칩 줄. 필터(모두 클라이언트 AND 결합): 태그 칩(상시 노출 — 목록 문장들의 distinct 태그 `allTags`, 다중 선택 시 AND/OR 토글 — 기본 AND("모두 포함"), 2개 이상 선택해야 토글 노출, 비영속 로컬 state; "전체 N" 칩으로 해제), 즐겨찾기 전용 토글, 입력일 기간 프리셋 `DAY_RANGES`(전체 일자/오늘/최근 3일/최근 일주일/최근 한달 — KST `created_at` 기준, "최근 N일"은 오늘 포함), 본문 검색(검색▾ 패널, 문장·뜻만), 정렬. 편집은 `generateAudio` 재활용 → `updateSentence(..., tags)`. 페이지는 `getSentences`+`getTagPresets`만 fetch.
   - **퀴즈** (`/learn/quiz`, `QuizView`): 한 문제씩(`useReducer` 상태머신 `ready→question→listening→result→summary`). 스피킹/텍스트 모드. **세션 타입**(`quizType` 컴포넌트 state, ready 화면에서 택1): `translate`(한국어 뜻 보고 영→말하기/쓰기) / `listening`(오디오 듣고 따라 말하기 — 한국어·영어 **모두 숨김**, **문제 카드 클릭으로 오디오 재생**(듣기 버튼 없음, 재생/수음 중엔 비활성), **말하기만**, speech로 집계). ⚠️ `quizType==='listening'`(세션 타입)과 reducer `phase==='listening'`(마이크 수음 중)은 별개. **`recordPracticeResult` 미호출 → XP·총점 무관**, 단 **정답 시** `incrementPracticeCount(sentenceId, mode)`가 정답 횟수 누적 + `practice_results`(`is_correct=true`, `xp_earned=0`) 기록 → **오늘의 목표·학습 달력에는 반영됨**. 요약은 정확도만. 페이지는 `getSentences`+`getUserStats` fetch. 진행율 바·카운터는 `currentIndex` 기준(현재 문제 = `(currentIndex+1)/total`, 오답·재시도 시 증가 안 함). `answers`는 문제당 1개(`currentIndex`로 덮어써 중복 방지). 오답 결과에서 "다음"은 `AlertDialog` 확인(오답 확정 경고) 후 이동. 듣기 오디오 재생 중(`isPlaying`)엔 모든 액션 버튼 비활성(듣기 버튼은 스피너+"playing"), 문제 전환 시 재생 정지.
-- **학습 설정** (`/learn/goal`, `GoalForm`): 하루 목표는 **연습 1000회 고정**(설정 UI 없음, 안내 문구만). 폼은 **스피킹 채점 난이도**(`setSpeechStrict`)만 저장. 장기 목표(총량/기간/완주선) 개념 없음.
-- **자신에게 한 마디**(동기부여 문구): 홈 대시보드 `PersonalMessageCard`(인용 카드)에서 **인플레이스 편집** — 연필 버튼 → Dialog textarea → `setPersonalMessage(s)`(`goal/actions.ts`) → `user_stats.personal_message`. 빈 값이면 `DEFAULT_PERSONAL_MESSAGE`("Do your best!")로 표시(항상 노출, 마이그레이션 없이 표시 시 fallback). 상수 `DAILY_PRACTICE_GOAL`=1000(고정 일일 목표)·`MAX_PERSONAL_MESSAGE`=100·`DEFAULT_PERSONAL_MESSAGE`는 `lib/goal-config.ts`(서버 액션·서버 컴포넌트·클라 폼 공유 → 디렉티브 없는 순수 모듈).
+- **학습 설정** (`/settings`, `SettingsForm`): 하루 목표는 **연습 1000회 고정**(설정 UI 없음, 안내 문구만). 폼은 **스피킹 채점 난이도**(`setSpeechStrict`)만 저장. 장기 목표(총량/기간/완주선) 개념 없음.
+- **자신에게 한 마디**(동기부여 문구): 홈 대시보드 `PersonalMessageCard`(인용 카드)에서 **인플레이스 편집** — 연필 버튼 → Dialog textarea → `setPersonalMessage(s)`(`settings/actions.ts`) → `user_stats.personal_message`. 빈 값이면 `DEFAULT_PERSONAL_MESSAGE`("Do your best!")로 표시(항상 노출, 마이그레이션 없이 표시 시 fallback). 상수 `DAILY_PRACTICE_GOAL`=1000(고정 일일 목표)·`MAX_PERSONAL_MESSAGE`=100·`DEFAULT_PERSONAL_MESSAGE`는 `lib/settings-config.ts`(서버 액션·서버 컴포넌트·클라 폼 공유 → 디렉티브 없는 순수 모듈).
 - **태그**: `TagPicker`는 사용자 **프리셋에서 선택**(칩 토글 + 즉석 추가 + "태그 관리" Dialog). 프리셋은 `user_stats.tag_presets`에 저장, `tag-actions.ts`의 `getTagPresets`/`setTagPresets`(전체 교체)/`renameTag`(프리셋 + 해당 태그를 가진 모든 문장에 일괄 반영)로 관리. 정규화 `lib/tags.ts` `sanitizeTags`(공백/중복 제거, 각 20자, `MAX_TAGS`=10·`MAX_PRESETS`=50). 색은 `lib/tag-color.ts`(이름 해시 → 10색 팔레트, 같은 태그=같은 색): 배지용 `tagColorClass`, 버튼(필터 칩)용 `tagChipClass`(hover 색 포함 — 동적 문자열 조합 금지, 팔레트에 클래스 전체를 나열해야 Tailwind가 스캔).
 
 ### 게이미피케이션 (비즈니스 로직 — 정확히 유지할 것)
 
 - **서버 쿼리**: `lib/gamification.ts`(`"server-only"`) — `todayKST`, `fetchUserStats`, `fetchDailyProgress`, `recordPractice`, `fetchDailyPracticeCount`(날짜별 정답 연습 횟수), `fetchPracticeCountTotal`(전 문장 `speech_count+text_count` 합). **서버 액션**: `(learn)/learn/review/gamification-actions.ts` — `getUserStats`/`getDailyProgress`/`recordPracticeResult`/`incrementPracticeCount`(퀴즈 정답용 — `practice_results` insert(`xp_earned:0`) + 카운터 RPC, XP는 미가산).
 - **XP**: 정답 10, 오답 2. `user_stats.total_xp`에 누적(중복 정답도 매번 누적). `recordPractice`는 XP 누적만 수행(스트릭 없음). **홈 대시보드에 XP 미노출** — 스탯 카드 2종은 `등록된 문장 갯수`(sentences count) + `연습횟수 합계`(`fetchPracticeCountTotal`).
-- **일일 진도**: **오늘(KST) 정답 연습 횟수**(`fetchDailyProgress` = 오늘 `practice_results` 중 `is_correct=true` 행 수). 분모=**고정 `DAILY_PRACTICE_GOAL`=1000**(사용자 설정 불가, `user_stats.daily_goal`은 미사용 잔존 컬럼). 반복 정답·퀴즈 정답 모두 가산. 홈 `GoalProgressCard`가 "오늘" 원형 차트 1개로 표시(+`/learn/goal` "설정" 링크).
+- **일일 진도**: **오늘(KST) 정답 연습 횟수**(`fetchDailyProgress` = 오늘 `practice_results` 중 `is_correct=true` 행 수). 분모=**고정 `DAILY_PRACTICE_GOAL`=1000**(사용자 설정 불가, `user_stats.daily_goal`은 미사용 잔존 컬럼). 반복 정답·퀴즈 정답 모두 가산. 홈 `GoalProgressCard`가 "오늘" 원형 차트 1개로 표시(목표는 고정이라 수정 링크 없음).
 - **학습 달력**: `fetchDailyPracticeCount` → `Record<YYYY-MM-DD, 정답연습횟수>`. 홈 `LearningCalendar` 월간 히트맵 + 달성도 기호(`○` 1000회 이상/`△` 1~999, 0회는 기호 없음).
 - **타입**: `src/types/gamification.ts` (`UserStats`, `PracticeResult`, `SessionSummary`, `QuizMode`).
 
 ### 텍스트 비교 (`lib/normalize-text.ts`)
 
-정규화: 스마트 따옴표 통일 → 소문자 → 축약형 확장(고정 맵 `CONTRACTIONS` + 접미사 일반 규칙 `n't`/`'re`/`'ve`/`'ll`/`'d`/`'m`) → 구어 변형 표준화(`VARIANTS`: `okay`→`ok`, `gonna`→`going to`, `yeah`→`yes` 등) → 구두점/공백 정리. 변형은 정답·입력 양쪽 대칭 적용. 판정은 단어 단위 LCS 유사도 **임계값 이상이면 정답**(관사 추가/누락에 관대). ⚠️ **`'s`는 소유격과 구분 불가**라 일반 규칙에 넣지 않고, `normalizedVariants`가 "그대로/`is`로 확장" 두 정규화형을 만들어 `textsMatch`가 조합 중 **최대 유사도**를 채택한다(`everything's`↔`everything is` 정답 인정 + 소유격 회귀 방지). `textsMatch(a, b, threshold?)` — 기본 `SIMILARITY_THRESHOLD`(0.8). **스피킹 채점 난이도**(`user_stats.speech_strict`): 엄격이면 `STRICT_SIMILARITY_THRESHOLD`(0.9), 보통이면 0.8. **스피킹에만 적용**(ReviewClient·QuizView 음성 콜백에서 threshold 전달), 쓰기·텍스트는 항상 기본 0.8. 설정 UI는 `GoalForm`(`/learn/goal`)의 보통/엄격 버튼 → `setSpeechStrict`(`goal/actions.ts`).
+정규화: 스마트 따옴표 통일 → 소문자 → 축약형 확장(고정 맵 `CONTRACTIONS` + 접미사 일반 규칙 `n't`/`'re`/`'ve`/`'ll`/`'d`/`'m`) → 구어 변형 표준화(`VARIANTS`: `okay`→`ok`, `gonna`→`going to`, `yeah`→`yes` 등) → 구두점/공백 정리. 변형은 정답·입력 양쪽 대칭 적용. 판정은 단어 단위 LCS 유사도 **임계값 이상이면 정답**(관사 추가/누락에 관대). ⚠️ **`'s`는 소유격과 구분 불가**라 일반 규칙에 넣지 않고, `normalizedVariants`가 "그대로/`is`로 확장" 두 정규화형을 만들어 `textsMatch`가 조합 중 **최대 유사도**를 채택한다(`everything's`↔`everything is` 정답 인정 + 소유격 회귀 방지). `textsMatch(a, b, threshold?)` — 기본 `SIMILARITY_THRESHOLD`(0.8). **스피킹 채점 난이도**(`user_stats.speech_strict`): 엄격이면 `STRICT_SIMILARITY_THRESHOLD`(0.9), 보통이면 0.8. **스피킹에만 적용**(ReviewClient·QuizView 음성 콜백에서 threshold 전달), 쓰기·텍스트는 항상 기본 0.8. 설정 UI는 `SettingsForm`(`/settings`)의 보통/엄격 버튼 → `setSpeechStrict`(`settings/actions.ts`).
 
 **스피킹 디버그 로그**: `ReviewClient`·`QuizView`의 음성 인식 `onresult`에서 `console.log("[스피킹 인식]", { 인식, 정답, 유사도, 정답여부 })` 출력(브라우저가 인식한 음성 확인용).
 
@@ -113,7 +113,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 src/
 ├── app/
 │   ├── (auth)/                # login/signup/forgot-password/reset-password/logout/oauth (+ loading.tsx)
-│   ├── (learn)/               # learn/input·review·quiz·goal (+ gamification-actions.ts, loading.tsx, error.tsx)
+│   ├── (learn)/               # learn/input·review·quiz + settings (+ gamification-actions.ts, loading.tsx, error.tsx)
 │   ├── auth/confirm/route.ts  # OTP/code 처리 (recovery vs OAuth vs signup 분기)
 │   ├── layout.tsx             # Pretendard + Navbar + Footer + BottomNav + AuthHashHandler + ScrollToTop + Toaster
 │   ├── page.tsx               # 비로그인 마케팅 / 로그인 게이미피케이션 대시보드
@@ -121,15 +121,16 @@ src/
 │   └── globals.css            # Tailwind v4 + 컬러 토큰 + 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm/SignupForm/ForgotPasswordForm/ResetPasswordForm/KakaoButton/AuthHashHandler/AuthLayout
-│   ├── learn/                 # LearnModeTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/VoicePicker/GoalForm/GoalProgressCard/PersonalMessageCard/LearningCalendar/XpBadge
+│   ├── learn/                 # LearnModeTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/VoicePicker/GoalProgressCard/PersonalMessageCard/LearningCalendar/XpBadge
 │   ├── ui/                    # shadcn
-│   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=입력/학습/목표 메뉴
-│   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/입력/학습/프로필), md:hidden
+│   ├── SettingsForm.tsx       # "use client", /settings 폼(스피킹 채점 난이도)
+│   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=문장 입력/연습하기/설정 메뉴
+│   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/입력/연습/프로필), md:hidden
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
 ├── hooks/{use-caps-lock,use-selected-voice}.ts
-├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,goal-config}.ts
+├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config}.ts
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts
 ```
@@ -137,7 +138,7 @@ src/
 - **모바일 하단 네비** `BottomNav`: 로그인 전용, `md:hidden`, body `pb-16 md:pb-0`로 가림 방지.
 - **인증 레이아웃** `AuthLayout`: 데스크탑 좌측 브랜드 패널 + 우측 폼, 모바일 폼만. 새 인증 페이지는 `<AuthLayout>`로 감쌈.
 - **보안 헤더** (`next.config.ts`): 모든 경로 `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy`, `Permissions-Policy: ... microphone=(self)`(Web Speech API용).
-- **SEO** (`layout.tsx`): OpenGraph/Twitter/robots. 학습 페이지(`/learn/*`)는 `robots: { index: false }`.
+- **SEO** (`layout.tsx`): OpenGraph/Twitter/robots. 학습 페이지(`/learn/*`)와 `/settings`는 각 page의 `metadata`에서 `robots: { index: false }`.
 
 ## 컨벤션
 

@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { UserStats, QuizMode } from "@/types/gamification";
-import { DAILY_PRACTICE_GOAL } from "@/lib/goal-config";
+import { DAILY_PRACTICE_GOAL } from "@/lib/settings-config";
 
 type DbClient = SupabaseClient<Database>;
 

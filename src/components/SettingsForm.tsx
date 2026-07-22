@@ -4,13 +4,13 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { Loader2, Mic, Settings } from "lucide-react";
-import { setSpeechStrict } from "@/app/(learn)/learn/goal/actions";
-import { DAILY_PRACTICE_GOAL } from "@/lib/goal-config";
+import { setSpeechStrict } from "@/app/(learn)/settings/actions";
+import { DAILY_PRACTICE_GOAL } from "@/lib/settings-config";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 
-export default function GoalForm({ initialSpeechStrict }: { initialSpeechStrict: boolean }) {
+export default function SettingsForm({ initialSpeechStrict }: { initialSpeechStrict: boolean }) {
   const router = useRouter();
   const [speechStrict, setSpeechStrictState] = useState<boolean>(initialSpeechStrict);
   const [saving, startSaving] = useTransition();

@@ -172,7 +172,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
                 </Link>
               </li>
               <li className="border-b border-border py-4">
-                <Link href="/learn/goal" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+                <Link href="/settings" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
                   <Settings size={18} className="text-brand" />
                   설정
                 </Link>

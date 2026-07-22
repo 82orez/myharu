@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
-import { MAX_PERSONAL_MESSAGE } from "@/lib/goal-config";
+import { MAX_PERSONAL_MESSAGE } from "@/lib/settings-config";
 
 export type GoalActionResult = { success: true } | { error: string };
 
@@ -23,7 +23,7 @@ export async function setSpeechStrict(strict: boolean): Promise<GoalActionResult
   }
 
   revalidatePath("/");
-  revalidatePath("/learn/goal");
+  revalidatePath("/settings");
   return { success: true };
 }
 
@@ -48,6 +48,6 @@ export async function setPersonalMessage(message: string): Promise<GoalActionRes
   }
 
   revalidatePath("/");
-  revalidatePath("/learn/goal");
+  revalidatePath("/settings");
   return { success: true };
 }
