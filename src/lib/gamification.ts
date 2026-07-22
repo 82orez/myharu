@@ -98,6 +98,14 @@ export async function fetchMemorizedCount(supabase: DbClient, userId: string): P
   return unique.size;
 }
 
+/** 모든 문장의 정답 횟수(스피킹 + 쓰기) 합계 */
+export async function fetchPracticeCountTotal(supabase: DbClient, userId: string): Promise<number> {
+  const { data } = await supabase.from("sentences").select("speech_count, text_count").eq("user_id", userId);
+
+  if (!data) return 0;
+  return data.reduce((sum, row) => sum + (row.speech_count ?? 0) + (row.text_count ?? 0), 0);
+}
+
 export async function fetchDailyMemorized(supabase: DbClient, userId: string): Promise<Record<string, number>> {
   const { data } = await supabase.from("practice_results").select("sentence_id, practiced_at").eq("user_id", userId).eq("is_correct", true);
 
