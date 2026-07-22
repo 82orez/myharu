@@ -171,9 +171,7 @@ export default function ReviewClient({
           return;
         }
         triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
-        setSentences((prev) =>
-          prev.map((s) => (s.id === sentenceId ? { ...s, text_count: s.text_count + (match ? 1 : 0) } : s)),
-        );
+        setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, text_count: s.text_count + (match ? 1 : 0) } : s)));
         if (match) {
           toast.success("정확합니다!");
           setWritingId(null);
@@ -220,9 +218,7 @@ export default function ReviewClient({
             return;
           }
           triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
-          setSentences((prev) =>
-            prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + (match ? 1 : 0) } : s)),
-          );
+          setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + (match ? 1 : 0) } : s)));
           if (match) {
             toast.success("정확합니다!");
           } else {
@@ -404,95 +400,108 @@ export default function ReviewClient({
 
       {sentences.length > 0 && (
         <div className="flex flex-col gap-3">
-          <div className="flex flex-wrap gap-2">
-            {allTags.length > 0 && (
-              <>
-                <Button variant={tagFilters.length === 0 ? "brand" : "outline"} size="sm" onClick={() => setTagFilters([])}>
-                  <Tag className="mr-1 h-4 w-4" />
-                  전체 {pool.length}
-                </Button>
-                {allTags.map((t) => (
-                  <Button
-                    key={t}
-                    variant="outline"
-                    size="sm"
-                    aria-pressed={tagFilters.includes(t)}
-                    onClick={() => toggleTag(t)}
-                    className={`${tagChipClass(t)} border-transparent ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}>
-                    {t}
-                  </Button>
-                ))}
-                {tagFilters.length > 1 && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    aria-label={`태그 조건: ${tagMode === "and" ? "모두 포함" : "하나라도"} (클릭하여 전환)`}
-                    onClick={() => setTagMode((m) => (m === "and" ? "or" : "and"))}>
-                    <ArrowLeftRight className="mr-1 h-4 w-4" />
-                    {tagMode === "and" ? "모두 포함" : "하나라도"}
-                  </Button>
-                )}
-              </>
+          {/* 조회 조건: 입력일 · 즐겨찾기 · 검색 · 정렬 */}
+          <div className="flex flex-wrap items-center gap-2">
+            {dayMeta.dates.length > 1 && (
+              <select
+                value={activeDay}
+                onChange={(e) => setDayFilter(e.target.value)}
+                aria-label="입력일"
+                className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+              >
+                <option value="">전체 일자</option>
+                {dayMeta.dates
+                  .slice()
+                  .reverse()
+                  .map((d) => {
+                    const [, m, day] = d.split("-");
+                    return (
+                      <option key={d} value={d}>
+                        {`${dayMeta.dayNumber.get(d)}일차 · ${Number(m)}/${Number(day)} (${dayMeta.counts.get(d)}문장)`}
+                      </option>
+                    );
+                  })}
+              </select>
             )}
             <Button
               variant="outline"
               size="sm"
               aria-pressed={favoriteOnly}
               onClick={() => setFavoriteOnly((v) => !v)}
-              className={favoriteOnly ? "border-amber-500 bg-amber-500/10 text-amber-600" : "text-amber-500"}>
+              className={favoriteOnly ? "border-amber-500 bg-amber-500/10 text-amber-600" : "text-amber-500"}
+            >
               <Star className={`mr-1 h-4 w-4 ${favoriteOnly ? "fill-current" : ""}`} />
               즐겨찾기
             </Button>
-            <div className="ml-auto flex items-center gap-2">
-              <Button variant={showFind || search ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
-                <Search className="mr-1 h-4 w-4" />
-                검색
-                <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${showFind ? "rotate-180" : ""}`} />
-              </Button>
-              {dayMeta.dates.length > 1 && (
-                <select
-                  value={activeDay}
-                  onChange={(e) => setDayFilter(e.target.value)}
-                  aria-label="입력일"
-                  className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]">
-                  <option value="">전체 일자</option>
-                  {dayMeta.dates
-                    .slice()
-                    .reverse()
-                    .map((d) => {
-                      const [, m, day] = d.split("-");
-                      return (
-                        <option key={d} value={d}>
-                          {`${dayMeta.dayNumber.get(d)}일차 · ${Number(m)}/${Number(day)} (${dayMeta.counts.get(d)}문장)`}
-                        </option>
-                      );
-                    })}
-                </select>
-              )}
-              <select
-                value={sort}
-                onChange={(e) => setSort(e.target.value as SortMode)}
-                aria-label="정렬"
-                className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]">
-                <option value="latest">최신순</option>
-                <option value="oldest">오래된순</option>
-                <option value="alpha">가나다순(A–Z)</option>
-              </select>
-            </div>
+            <Button variant={showFind || search ? "brand" : "outline"} size="sm" onClick={() => setShowFind((v) => !v)}>
+              <Search className="mr-1 h-4 w-4" />
+              검색
+              <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${showFind ? "rotate-180" : ""}`} />
+            </Button>
+            <select
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortMode)}
+              aria-label="정렬"
+              className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+            >
+              <option value="latest">최신순</option>
+              <option value="oldest">오래된순</option>
+              <option value="alpha">가나다순(A–Z)</option>
+            </select>
           </div>
 
           {showFind && (
             <div className="relative">
               <Search size={16} className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 -translate-y-1/2" />
-              <Input type="text" value={search} onChange={(e) => setSearch(e.target.value)} placeholder="영어 문장/한글 뜻 검색" className="h-9 pr-9 pl-9" />
+              <Input
+                type="text"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="영어 문장/한글 뜻 검색"
+                className="h-9 pr-9 pl-9"
+              />
               {search && (
                 <button
                   type="button"
                   onClick={() => setSearch("")}
                   aria-label="검색어 지우기"
-                  className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
+                  className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors"
+                >
                   <X size={14} />
                 </button>
+              )}
+            </div>
+          )}
+
+          {/* 태그 필터 */}
+          {allTags.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant={tagFilters.length === 0 ? "brand" : "outline"} size="sm" onClick={() => setTagFilters([])}>
+                <Tag className="mr-1 h-4 w-4" />
+                전체 {pool.length}
+              </Button>
+              {allTags.map((t) => (
+                <Button
+                  key={t}
+                  variant="outline"
+                  size="sm"
+                  aria-pressed={tagFilters.includes(t)}
+                  onClick={() => toggleTag(t)}
+                  className={`${tagChipClass(t)} border-transparent ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}
+                >
+                  {t}
+                </Button>
+              ))}
+              {tagFilters.length > 1 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  aria-label={`태그 조건: ${tagMode === "and" ? "모두 포함" : "하나라도"} (클릭하여 전환)`}
+                  onClick={() => setTagMode((m) => (m === "and" ? "or" : "and"))}
+                >
+                  <ArrowLeftRight className="mr-1 h-4 w-4" />
+                  {tagMode === "and" ? "모두 포함" : "하나라도"}
+                </Button>
               )}
             </div>
           )}
@@ -515,8 +524,7 @@ export default function ReviewClient({
         <div className="flex flex-col items-center gap-4 py-16 text-center">
           <p className="text-muted-foreground">아직 저장된 문장이 없습니다.</p>
           <Button variant="brand" nativeButton={false} render={<Link href="/learn/input" />}>
-            <Plus size={16} />
-            첫 문장 등록하기
+            <Plus size={16} />첫 문장 등록하기
           </Button>
         </div>
       )}
@@ -547,7 +555,8 @@ export default function ReviewClient({
             <Card
               key={sentence.id}
               className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${practiceTotal(sentence) > 0 ? "border-l-success border-l-2" : "border-l-accent-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
-              style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
+              style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}
+            >
               {isFeedback && feedbackStatus === "correct" && feedbackXp > 0 && (
                 <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 z-20 text-lg font-bold">
                   +{feedbackXp} XP
@@ -612,7 +621,8 @@ export default function ReviewClient({
                         variant="brand"
                         size="sm"
                         onClick={handleSaveEdit}
-                        disabled={saving || !editing.englishText.trim() || !editing.koreanText.trim()}>
+                        disabled={saving || !editing.englishText.trim() || !editing.koreanText.trim()}
+                      >
                         {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                         {saving ? "저장 중..." : "저장"}
                       </Button>
@@ -627,7 +637,8 @@ export default function ReviewClient({
                             variant="outline"
                             size="sm"
                             disabled={(busyPlaying && !isPlaying) || isEditing || listeningId !== null}
-                            onClick={() => playAudio(sentence.id, sentence.audio_url)}>
+                            onClick={() => playAudio(sentence.id, sentence.audio_url)}
+                          >
                             {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
                             듣기
                           </Button>
@@ -645,7 +656,8 @@ export default function ReviewClient({
                               return next;
                             })
                           }
-                          className="text-muted-foreground">
+                          className="text-muted-foreground"
+                        >
                           {koreanHiddenIds.has(sentence.id) ? <Eye className="mr-1 h-4 w-4" /> : <EyeOff className="mr-1 h-4 w-4" />}
                           {koreanHiddenIds.has(sentence.id) ? "한글 보기" : "한글 숨기기"}
                         </Button>
@@ -655,7 +667,8 @@ export default function ReviewClient({
                           size="sm"
                           disabled={isBusy}
                           onClick={() => handleToggleFavorite(sentence.id, sentence.is_favorite)}
-                          className={sentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"}>
+                          className={sentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"}
+                        >
                           <Star className={`mr-1 h-4 w-4 ${sentence.is_favorite ? "fill-current" : ""}`} />
                           즐겨찾기
                         </Button>
@@ -695,7 +708,8 @@ export default function ReviewClient({
                             key={t}
                             variant="secondary"
                             render={<button type="button" onClick={() => toggleTag(t)} />}
-                            className={`${tagColorClass(t)} cursor-pointer ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}>
+                            className={`${tagColorClass(t)} cursor-pointer ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}
+                          >
                             {t}
                           </Badge>
                         ))}
@@ -733,7 +747,8 @@ export default function ReviewClient({
                             } else {
                               startRecognition(sentence.id, sentence.english_text);
                             }
-                          }}>
+                          }}
+                        >
                           {isListening ? (
                             <>
                               <MicOff className="mr-1 h-4 w-4" />
@@ -764,7 +779,8 @@ export default function ReviewClient({
                             setWritingId(sentence.id);
                             setTextInput("");
                           }
-                        }}>
+                        }}
+                      >
                         <Keyboard className="mr-1 h-4 w-4" />
                         {isWriting ? "닫기" : "쓰기"}
                       </Button>
@@ -781,7 +797,8 @@ export default function ReviewClient({
                             return next;
                           })
                         }
-                        className="text-muted-foreground">
+                        className="text-muted-foreground"
+                      >
                         {revealedIds.has(sentence.id) ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
                         {revealedIds.has(sentence.id) ? "정답 숨기기" : "정답 보기"}
                       </Button>
@@ -799,7 +816,8 @@ export default function ReviewClient({
                               return next;
                             })
                           }
-                          className={notesShownIds.has(sentence.id) ? "text-brand" : "text-muted-foreground hover:text-brand"}>
+                          className={notesShownIds.has(sentence.id) ? "text-brand" : "text-muted-foreground hover:text-brand"}
+                        >
                           <StickyNote className="mr-1 h-4 w-4" />
                           메모
                         </Button>
@@ -810,7 +828,8 @@ export default function ReviewClient({
                         size="sm"
                         disabled={isBusy}
                         onClick={() => startEditing(sentence)}
-                        className="text-muted-foreground hover:text-brand">
+                        className="text-muted-foreground hover:text-brand"
+                      >
                         <Pencil className="mr-1 h-4 w-4" />
                         편집
                       </Button>
@@ -818,8 +837,14 @@ export default function ReviewClient({
                       <AlertDialog>
                         <AlertDialogTrigger
                           render={
-                            <Button variant="ghost" size="sm" disabled={isBusy || isDeleting} className="text-muted-foreground hover:text-destructive" />
-                          }>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              disabled={isBusy || isDeleting}
+                              className="text-muted-foreground hover:text-destructive"
+                            />
+                          }
+                        >
                           {isDeleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
                           삭제
                         </AlertDialogTrigger>
@@ -832,7 +857,8 @@ export default function ReviewClient({
                             <AlertDialogCancel>취소</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleDelete(sentence.id)}
-                              className="bg-destructive text-white hover:bg-destructive/90">
+                              className="bg-destructive hover:bg-destructive/90 text-white"
+                            >
                               삭제
                             </AlertDialogAction>
                           </AlertDialogFooter>
@@ -853,7 +879,8 @@ export default function ReviewClient({
                           e.preventDefault();
                           handleTextSubmit(sentence.id, sentence.english_text);
                         }}
-                        className="flex gap-2 pt-1">
+                        className="flex gap-2 pt-1"
+                      >
                         <Input
                           ref={textInputRef}
                           type="text"
