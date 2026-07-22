@@ -17,6 +17,7 @@ import {
   ChevronDown,
   Search,
   Tag,
+  ArrowLeftRight,
   X,
   Plus,
   StickyNote,
@@ -84,6 +85,8 @@ export default function ReviewClient({
   const [dayFilter, setDayFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
+  // 태그 다중 선택 결합 방식: and = 모두 포함, or = 하나라도 포함
+  const [tagMode, setTagMode] = useState<"and" | "or">("and");
   const [sort, setSort] = useState<SortMode>("latest");
   const [showFind, setShowFind] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -382,7 +385,10 @@ export default function ReviewClient({
   const q = search.trim().toLowerCase();
   const pool = byDay.filter((s) => {
     if (favoriteOnly && !s.is_favorite) return false;
-    if (tagFilters.length > 0 && !tagFilters.every((t) => s.tags.includes(t))) return false;
+    if (tagFilters.length > 0) {
+      const hit = tagMode === "or" ? tagFilters.some((t) => s.tags.includes(t)) : tagFilters.every((t) => s.tags.includes(t));
+      if (!hit) return false;
+    }
     if (q && !`${s.english_text} ${s.korean_text}`.toLowerCase().includes(q)) return false;
     return true;
   });
@@ -416,6 +422,16 @@ export default function ReviewClient({
                     {t}
                   </Button>
                 ))}
+                {tagFilters.length > 1 && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    aria-label={`태그 조건: ${tagMode === "and" ? "모두 포함" : "하나라도"} (클릭하여 전환)`}
+                    onClick={() => setTagMode((m) => (m === "and" ? "or" : "and"))}>
+                    <ArrowLeftRight className="mr-1 h-4 w-4" />
+                    {tagMode === "and" ? "모두 포함" : "하나라도"}
+                  </Button>
+                )}
               </>
             )}
             <Button
