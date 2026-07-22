@@ -43,7 +43,7 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import TagPicker from "@/components/learn/TagPicker";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
-import { tagColorClass } from "@/lib/tag-color";
+import { tagColorClass, tagChipClass } from "@/lib/tag-color";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { toast } from "sonner";
 
@@ -406,7 +406,13 @@ export default function ReviewClient({
                   전체 {pool.length}
                 </Button>
                 {allTags.map((t) => (
-                  <Button key={t} variant={tagFilters.includes(t) ? "brand" : "outline"} size="sm" onClick={() => toggleTag(t)}>
+                  <Button
+                    key={t}
+                    variant="outline"
+                    size="sm"
+                    aria-pressed={tagFilters.includes(t)}
+                    onClick={() => toggleTag(t)}
+                    className={`${tagChipClass(t)} border-transparent ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}>
                     {t}
                   </Button>
                 ))}
