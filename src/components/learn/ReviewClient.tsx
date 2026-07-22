@@ -491,7 +491,7 @@ export default function ReviewClient({
               variant="outline"
               size="sm"
               onClick={() => setFilter("unmemorized")}
-              className={filter === "unmemorized" ? "border-streak-orange bg-streak-orange/10 text-streak-orange" : "text-streak-orange"}>
+              className={filter === "unmemorized" ? "border-accent-orange bg-accent-orange/10 text-accent-orange" : "text-accent-orange"}>
               <X className="mr-1 h-4 w-4" />
               미학습 {unmemorizedCount}
             </Button>
@@ -603,7 +603,7 @@ export default function ReviewClient({
           return (
             <Card
               key={sentence.id}
-              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-success border-l-2" : "border-l-streak-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
+              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-success border-l-2" : "border-l-accent-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
               style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
               {isFeedback && feedbackStatus === "correct" && feedbackXp > 0 && (
                 <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 z-20 text-lg font-bold">
@@ -724,7 +724,7 @@ export default function ReviewClient({
                           암기 완료
                         </span>
                       ) : (
-                        <span className="bg-streak-orange/10 text-streak-orange flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
+                        <span className="bg-accent-orange/10 text-accent-orange flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
                           <X size={11} />
                           미학습
                         </span>

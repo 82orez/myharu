@@ -122,7 +122,7 @@ export default function LearningCalendar({
                 }`}>
                 <span className={level >= 4 ? "font-semibold" : level === 0 ? "text-muted-foreground" : "font-medium"}>{day}</span>
                 {mark === "O" && <span className={`text-[11px] leading-tight font-bold ${level >= 4 ? "" : "text-success"}`}>○</span>}
-                {mark === "triangle" && <span className="text-streak-orange text-[11px] leading-tight font-bold">△</span>}
+                {mark === "triangle" && <span className="text-accent-orange text-[11px] leading-tight font-bold">△</span>}
                 {mark === "X" && <span className="text-muted-foreground/70 text-[11px] leading-tight">✕</span>}
               </div>
             );
@@ -134,7 +134,7 @@ export default function LearningCalendar({
             <span className="text-success font-bold">○</span> 목표 달성
           </span>
           <span>
-            <span className="text-streak-orange font-bold">△</span> 부분 달성
+            <span className="text-accent-orange font-bold">△</span> 부분 달성
           </span>
           <span>
             <span className="text-muted-foreground/70">✕</span> 미학습

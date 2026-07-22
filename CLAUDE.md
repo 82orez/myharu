@@ -100,7 +100,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - Sonner: `layout.tsx`에 `<Toaster />` 마운트됨 → `import { toast } from "sonner"`.
 
 ### 컬러 토큰 (`globals.css`)
-- 브랜드 인디고 `text-brand`/`bg-brand`, Success 초록 `text-success`(정답), XP 금색 `text-xp-gold`, 주황 강조 `text-streak-orange`(미학습·부분달성 마커 등). CTA는 `variant="brand"`. 기본 radius `0.875rem`.
+- 브랜드 인디고 `text-brand`/`bg-brand`, Success 초록 `text-success`(정답), XP 금색 `text-xp-gold`, 주황 강조 `text-accent-orange`(미학습·부분달성 마커 등). CTA는 `variant="brand"`. 기본 radius `0.875rem`.
 
 ### 애니메이션 (`globals.css`)
 - `animate-shake`(오답), `animate-float-up`(+XP), `animate-pulse-glow`(정답), 카드 호버 리프트. `tw-animate-css`(`animate-in`, `fade-in`, `slide-in-from-*` 등) 사용 가능.

@@ -12,8 +12,8 @@
   --color-success-foreground: var(--success-foreground);
   --color-xp-gold: var(--xp-gold);
   --color-xp-gold-foreground: var(--xp-gold-foreground);
-  --color-streak-orange: var(--streak-orange);
-  --color-streak-orange-foreground: var(--streak-orange-foreground);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-orange-foreground: var(--accent-orange-foreground);
   --font-sans: var(--font-pretendard);
   --font-heading: var(--font-pretendard);
   --color-sidebar-ring: var(--sidebar-ring);
@@ -84,8 +84,8 @@
   --success-foreground: oklch(0.985 0 0);
   --xp-gold: oklch(0.78 0.15 85);
   --xp-gold-foreground: oklch(0.25 0.05 60);
-  --streak-orange: oklch(0.7 0.18 50);
-  --streak-orange-foreground: oklch(0.985 0 0);
+  --accent-orange: oklch(0.7 0.18 50);
+  --accent-orange-foreground: oklch(0.985 0 0);
   --radius: 0.875rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -119,8 +119,8 @@
   --success-foreground: oklch(0.985 0 0);
   --xp-gold: oklch(0.82 0.13 85);
   --xp-gold-foreground: oklch(0.2 0.05 60);
-  --streak-orange: oklch(0.75 0.16 50);
-  --streak-orange-foreground: oklch(0.985 0 0);
+  --accent-orange: oklch(0.75 0.16 50);
+  --accent-orange-foreground: oklch(0.985 0 0);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
