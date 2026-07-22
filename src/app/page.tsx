@@ -138,8 +138,8 @@ export default async function Home() {
                 <div className="bg-brand/10 text-brand group-hover:bg-brand/20 flex h-14 w-14 items-center justify-center rounded-full transition-colors">
                   <CalendarDays size={28} />
                 </div>
-                <h2 className="text-lg font-semibold">학습하기</h2>
-                <p className="text-muted-foreground text-sm">말하기·쓰기로 학습하세요</p>
+                <h2 className="text-lg font-semibold">연습하기</h2>
+                <p className="text-muted-foreground text-sm">말하기·쓰기로 연습하세요</p>
               </CardContent>
             </Card>
           </Link>
