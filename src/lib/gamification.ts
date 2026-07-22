@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { UserStats, QuizMode } from "@/types/gamification";
+import { DAILY_PRACTICE_GOAL } from "@/lib/goal-config";
 
 type DbClient = SupabaseClient<Database>;
 
@@ -19,6 +20,7 @@ export async function fetchUserStats(supabase: DbClient, userId: string): Promis
   return retry ?? null;
 }
 
+// 오늘(KST) 정답 연습 횟수 / 고정 목표(DAILY_PRACTICE_GOAL). 문장 목록·퀴즈 정답 모두 practice_results에 기록되므로 함께 집계된다.
 export async function fetchDailyProgress(supabase: DbClient, userId: string): Promise<{ completed: number; goal: number; percentage: number }> {
   const today = todayKST();
   const start = `${today}T00:00:00+09:00`;
@@ -26,32 +28,16 @@ export async function fetchDailyProgress(supabase: DbClient, userId: string): Pr
   nextDay.setDate(nextDay.getDate() + 1);
   const nextDayIso = nextDay.toISOString();
 
-  const [todayRes, priorRes, stats] = await Promise.all([
-    supabase
-      .from("practice_results")
-      .select("sentence_id")
-      .eq("user_id", userId)
-      .eq("is_correct", true)
-      .gte("practiced_at", start)
-      .lt("practiced_at", nextDayIso),
-    supabase
-      .from("practice_results")
-      .select("sentence_id")
-      .eq("user_id", userId)
-      .eq("is_correct", true)
-      .lt("practiced_at", start),
-    fetchUserStats(supabase, userId),
-  ]);
+  const { count } = await supabase
+    .from("practice_results")
+    .select("*", { count: "exact", head: true })
+    .eq("user_id", userId)
+    .eq("is_correct", true)
+    .gte("practiced_at", start)
+    .lt("practiced_at", nextDayIso);
 
-  const todayIds = new Set((todayRes.data ?? []).map((r) => r.sentence_id));
-  const priorIds = new Set((priorRes.data ?? []).map((r) => r.sentence_id));
-
-  let completed = 0;
-  todayIds.forEach((id) => {
-    if (!priorIds.has(id)) completed++;
-  });
-
-  const goal = stats?.daily_goal ?? 5;
+  const completed = count ?? 0;
+  const goal = DAILY_PRACTICE_GOAL;
 
   return { completed, goal, percentage: goal > 0 ? Math.min(Math.round((completed / goal) * 100), 100) : 0 };
 }
@@ -104,6 +90,20 @@ export async function fetchPracticeCountTotal(supabase: DbClient, userId: string
 
   if (!data) return 0;
   return data.reduce((sum, row) => sum + (row.speech_count ?? 0) + (row.text_count ?? 0), 0);
+}
+
+/** 날짜(KST YYYY-MM-DD)별 정답 연습 횟수. 학습 달력 히트맵용. */
+export async function fetchDailyPracticeCount(supabase: DbClient, userId: string): Promise<Record<string, number>> {
+  const { data } = await supabase.from("practice_results").select("practiced_at").eq("user_id", userId).eq("is_correct", true);
+
+  if (!data) return {};
+
+  const counts: Record<string, number> = {};
+  for (const row of data) {
+    const kstDate = new Date(row.practiced_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
+    counts[kstDate] = (counts[kstDate] ?? 0) + 1;
+  }
+  return counts;
 }
 
 export async function fetchDailyMemorized(supabase: DbClient, userId: string): Promise<Record<string, number>> {

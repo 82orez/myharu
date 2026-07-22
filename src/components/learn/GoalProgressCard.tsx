@@ -48,7 +48,7 @@ export default function GoalProgressCard({ dailyCompleted, dailyGoal }: { dailyC
             <span className="font-semibold">오늘의 목표</span>
           </div>
           <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/learn/goal" />} className="shrink-0">
-            목표 수정
+            설정
           </Button>
         </div>
 
@@ -58,15 +58,15 @@ export default function GoalProgressCard({ dailyCompleted, dailyGoal }: { dailyC
           top={<span className="text-4xl font-bold tabular-nums">{Math.round(dailyPct)}%</span>}
           bottom={
             <div className="text-muted-foreground mt-1.5 flex items-baseline gap-1 text-sm">
-              <span className="text-foreground text-base font-semibold tabular-nums">{dailyCompleted}</span>
+              <span className="text-foreground text-base font-semibold tabular-nums">{dailyCompleted.toLocaleString()}</span>
               <span>/</span>
-              <span className="tabular-nums">{dailyGoal}</span>
+              <span className="tabular-nums">{dailyGoal.toLocaleString()}</span>
             </div>
           }
         />
 
         <p className="text-muted-foreground text-sm">
-          {goalMet ? "오늘 목표를 달성했어요! 잘했어요 👏" : `오늘 ${dailyGoal}문장 중 ${dailyCompleted}문장 완료`}
+          {goalMet ? "오늘 목표를 달성했어요! 잘했어요 👏" : `오늘 ${dailyGoal.toLocaleString()}회 중 ${dailyCompleted.toLocaleString()}회 연습`}
         </p>
       </CardContent>
     </Card>

@@ -45,7 +45,8 @@ export async function recordPracticeResult(
   return await recordPractice(supabase, user.id, sentenceId, isCorrect, mode);
 }
 
-// 점수와 무관하게 모드별 학습 횟수만 증가(퀴즈 전용 — 퀴즈는 practice_results를 기록하지 않음)
+// 퀴즈 정답 전용. XP는 얻지 않지만(xp_earned: 0, total_xp 미변경) 오늘의 목표·학습 달력 집계에 포함되도록
+// practice_results에 정답 기록을 남기고, 문장별 모드 카운터도 함께 증가시킨다.
 export async function incrementPracticeCount(sentenceId: string, mode: QuizMode): Promise<{ error?: string }> {
   const supabase = createClient(await cookies());
   const {
@@ -54,6 +55,15 @@ export async function incrementPracticeCount(sentenceId: string, mode: QuizMode)
 
   if (!user) return { error: "로그인이 필요합니다." };
 
-  await supabase.rpc("increment_practice_count", { p_sentence_id: sentenceId, p_mode: mode });
+  await Promise.all([
+    supabase.from("practice_results").insert({
+      user_id: user.id,
+      sentence_id: sentenceId,
+      is_correct: true,
+      xp_earned: 0,
+      mode,
+    }),
+    supabase.rpc("increment_practice_count", { p_sentence_id: sentenceId, p_mode: mode }),
+  ]);
   return {};
 }

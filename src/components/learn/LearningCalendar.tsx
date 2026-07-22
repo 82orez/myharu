@@ -12,7 +12,7 @@ function pad(n: number): number | string {
   return n < 10 ? `0${n}` : n;
 }
 
-// 신규 암기 수와 일일 목표 대비 비율로 색 농도 레벨(0~4) 산출
+// 연습 횟수와 일일 목표 대비 비율로 색 농도 레벨(0~4) 산출
 function levelOf(count: number, dailyGoal: number): number {
   if (count <= 0) return 0;
   const ratio = dailyGoal > 0 ? count / dailyGoal : count;
@@ -45,7 +45,7 @@ export default function LearningCalendar({
   const todayKst = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
   const [ty, tm] = todayKst.split("-").map(Number);
 
-  // X 표시의 시작 경계: 장기 목표 시작일 → 없으면 history 최초 암기일 → 없으면 오늘
+  // X 표시의 시작 경계: 명시된 시작일 → 없으면 history 최초 연습일 → 없으면 오늘
   const startBoundary = startDate ?? Object.keys(history).sort()[0] ?? todayKst;
 
   const [view, setView] = useState<{ year: number; month: number }>({ year: ty, month: tm });
@@ -116,7 +116,7 @@ export default function LearningCalendar({
             return (
               <div
                 key={dateStr}
-                title={`${view.month}월 ${day}일 · ${count}문장 암기`}
+                title={`${view.month}월 ${day}일 · ${count.toLocaleString()}회 연습`}
                 className={`flex aspect-square flex-col items-center justify-center rounded-lg text-xs ${LEVEL_CLASS[level]} ${
                   isToday ? "ring-brand ring-2" : ""
                 }`}>

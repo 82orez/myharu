@@ -4,7 +4,7 @@ import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress, fetchDailyMemorized, fetchPracticeCountTotal } from "@/lib/gamification";
+import { fetchUserStats, fetchDailyProgress, fetchDailyPracticeCount, fetchPracticeCountTotal } from "@/lib/gamification";
 import GoalProgressCard from "@/components/learn/GoalProgressCard";
 import LearningCalendar from "@/components/learn/LearningCalendar";
 import PersonalMessageCard from "@/components/learn/PersonalMessageCard";
@@ -58,11 +58,11 @@ export default async function Home() {
 
   if (user) {
     const username = user.email?.split("@")[0] ?? "회원";
-    const [{ count }, stats, dailyProgress, dailyMemorized, practiceCountTotal] = await Promise.all([
+    const [{ count }, stats, dailyProgress, dailyPracticeCount, practiceCountTotal] = await Promise.all([
       supabase.from("sentences").select("*", { count: "exact", head: true }),
       fetchUserStats(supabase, user.id),
       fetchDailyProgress(supabase, user.id),
-      fetchDailyMemorized(supabase, user.id),
+      fetchDailyPracticeCount(supabase, user.id),
       fetchPracticeCountTotal(supabase, user.id),
     ]);
     const hasSentences = (count ?? 0) > 0;
@@ -102,8 +102,8 @@ export default async function Home() {
           </Card>
         </div>
 
-        {/* 학습 달력 (월간 암기 히트맵) */}
-        <LearningCalendar history={dailyMemorized} dailyGoal={dailyGoalDisplay} />
+        {/* 학습 달력 (월간 연습 횟수 히트맵) */}
+        <LearningCalendar history={dailyPracticeCount} dailyGoal={dailyGoalDisplay} />
 
         {/* 온보딩 */}
         {!hasSentences && (
