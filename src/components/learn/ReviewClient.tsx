@@ -14,8 +14,6 @@ import {
   Check,
   Circle,
   Keyboard,
-  ChevronLeft,
-  ChevronRight,
   ChevronDown,
   Search,
   Tag,
@@ -57,14 +55,6 @@ const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { tim
 // 문장의 총 정답 연습 횟수(스피킹 + 쓰기). 0이면 "미연습"
 const practiceTotal = (s: Sentence) => s.speech_count + s.text_count;
 
-// 스테퍼 기본 일차: 오늘 입력이 있으면 오늘, 없으면 가장 최신 입력일 (둘 다 없으면 "")
-function computeDefaultDay(sents: Sentence[]): string {
-  const dates = Array.from(new Set(sents.map((s) => kstDate(s.created_at)))).sort();
-  if (dates.length === 0) return "";
-  const today = kstDate(new Date().toISOString());
-  return dates.includes(today) ? today : dates[dates.length - 1];
-}
-
 type EditState = {
   id: string;
   englishText: string;
@@ -91,8 +81,8 @@ export default function ReviewClient({
   const [voice] = useSelectedVoice();
   const [filter, setFilter] = useState<"all" | "practiced" | "unpracticed">("all");
   const [favoriteOnly, setFavoriteOnly] = useState(false);
-  const [showAll, setShowAll] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
+  // "" = 전체 일자, 그 외에는 입력일(YYYY-MM-DD)
+  const [dayFilter, setDayFilter] = useState<string>("");
   const [search, setSearch] = useState("");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
   const [sort, setSort] = useState<SortMode>("latest");
@@ -376,24 +366,8 @@ export default function ReviewClient({
     return { counts, dayNumber, dates };
   }, [sentences]);
 
-  const todayKst = kstDate(new Date().toISOString());
-
-  const ascDates = dayMeta.dates;
-  const validSelected = ascDates.includes(selectedDay) ? selectedDay : (ascDates[ascDates.length - 1] ?? "");
-  const idx = ascDates.indexOf(validSelected);
-
-  // 오늘 입력한 문장이 없어 자동으로 마지막(최신) 일차를 보고 있는 상태: 안내 배너 표시
-  const noTodayInput = ascDates.length > 0 && !ascDates.includes(todayKst);
-  const showNoTodayNotice = noTodayInput && !showAll && validSelected === ascDates[ascDates.length - 1];
-
-  const goPrev = () => {
-    setShowAll(false);
-    if (idx > 0) setSelectedDay(ascDates[idx - 1]);
-  };
-  const goNext = () => {
-    setShowAll(false);
-    if (idx < ascDates.length - 1) setSelectedDay(ascDates[idx + 1]);
-  };
+  // 문장 삭제 등으로 선택한 날짜가 사라지면 전체로 간주
+  const activeDay = dayMeta.dates.includes(dayFilter) ? dayFilter : "";
 
   // 전체 문장의 distinct 태그(태그 필터 칩 / 편집 자동완성용)
   const allTags = useMemo(() => {
@@ -404,8 +378,8 @@ export default function ReviewClient({
 
   const toggleTag = (t: string) => setTagFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
 
-  // 필터 결합: 일차 → 즐겨찾기 → 검색(문장·뜻) → 태그(다중 AND) → (상태)
-  const byDay = showAll ? sentences : sentences.filter((s) => kstDate(s.created_at) === validSelected);
+  // 필터 결합: 입력일 → 즐겨찾기 → 검색(문장·뜻) → 태그(다중 AND) → (상태)
+  const byDay = activeDay ? sentences.filter((s) => kstDate(s.created_at) === activeDay) : sentences;
   const q = search.trim().toLowerCase();
   const pool = byDay.filter((s) => {
     if (favoriteOnly && !s.is_favorite) return false;
@@ -433,55 +407,6 @@ export default function ReviewClient({
 
       {sentences.length > 0 && (
         <div className="flex flex-col gap-3">
-          {showNoTodayNotice && (
-            <div className="border-brand/20 bg-brand/5 rounded-lg border p-4 text-center">
-              <p className="text-muted-foreground mb-3 text-sm">오늘 학습할 문장이 아직 없습니다. 최근 학습일차를 표시하고 있어요.</p>
-              <Button variant="brand" size="sm" nativeButton={false} render={<Link href="/learn/input" />}>
-                문장 입력하러 가기
-              </Button>
-            </div>
-          )}
-          {ascDates.length > 1 && (
-            <div className="flex flex-wrap items-center justify-center gap-2">
-              <Button variant={showAll ? "brand" : "outline"} size="sm" onClick={() => setShowAll(true)}>
-                전체 일차
-              </Button>
-              <Button
-                variant={!showAll && validSelected === todayKst ? "brand" : "outline"}
-                size="sm"
-                disabled={!ascDates.includes(todayKst)}
-                onClick={() => {
-                  setShowAll(false);
-                  setSelectedDay(todayKst);
-                }}>
-                오늘
-              </Button>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={goPrev}
-                  disabled={idx <= 0}
-                  aria-label="이전 일차"
-                  className="hover:bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-30">
-                  <ChevronLeft size={18} />
-                </button>
-                <span className={`min-w-[11rem] text-center text-base font-medium tabular-nums ${showAll ? "text-muted-foreground/60" : ""}`}>
-                  {(() => {
-                    const [, m, day] = validSelected.split("-");
-                    return `${dayMeta.dayNumber.get(validSelected)}일차 (${validSelected === todayKst ? "오늘, " : ""}${Number(m)}/${Number(day)}) · ${dayMeta.counts.get(validSelected)}문장`;
-                  })()}
-                </span>
-                <button
-                  type="button"
-                  onClick={goNext}
-                  disabled={idx >= ascDates.length - 1}
-                  aria-label="다음 일차"
-                  className="hover:bg-muted text-muted-foreground flex h-8 w-8 items-center justify-center rounded-lg transition-colors disabled:cursor-not-allowed disabled:opacity-30">
-                  <ChevronRight size={18} />
-                </button>
-              </div>
-            </div>
-          )}
           <div className="flex flex-wrap gap-2">
             <Button variant={filter === "all" ? "brand" : "outline"} size="sm" onClick={() => setFilter("all")}>
               전체 {pool.length}
@@ -517,6 +442,26 @@ export default function ReviewClient({
                 검색
                 <ChevronDown className={`ml-1 h-4 w-4 transition-transform ${showFind ? "rotate-180" : ""}`} />
               </Button>
+              {dayMeta.dates.length > 1 && (
+                <select
+                  value={activeDay}
+                  onChange={(e) => setDayFilter(e.target.value)}
+                  aria-label="입력일"
+                  className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]">
+                  <option value="">전체 일자</option>
+                  {dayMeta.dates
+                    .slice()
+                    .reverse()
+                    .map((d) => {
+                      const [, m, day] = d.split("-");
+                      return (
+                        <option key={d} value={d}>
+                          {`${dayMeta.dayNumber.get(d)}일차 · ${Number(m)}/${Number(day)} (${dayMeta.counts.get(d)}문장)`}
+                        </option>
+                      );
+                    })}
+                </select>
+              )}
               <select
                 value={sort}
                 onChange={(e) => setSort(e.target.value as SortMode)}
