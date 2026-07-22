@@ -1,6 +1,4 @@
-import Link from "next/link";
 import { Target } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 
 const RING_SIZE = 184;
@@ -42,14 +40,9 @@ export default function GoalProgressCard({ dailyCompleted, dailyGoal }: { dailyC
   return (
     <Card className="border-brand/20">
       <CardContent className="flex flex-col items-center gap-4 py-5">
-        <div className="flex w-full items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <Target size={18} className="text-brand" />
-            <span className="font-semibold">오늘의 목표</span>
-          </div>
-          <Button nativeButton={false} variant="ghost" size="sm" render={<Link href="/learn/goal" />} className="shrink-0">
-            설정
-          </Button>
+        <div className="flex w-full items-center gap-2">
+          <Target size={18} className="text-brand" />
+          <span className="font-semibold">오늘의 목표</span>
         </div>
 
         <Ring
