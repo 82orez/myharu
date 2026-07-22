@@ -66,7 +66,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - **서버 쿼리**: `lib/gamification.ts`(`"server-only"`) — `todayKST`, `fetchUserStats`, `fetchDailyProgress`, `recordPractice`, `fetchDailyPracticeCount`(날짜별 정답 연습 횟수), `fetchPracticeCountTotal`(전 문장 `speech_count+text_count` 합). **서버 액션**: `(learn)/learn/review/gamification-actions.ts` — `getUserStats`/`getDailyProgress`/`recordPracticeResult`/`incrementPracticeCount`(퀴즈 정답용 — `practice_results` insert(`xp_earned:0`) + 카운터 RPC, XP는 미가산).
 - **XP**: 정답 10, 오답 2. `user_stats.total_xp`에 누적(중복 정답도 매번 누적). `recordPractice`는 XP 누적만 수행(스트릭 없음). **홈 대시보드에 XP 미노출** — 스탯 카드 2종은 `등록된 문장 갯수`(sentences count) + `연습횟수 합계`(`fetchPracticeCountTotal`).
 - **일일 진도**: **오늘(KST) 정답 연습 횟수**(`fetchDailyProgress` = 오늘 `practice_results` 중 `is_correct=true` 행 수). 분모=**고정 `DAILY_PRACTICE_GOAL`=1000**(사용자 설정 불가, `user_stats.daily_goal`은 미사용 잔존 컬럼). 반복 정답·퀴즈 정답 모두 가산. 홈 `GoalProgressCard`가 "오늘" 원형 차트 1개로 표시(+`/learn/goal` "설정" 링크).
-- **학습 달력**: `fetchDailyPracticeCount` → `Record<YYYY-MM-DD, 정답연습횟수>`. 홈 `LearningCalendar` 월간 히트맵 + 달성도 기호(`○` 1000회 이상/`△` 1~999/`✕` 0). `✕`는 시작 경계(`startDate` 없으면 최초 연습일)~어제만.
+- **학습 달력**: `fetchDailyPracticeCount` → `Record<YYYY-MM-DD, 정답연습횟수>`. 홈 `LearningCalendar` 월간 히트맵 + 달성도 기호(`○` 1000회 이상/`△` 1~999, 0회는 기호 없음).
 - **타입**: `src/types/gamification.ts` (`UserStats`, `PracticeResult`, `SessionSummary`, `QuizMode`).
 
 ### 텍스트 비교 (`lib/normalize-text.ts`)
