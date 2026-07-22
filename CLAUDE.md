@@ -63,8 +63,8 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 ### 게이미피케이션 (비즈니스 로직 — 정확히 유지할 것)
 
-- **서버 쿼리**: `lib/gamification.ts`(`"server-only"`) — `todayKST`, `fetchUserStats`, `fetchDailyProgress`, `recordPractice`, `fetchMemorizedCount`, `fetchDailyMemorized`. **서버 액션**: `(learn)/learn/review/gamification-actions.ts` — `getUserStats`/`getDailyProgress`/`recordPracticeResult`/`incrementPracticeCount`(점수 무관 카운터 전용, 퀴즈용).
-- **XP**: 정답 10, 오답 2. `user_stats.total_xp`에 누적(중복 정답도 매번 누적). `recordPractice`는 XP 누적만 수행(스트릭 없음).
+- **서버 쿼리**: `lib/gamification.ts`(`"server-only"`) — `todayKST`, `fetchUserStats`, `fetchDailyProgress`, `recordPractice`, `fetchMemorizedCount`, `fetchDailyMemorized`, `fetchPracticeCountTotal`(전 문장 `speech_count+text_count` 합). **서버 액션**: `(learn)/learn/review/gamification-actions.ts` — `getUserStats`/`getDailyProgress`/`recordPracticeResult`/`incrementPracticeCount`(점수 무관 카운터 전용, 퀴즈용).
+- **XP**: 정답 10, 오답 2. `user_stats.total_xp`에 누적(중복 정답도 매번 누적). `recordPractice`는 XP 누적만 수행(스트릭 없음). **홈 대시보드에 XP 미노출** — 스탯 카드 2종은 `등록된 문장 갯수`(sentences count) + `연습횟수 합계`(`fetchPracticeCountTotal`).
 - **암기 정의**: `practice_results.is_correct=true`가 1회라도 있는 문장. `fetchMemorizedCount`=distinct `sentence_id`.
 - **일일 진도**: **오늘 처음 정답을 맞춰 새로 암기된 문장 수**(`fetchDailyProgress`). 분모=`daily_goal`(기본 5). 반복 정답·이미 암기된 문장 재연습은 미가산. 홈 `GoalProgressCard`가 "오늘" 원형 차트 1개로 표시(+목표 수정 링크).
 - **학습 달력**: `fetchDailyMemorized` → `Record<YYYY-MM-DD, 신규암기수>`(문장별 **최초 정답 KST 날짜**로 집계). 홈 `LearningCalendar` 월간 히트맵 + 달성도 기호(`○` 달성/`△` 미달/`✕` 0, `daily_goal` 기준). `✕`는 시작 경계(`startDate` 없으면 최초 암기일)~어제만.

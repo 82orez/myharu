@@ -4,7 +4,7 @@ import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress, fetchMemorizedCount, fetchDailyMemorized, fetchPracticeCountTotal } from "@/lib/gamification";
+import { fetchUserStats, fetchDailyProgress, fetchDailyMemorized, fetchPracticeCountTotal } from "@/lib/gamification";
 import GoalProgressCard from "@/components/learn/GoalProgressCard";
 import LearningCalendar from "@/components/learn/LearningCalendar";
 import PersonalMessageCard from "@/components/learn/PersonalMessageCard";
@@ -58,11 +58,10 @@ export default async function Home() {
 
   if (user) {
     const username = user.email?.split("@")[0] ?? "회원";
-    const [{ count }, stats, dailyProgress, memorizedCount, dailyMemorized, practiceCountTotal] = await Promise.all([
+    const [{ count }, stats, dailyProgress, dailyMemorized, practiceCountTotal] = await Promise.all([
       supabase.from("sentences").select("*", { count: "exact", head: true }),
       fetchUserStats(supabase, user.id),
       fetchDailyProgress(supabase, user.id),
-      fetchMemorizedCount(supabase, user.id),
       fetchDailyMemorized(supabase, user.id),
       fetchPracticeCountTotal(supabase, user.id),
     ]);
@@ -87,18 +86,18 @@ export default async function Home() {
 
         {/* 스탯 카드 */}
         <div className="grid grid-cols-2 gap-3">
+          <Card className="border-brand/20 bg-brand/5">
+            <CardContent className="flex flex-col items-center gap-1 py-4">
+              <Target size={20} className="text-brand" />
+              <span className="text-muted-foreground text-sm font-medium">등록된 문장 갯수</span>
+              <span className="text-brand text-3xl font-bold tabular-nums">{(count ?? 0).toLocaleString()}</span>
+            </CardContent>
+          </Card>
           <Card className="border-xp-gold/20 bg-xp-gold/5">
             <CardContent className="flex flex-col items-center gap-1 py-4">
               <Star size={20} className="text-xp-gold" />
               <span className="text-muted-foreground text-sm font-medium">연습횟수 합계</span>
               <span className="text-xp-gold text-3xl font-bold tabular-nums">{practiceCountTotal.toLocaleString()}</span>
-            </CardContent>
-          </Card>
-          <Card className="border-brand/20 bg-brand/5">
-            <CardContent className="flex flex-col items-center gap-1 py-4">
-              <Target size={20} className="text-brand" />
-              <span className="text-muted-foreground text-sm font-medium">총 암기 문장</span>
-              <span className="text-brand text-3xl font-bold tabular-nums">{memorizedCount.toLocaleString()}</span>
             </CardContent>
           </Card>
         </div>
