@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
-import { Loader2, Mic, Target } from "lucide-react";
+import { Loader2, Mic, Settings } from "lucide-react";
 import { setSpeechStrict } from "@/app/(learn)/learn/goal/actions";
 import { DAILY_PRACTICE_GOAL } from "@/lib/goal-config";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ export default function GoalForm({ initialSpeechStrict }: { initialSpeechStrict:
     <Card className="w-full max-w-lg">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Target size={20} className="text-brand" />
+          <Settings size={20} className="text-brand" />
           학습 설정
         </CardTitle>
         <CardDescription>
