@@ -76,14 +76,6 @@ export async function recordPractice(
   return { xpEarned, totalXp: newTotalXp };
 }
 
-export async function fetchMemorizedCount(supabase: DbClient, userId: string): Promise<number> {
-  const { data } = await supabase.from("practice_results").select("sentence_id").eq("user_id", userId).eq("is_correct", true);
-
-  if (!data) return 0;
-  const unique = new Set(data.map((row) => row.sentence_id));
-  return unique.size;
-}
-
 /** 모든 문장의 정답 횟수(스피킹 + 쓰기) 합계 */
 export async function fetchPracticeCountTotal(supabase: DbClient, userId: string): Promise<number> {
   const { data } = await supabase.from("sentences").select("speech_count, text_count").eq("user_id", userId);
@@ -103,26 +95,5 @@ export async function fetchDailyPracticeCount(supabase: DbClient, userId: string
     const kstDate = new Date(row.practiced_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
     counts[kstDate] = (counts[kstDate] ?? 0) + 1;
   }
-  return counts;
-}
-
-export async function fetchDailyMemorized(supabase: DbClient, userId: string): Promise<Record<string, number>> {
-  const { data } = await supabase.from("practice_results").select("sentence_id, practiced_at").eq("user_id", userId).eq("is_correct", true);
-
-  if (!data) return {};
-
-  // 문장별 최초 정답 KST 날짜(YYYY-MM-DD) 산출
-  const firstDate = new Map<string, string>();
-  for (const row of data) {
-    const kstDate = new Date(row.practiced_at).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-    const prev = firstDate.get(row.sentence_id);
-    if (!prev || kstDate < prev) firstDate.set(row.sentence_id, kstDate);
-  }
-
-  // 최초 암기 날짜별 신규 암기 문장 수
-  const counts: Record<string, number> = {};
-  firstDate.forEach((date) => {
-    counts[date] = (counts[date] ?? 0) + 1;
-  });
   return counts;
 }

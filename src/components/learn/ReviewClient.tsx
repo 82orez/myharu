@@ -54,6 +54,9 @@ type SortMode = "latest" | "oldest" | "alpha";
 // created_at(ISO) → KST 날짜 문자열(YYYY-MM-DD)
 const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
+// 문장의 총 정답 연습 횟수(스피킹 + 쓰기). 0이면 "미연습"
+const practiceTotal = (s: Sentence) => s.speech_count + s.text_count;
+
 // 스테퍼 기본 일차: 오늘 입력이 있으면 오늘, 없으면 가장 최신 입력일 (둘 다 없으면 "")
 function computeDefaultDay(sents: Sentence[]): string {
   const dates = Array.from(new Set(sents.map((s) => kstDate(s.created_at)))).sort();
@@ -86,7 +89,7 @@ export default function ReviewClient({
   const [sentences, setSentences] = useState(initialSentences);
   const [presets, setPresets] = useState<string[]>(initialPresets);
   const [voice] = useSelectedVoice();
-  const [filter, setFilter] = useState<"all" | "memorized" | "unmemorized">("all");
+  const [filter, setFilter] = useState<"all" | "practiced" | "unpracticed">("all");
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>(() => computeDefaultDay(initialSentences));
@@ -177,7 +180,7 @@ export default function ReviewClient({
         }
         triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
         setSentences((prev) =>
-          prev.map((s) => (s.id === sentenceId ? { ...s, text_count: s.text_count + (match ? 1 : 0), is_memorized: s.is_memorized || match } : s)),
+          prev.map((s) => (s.id === sentenceId ? { ...s, text_count: s.text_count + (match ? 1 : 0) } : s)),
         );
         if (match) {
           toast.success("정확합니다!");
@@ -226,7 +229,7 @@ export default function ReviewClient({
           }
           triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
           setSentences((prev) =>
-            prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + (match ? 1 : 0), is_memorized: s.is_memorized || match } : s)),
+            prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + (match ? 1 : 0) } : s)),
           );
           if (match) {
             toast.success("정확합니다!");
@@ -410,10 +413,14 @@ export default function ReviewClient({
     if (q && !`${s.english_text} ${s.korean_text}`.toLowerCase().includes(q)) return false;
     return true;
   });
-  const memorizedCount = pool.filter((s) => s.is_memorized).length;
-  const unmemorizedCount = pool.length - memorizedCount;
+  const practicedCount = pool.filter((s) => practiceTotal(s) > 0).length;
+  const unpracticedCount = pool.length - practicedCount;
   const filtered =
-    filter === "memorized" ? pool.filter((s) => s.is_memorized) : filter === "unmemorized" ? pool.filter((s) => !s.is_memorized) : pool;
+    filter === "practiced"
+      ? pool.filter((s) => practiceTotal(s) > 0)
+      : filter === "unpracticed"
+        ? pool.filter((s) => practiceTotal(s) === 0)
+        : pool;
   const visibleSentences = filtered.slice().sort((a, b) => {
     if (sort === "alpha") return a.english_text.localeCompare(b.english_text, "en");
     const cmp = a.created_at.localeCompare(b.created_at);
@@ -480,20 +487,20 @@ export default function ReviewClient({
               전체 {pool.length}
             </Button>
             <Button
-              variant={filter === "memorized" ? "success" : "outline"}
+              variant={filter === "practiced" ? "success" : "outline"}
               size="sm"
-              onClick={() => setFilter("memorized")}
-              className={filter === "memorized" ? "" : "text-success"}>
+              onClick={() => setFilter("practiced")}
+              className={filter === "practiced" ? "" : "text-success"}>
               <Check className="mr-1 h-4 w-4" />
-              암기 완료 {memorizedCount}
+              연습함 {practicedCount}
             </Button>
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setFilter("unmemorized")}
-              className={filter === "unmemorized" ? "border-accent-orange bg-accent-orange/10 text-accent-orange" : "text-accent-orange"}>
+              onClick={() => setFilter("unpracticed")}
+              className={filter === "unpracticed" ? "border-accent-orange bg-accent-orange/10 text-accent-orange" : "text-accent-orange"}>
               <X className="mr-1 h-4 w-4" />
-              미학습 {unmemorizedCount}
+              미연습 {unpracticedCount}
             </Button>
             <Button
               variant="outline"
@@ -603,7 +610,7 @@ export default function ReviewClient({
           return (
             <Card
               key={sentence.id}
-              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${sentence.is_memorized ? "border-l-success border-l-2" : "border-l-accent-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
+              className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${practiceTotal(sentence) > 0 ? "border-l-success border-l-2" : "border-l-accent-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
               style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
               {isFeedback && feedbackStatus === "correct" && feedbackXp > 0 && (
                 <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 z-20 text-lg font-bold">
@@ -718,15 +725,15 @@ export default function ReviewClient({
                         </Button>
                       </div>
 
-                      {sentence.is_memorized ? (
+                      {practiceTotal(sentence) > 0 ? (
                         <span className="bg-success/10 text-success flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
                           <Check size={11} />
-                          암기 완료
+                          연습 {practiceTotal(sentence)}회
                         </span>
                       ) : (
                         <span className="bg-accent-orange/10 text-accent-orange flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium">
                           <X size={11} />
-                          미학습
+                          미연습
                         </span>
                       )}
                     </div>

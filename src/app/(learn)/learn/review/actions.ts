@@ -5,10 +5,9 @@ import { createClient } from "@/utils/supabase/server";
 import { sanitizeTags } from "@/lib/tags";
 import type { Tables } from "@/types/database.types";
 
-// sentences Row에서 audio_path/user_id를 빼고, 서명 URL(audio_url)·암기여부(is_memorized)를 더한 앱 표현형
+// sentences Row에서 audio_path/user_id를 빼고, 서명 URL(audio_url)을 더한 앱 표현형
 export type Sentence = Omit<Tables<"sentences">, "audio_path" | "user_id"> & {
   audio_url: string;
-  is_memorized: boolean;
 };
 
 export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: string }> {
@@ -21,25 +20,16 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
     return { error: "로그인이 필요합니다." };
   }
 
-  const query = supabase
+  const { data, error } = await supabase
     .from("sentences")
     .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags, note, speech_count, text_count")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
-  const [sentenceRes, memorizedRes] = await Promise.all([
-    query,
-    supabase.from("practice_results").select("sentence_id").eq("user_id", user.id).eq("is_correct", true),
-  ]);
-
-  const { data, error } = sentenceRes;
-
   if (error) {
     console.error("[Supabase DB] 문장 조회 실패:", error);
     return { error: "문장 목록을 불러오는 중 오류가 발생했습니다." };
   }
-
-  const memorizedIds = new Set((memorizedRes.data ?? []).map((r) => r.sentence_id));
 
   const sentences: Sentence[] = await Promise.all(
     (data ?? []).map(async (row) => {
@@ -52,7 +42,6 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
         audio_url: signedData?.signedUrl ?? "",
         created_at: row.created_at,
         is_favorite: row.is_favorite,
-        is_memorized: memorizedIds.has(row.id),
         tags: row.tags ?? [],
         note: row.note ?? "",
         speech_count: row.speech_count ?? 0,
