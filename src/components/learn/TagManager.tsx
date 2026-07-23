@@ -4,10 +4,20 @@ import { useState, useTransition } from "react";
 import { X, Loader2, Check, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { setTagPresets, renameTag } from "@/app/(learn)/learn/tag-actions";
+import { setTagPresets, renameTag, deleteTagPreset } from "@/app/(learn)/learn/tag-actions";
 import { MAX_TAG_LENGTH } from "@/lib/tags";
 import { tagColorClass } from "@/lib/tag-color";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 // 태그 프리셋 추가/이름 변경/삭제 UI. TagPicker의 "태그 관리" Dialog와 설정 페이지가 공유한다.
 export default function TagManager({
@@ -15,17 +25,21 @@ export default function TagManager({
   onPresetsChange,
   onRemoved,
   onRenamed,
+  counts,
   disabled = false,
 }: {
   presets: string[];
   onPresetsChange: (next: string[]) => void;
   onRemoved?: (tag: string) => void;
   onRenamed?: (oldName: string, newName: string) => void;
+  /** 태그별 사용 문장 수(있으면 목록·삭제 확인에 표시) */
+  counts?: Record<string, number>;
   disabled?: boolean;
 }) {
   const [draft, setDraft] = useState("");
   const [editingTag, setEditingTag] = useState<string | null>(null);
   const [renameDraft, setRenameDraft] = useState("");
+  const [confirmTag, setConfirmTag] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function addPreset(raw: string) {
@@ -44,13 +58,16 @@ export default function TagManager({
 
   function removePreset(tag: string) {
     startTransition(async () => {
-      const result = await setTagPresets(presets.filter((p) => p !== tag));
+      const result = await deleteTagPreset(tag);
       if (result.error || !result.presets) {
         toast.error(result.error ?? "태그 삭제에 실패했습니다.");
         return;
       }
       onPresetsChange(result.presets);
       onRemoved?.(tag);
+      setConfirmTag(null);
+      const affected = result.affected ?? 0;
+      toast.success(affected > 0 ? `태그를 삭제하고 문장 ${affected.toLocaleString()}개에서 제거했습니다.` : "태그를 삭제했습니다.");
     });
   }
 
@@ -135,7 +152,10 @@ export default function TagManager({
               </>
             ) : (
               <>
-                <span className={`${tagColorClass(tag)} mr-auto inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium`}>{tag}</span>
+                <span className={`${tagColorClass(tag)} inline-flex items-center rounded-full px-2.5 py-1 text-xs font-medium`}>{tag}</span>
+                <span className="text-muted-foreground mr-auto text-xs tabular-nums">
+                  {counts ? `${(counts[tag] ?? 0).toLocaleString()}문장` : ""}
+                </span>
                 <button
                   type="button"
                   disabled={disabled || pending}
@@ -151,7 +171,7 @@ export default function TagManager({
                 <button
                   type="button"
                   disabled={disabled || pending}
-                  onClick={() => removePreset(tag)}
+                  onClick={() => setConfirmTag(tag)}
                   className="hover:bg-destructive/15 text-muted-foreground hover:text-destructive rounded-md p-1.5"
                   aria-label={`${tag} 삭제`}
                 >
@@ -162,6 +182,32 @@ export default function TagManager({
           </div>
         ))}
       </div>
+
+      <AlertDialog open={confirmTag !== null} onOpenChange={(next) => !next && setConfirmTag(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>태그 삭제</AlertDialogTitle>
+            <AlertDialogDescription>
+              &ldquo;{confirmTag}&rdquo; 태그를 삭제합니다.{" "}
+              {counts
+                ? `이 태그를 가진 문장 ${(counts[confirmTag ?? ""] ?? 0).toLocaleString()}개에서도 함께 제거됩니다.`
+                : "이 태그를 가진 모든 문장에서도 함께 제거됩니다."}{" "}
+              되돌릴 수 없습니다. (문장 자체는 삭제되지 않습니다.)
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={pending}>취소</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={pending}
+              onClick={() => confirmTag && removePreset(confirmTag)}
+              className="bg-destructive hover:bg-destructive/90 text-white"
+            >
+              {pending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
+              삭제
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

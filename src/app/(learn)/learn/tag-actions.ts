@@ -82,3 +82,44 @@ export async function renameTag(oldName: string, newName: string): Promise<{ pre
 
   return { presets, newName: clean };
 }
+
+// 태그 삭제: 프리셋 + 해당 태그를 가진 모든 문장의 tags에서 함께 제거(renameTag와 동일한 2단계)
+export async function deleteTagPreset(tag: string): Promise<{ presets?: string[]; affected?: number; error?: string }> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  // 1) 프리셋 갱신
+  const { data: statsRow } = await supabase.from("user_stats").select("tag_presets").eq("user_id", user.id).single();
+  const current = statsRow?.tag_presets ?? [];
+  const presets = sanitizeTags(
+    current.filter((t) => t !== tag),
+    MAX_PRESETS,
+  );
+
+  const { error: presetErr } = await supabase.from("user_stats").update({ tag_presets: presets }).eq("user_id", user.id);
+  if (presetErr) {
+    console.error("[Supabase DB] 태그 삭제(프리셋) 실패:", presetErr);
+    return { error: "태그 삭제 중 오류가 발생했습니다." };
+  }
+
+  // 2) 해당 태그를 가진 문장들의 tags 갱신
+  const { data: rows } = await supabase.from("sentences").select("id, tags").eq("user_id", user.id).contains("tags", [tag]);
+
+  const updates = (rows ?? []).map((r: { id: string; tags: string[] }) => {
+    const nextTags = sanitizeTags((r.tags ?? []).filter((t) => t !== tag));
+    return supabase.from("sentences").update({ tags: nextTags }).eq("id", r.id).eq("user_id", user.id);
+  });
+
+  const results = await Promise.all(updates);
+  const failed = results.find((res) => res.error);
+  if (failed?.error) {
+    console.error("[Supabase DB] 태그 삭제(문장) 실패:", failed.error);
+    return { error: "일부 문장의 태그 갱신에 실패했습니다." };
+  }
+
+  return { presets, affected: rows?.length ?? 0 };
+}

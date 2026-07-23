@@ -17,6 +17,7 @@ export default function TagPicker({
   presets,
   onPresetsChange,
   onTagRenamed,
+  onTagDeleted,
   disabled = false,
 }: {
   value: string[];
@@ -24,6 +25,7 @@ export default function TagPicker({
   presets: string[];
   onPresetsChange: (next: string[]) => void;
   onTagRenamed?: (oldName: string, newName: string) => void;
+  onTagDeleted?: (tag: string) => void;
   disabled?: boolean;
 }) {
   const [draft, setDraft] = useState("");
@@ -130,6 +132,7 @@ export default function TagPicker({
               onPresetsChange={onPresetsChange}
               onRemoved={(tag) => {
                 if (isSelected(tag)) onChange(value.filter((t) => t.toLowerCase() !== tag.toLowerCase()));
+                onTagDeleted?.(tag);
               }}
               onRenamed={(oldName, newName) => {
                 if (isSelected(oldName)) onChange(value.map((t) => (t === oldName ? newName : t)));

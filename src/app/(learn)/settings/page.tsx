@@ -42,12 +42,19 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/login");
 
-  const [stats, { count }, presets] = await Promise.all([
+  const [stats, { count }, presets, { data: tagRows }] = await Promise.all([
     fetchUserStats(supabase, user.id),
     supabase.from("sentences").select("*", { count: "exact", head: true }),
     getTagPresets(),
+    supabase.from("sentences").select("tags").eq("user_id", user.id),
   ]);
   const sentenceCount = count ?? 0;
+
+  // 태그별 사용 문장 수(삭제 시 영향 범위 표시용)
+  const tagCounts: Record<string, number> = {};
+  for (const row of tagRows ?? []) {
+    for (const tag of row.tags ?? []) tagCounts[tag] = (tagCounts[tag] ?? 0) + 1;
+  }
 
   return (
     <main className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-6 py-10">
@@ -102,7 +109,7 @@ export default async function SettingsPage() {
           <p className="text-muted-foreground mb-3 text-sm">
             문장에 붙일 태그를 추가·수정·삭제합니다. 이름을 바꾸면 해당 태그를 가진 문장에 모두 반영됩니다.
           </p>
-          <TagManagerCard initialPresets={presets} />
+          <TagManagerCard initialPresets={presets} counts={tagCounts} />
         </CardContent>
       </Card>
 

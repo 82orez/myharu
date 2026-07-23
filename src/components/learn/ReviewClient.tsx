@@ -575,6 +575,10 @@ export default function ReviewClient({
                           setSentences((prev) => prev.map((s) => ({ ...s, tags: s.tags.map((t) => (t === oldName ? newName : t)) })));
                           setTagFilters((prev) => Array.from(new Set(prev.map((t) => (t === oldName ? newName : t)))));
                         }}
+                        onTagDeleted={(tag) => {
+                          setSentences((prev) => prev.map((s) => ({ ...s, tags: s.tags.filter((t) => t !== tag) })));
+                          setTagFilters((prev) => prev.filter((t) => t !== tag));
+                        }}
                       />
                     </div>
                     <div className="flex flex-col gap-1.5">
