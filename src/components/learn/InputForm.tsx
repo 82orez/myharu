@@ -288,7 +288,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               value={note}
               onChange={(e) => setNote(e.target.value)}
               readOnly={isPreview}
-              className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 read-only:bg-muted/50 flex min-h-[60px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
+              className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 read-only:bg-muted/50 flex min-h-[140px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
               maxLength={NOTE_MAX_LENGTH}
             />
             <div className="flex justify-end">

@@ -588,8 +588,8 @@ export default function ReviewClient({
                         onChange={(e) => setEditing({ ...editing, note: e.target.value })}
                         maxLength={1000}
                         placeholder="이 문장과 관련된 메모"
-                        rows={5}
-                        className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[120px] w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+                        rows={6}
+                        className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[140px] w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
                       />
                     </div>
                     {editing.englishText.trim() !== editing.originalEnglish && (
