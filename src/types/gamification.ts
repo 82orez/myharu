@@ -14,6 +14,5 @@ export type SessionSummary = {
   totalQuestions: number;
   correctCount: number;
   incorrectCount: number;
-  xpEarned: number;
   accuracy: number;
 };

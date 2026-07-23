@@ -120,7 +120,6 @@ export default function ReviewClient({
   const [listeningId, setListeningId] = useState<string | null>(null);
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<"correct" | "incorrect" | null>(null);
-  const [feedbackXp, setFeedbackXp] = useState<number>(0);
   const [writingId, setWritingId] = useState<string | null>(null);
   const [textInput, setTextInput] = useState("");
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -165,15 +164,13 @@ export default function ReviewClient({
     });
   }, []);
 
-  const triggerFeedback = useCallback((sentenceId: string, status: "correct" | "incorrect", xp: number) => {
+  const triggerFeedback = useCallback((sentenceId: string, status: "correct" | "incorrect") => {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
     setFeedbackId(sentenceId);
     setFeedbackStatus(status);
-    setFeedbackXp(xp);
     feedbackTimerRef.current = setTimeout(() => {
       setFeedbackId(null);
       setFeedbackStatus(null);
-      setFeedbackXp(0);
     }, 1500);
   }, []);
 
@@ -188,7 +185,7 @@ export default function ReviewClient({
           toast.error(result.error);
           return;
         }
-        triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
+        triggerFeedback(sentenceId, match ? "correct" : "incorrect");
         setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, text_count: s.text_count + (match ? 1 : 0) } : s)));
         if (match) {
           toast.success("정확합니다!");
@@ -235,7 +232,7 @@ export default function ReviewClient({
             toast.error(result.error);
             return;
           }
-          triggerFeedback(sentenceId, match ? "correct" : "incorrect", result.xpEarned);
+          triggerFeedback(sentenceId, match ? "correct" : "incorrect");
           setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + (match ? 1 : 0) } : s)));
           if (match) {
             toast.success("정확합니다!");
@@ -551,11 +548,6 @@ export default function ReviewClient({
               className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${practiceTotal(sentence) > 0 ? "border-l-success border-l-2" : "border-l-accent-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
               style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}
             >
-              {isFeedback && feedbackStatus === "correct" && feedbackXp > 0 && (
-                <span className="animate-float-up text-xp-gold pointer-events-none absolute top-2 right-4 z-20 text-lg font-bold">
-                  +{feedbackXp} XP
-                </span>
-              )}
               <CardContent className="flex flex-col gap-3">
                 {isThisEditing && editing ? (
                   <div className="flex flex-col gap-3">

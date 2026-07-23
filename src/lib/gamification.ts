@@ -42,38 +42,24 @@ export async function fetchDailyProgress(supabase: DbClient, userId: string): Pr
   return { completed, goal, percentage: goal > 0 ? Math.min(Math.round((completed / goal) * 100), 100) : 0 };
 }
 
+// 연습 결과 기록(문장 목록 전용). 정답이면 문장별 카운터도 증가시킨다.
 export async function recordPractice(
   supabase: DbClient,
   userId: string,
   sentenceId: string,
   isCorrect: boolean,
   mode: QuizMode = "speech",
-): Promise<{ xpEarned: number; totalXp: number }> {
-  const xpEarned = isCorrect ? 10 : 2;
-
+): Promise<void> {
   await supabase.from("practice_results").insert({
     user_id: userId,
     sentence_id: sentenceId,
     is_correct: isCorrect,
-    xp_earned: xpEarned,
     mode,
   });
 
-  // 모드별 정답 횟수 카운터 증가(정답일 때만, 점수와 무관, 퀴즈와 공유)
   if (isCorrect) {
     await supabase.rpc("increment_practice_count", { p_sentence_id: sentenceId, p_mode: mode });
   }
-
-  const stats = await fetchUserStats(supabase, userId);
-  if (!stats) {
-    return { xpEarned, totalXp: xpEarned };
-  }
-
-  const newTotalXp = stats.total_xp + xpEarned;
-
-  await supabase.from("user_stats").update({ total_xp: newTotalXp }).eq("user_id", userId);
-
-  return { xpEarned, totalXp: newTotalXp };
 }
 
 /** 모든 문장의 정답 횟수(스피킹 + 쓰기) 합계 */

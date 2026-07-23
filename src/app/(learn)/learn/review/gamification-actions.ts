@@ -34,19 +34,20 @@ export async function recordPracticeResult(
   sentenceId: string,
   isCorrect: boolean,
   mode: QuizMode = "speech",
-): Promise<{ xpEarned: number; totalXp: number; error?: string }> {
+): Promise<{ error?: string }> {
   const supabase = createClient(await cookies());
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) return { xpEarned: 0, totalXp: 0, error: "로그인이 필요합니다." };
+  if (!user) return { error: "로그인이 필요합니다." };
 
-  return await recordPractice(supabase, user.id, sentenceId, isCorrect, mode);
+  await recordPractice(supabase, user.id, sentenceId, isCorrect, mode);
+  return {};
 }
 
-// 퀴즈 정답 전용. XP는 얻지 않지만(xp_earned: 0, total_xp 미변경) 오늘의 목표·학습 달력 집계에 포함되도록
-// practice_results에 정답 기록을 남기고, 문장별 모드 카운터도 함께 증가시킨다.
+// 퀴즈 정답 전용. 오늘의 목표·학습 달력 집계에 포함되도록 practice_results에 정답 기록을 남기고,
+// 문장별 모드 카운터도 함께 증가시킨다.
 export async function incrementPracticeCount(sentenceId: string, mode: QuizMode): Promise<{ error?: string }> {
   const supabase = createClient(await cookies());
   const {
@@ -60,7 +61,6 @@ export async function incrementPracticeCount(sentenceId: string, mode: QuizMode)
       user_id: user.id,
       sentence_id: sentenceId,
       is_correct: true,
-      xp_earned: 0,
       mode,
     }),
     supabase.rpc("increment_practice_count", { p_sentence_id: sentenceId, p_mode: mode }),

@@ -23,7 +23,6 @@ type State = {
   phase: Phase;
   currentIndex: number;
   answers: Answer[];
-  xpEarned: number;
   resultStatus: "correct" | "incorrect" | null;
   recognizedText: string;
 };
@@ -31,7 +30,7 @@ type State = {
 type Action =
   | { type: "START" }
   | { type: "LISTEN" }
-  | { type: "SHOW_RESULT"; sentenceId: string; isCorrect: boolean; recognizedText: string; xp: number }
+  | { type: "SHOW_RESULT"; sentenceId: string; isCorrect: boolean; recognizedText: string }
   | { type: "NEXT" }
   | { type: "RETRY" }
   | { type: "FINISH" }
@@ -40,7 +39,7 @@ type Action =
 function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "START":
-      return { ...state, phase: "question", currentIndex: 0, answers: [], xpEarned: 0 };
+      return { ...state, phase: "question", currentIndex: 0, answers: [] };
     case "LISTEN":
       return { ...state, phase: "listening", resultStatus: null, recognizedText: "" };
     case "SHOW_RESULT": {
@@ -52,7 +51,6 @@ function reducer(state: State, action: Action): State {
         phase: "result",
         resultStatus: action.isCorrect ? "correct" : "incorrect",
         recognizedText: action.recognizedText,
-        xpEarned: state.xpEarned + action.xp,
         answers,
       };
     }
@@ -64,7 +62,7 @@ function reducer(state: State, action: Action): State {
     case "FINISH":
       return { ...state, phase: "summary" };
     case "RESTART":
-      return { ...state, phase: "ready", currentIndex: 0, answers: [], xpEarned: 0, resultStatus: null, recognizedText: "" };
+      return { ...state, phase: "ready", currentIndex: 0, answers: [], resultStatus: null, recognizedText: "" };
     default:
       return state;
   }
@@ -74,7 +72,6 @@ const initialState: State = {
   phase: "ready",
   currentIndex: 0,
   answers: [],
-  xpEarned: 0,
   resultStatus: null,
   recognizedText: "",
 };
@@ -157,7 +154,6 @@ export default function QuizView({
         sentenceId: currentSentence.id,
         isCorrect,
         recognizedText,
-        xp: 0,
       });
     },
     [currentSentence],
@@ -211,7 +207,7 @@ export default function QuizView({
         dispatch({ type: "RETRY" });
         return;
       }
-      dispatch({ type: "SHOW_RESULT", sentenceId: currentSentence.id, isCorrect: false, recognizedText: "", xp: 0 });
+      dispatch({ type: "SHOW_RESULT", sentenceId: currentSentence.id, isCorrect: false, recognizedText: "" });
     };
 
     recognition.onend = () => {
@@ -294,7 +290,6 @@ export default function QuizView({
       totalQuestions: sentences.length,
       correctCount,
       incorrectCount: sentences.length - correctCount,
-      xpEarned: state.xpEarned,
       accuracy: sentences.length > 0 ? Math.round((correctCount / sentences.length) * 100) : 0,
     };
     return <SessionSummary summary={summary} onRestart={() => dispatch({ type: "RESTART" })} />;

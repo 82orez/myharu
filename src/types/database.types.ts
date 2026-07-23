@@ -22,7 +22,6 @@ export type Database = {
           practiced_at: string
           sentence_id: string
           user_id: string
-          xp_earned: number
         }
         Insert: {
           id?: string
@@ -31,7 +30,6 @@ export type Database = {
           practiced_at?: string
           sentence_id: string
           user_id: string
-          xp_earned?: number
         }
         Update: {
           id?: string
@@ -40,7 +38,6 @@ export type Database = {
           practiced_at?: string
           sentence_id?: string
           user_id?: string
-          xp_earned?: number
         }
         Relationships: [
           {
@@ -97,29 +94,23 @@ export type Database = {
       user_stats: {
         Row: {
           created_at: string
-          daily_goal: number
           personal_message: string
           speech_strict: boolean
           tag_presets: string[]
-          total_xp: number
           user_id: string
         }
         Insert: {
           created_at?: string
-          daily_goal?: number
           personal_message?: string
           speech_strict?: boolean
           tag_presets?: string[]
-          total_xp?: number
           user_id: string
         }
         Update: {
           created_at?: string
-          daily_goal?: number
           personal_message?: string
           speech_strict?: boolean
           tag_presets?: string[]
-          total_xp?: number
           user_id?: string
         }
         Relationships: []

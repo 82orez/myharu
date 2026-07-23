@@ -2,7 +2,6 @@
 // "use server"/"server-only" 디렉티브 없는 순수 모듈로 둔다.
 
 // 하루 목표 연습(정답) 횟수. 고정값이며 사용자가 변경할 수 없다.
-// (user_stats.daily_goal 컬럼은 남아 있지만 더 이상 읽지 않는다.)
 export const DAILY_PRACTICE_GOAL = 1000;
 
 // "자신에게 한 마디"(personal_message) 최대 길이
