@@ -58,7 +58,7 @@ export default async function RootLayout({
         {children}
         <Footer />
         <BottomNav user={user ? { email: user.email } : null} />
-        <Toaster position="top-right" richColors closeButton />
+        <Toaster position="top-center" richColors closeButton />
       </body>
     </html>
   );
