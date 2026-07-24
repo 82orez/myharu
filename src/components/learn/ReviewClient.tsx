@@ -103,6 +103,8 @@ export default function ReviewClient({
   const [dayFilter, setDayFilter] = useState<DayRange>("all");
   const [search, setSearch] = useState("");
   const [tagFilters, setTagFilters] = useState<string[]>([]);
+  // 태그가 하나도 없는 문장만 필터 (태그 선택과 상호 배타)
+  const [noTagOnly, setNoTagOnly] = useState(false);
   // 태그 다중 선택 결합 방식: and = 모두 포함, or = 하나라도 포함
   const [tagMode, setTagMode] = useState<"and" | "or">("and");
   const [sort, setSort] = useState<SortMode>("latest");
@@ -373,7 +375,10 @@ export default function ReviewClient({
     return Array.from(set).sort((a, b) => a.localeCompare(b, "ko"));
   }, [sentences]);
 
-  const toggleTag = (t: string) => setTagFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  const toggleTag = (t: string) => {
+    setNoTagOnly(false);
+    setTagFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
+  };
 
   // 필터 결합: 입력일 → 즐겨찾기 → 태그(다중 AND) → 검색(문장·뜻)
   const cutoff = rangeCutoff(dayFilter);
@@ -381,7 +386,9 @@ export default function ReviewClient({
   const q = search.trim().toLowerCase();
   const pool = byDay.filter((s) => {
     if (favoriteOnly && !s.is_favorite) return false;
-    if (tagFilters.length > 0) {
+    if (noTagOnly) {
+      if (s.tags.length > 0) return false;
+    } else if (tagFilters.length > 0) {
       const hit = tagMode === "or" ? tagFilters.some((t) => s.tags.includes(t)) : tagFilters.every((t) => s.tags.includes(t));
       if (!hit) return false;
     }
@@ -467,10 +474,30 @@ export default function ReviewClient({
           {/* 태그 필터 */}
           {allTags.length > 0 && (
             <div className="flex flex-wrap items-center gap-2">
-              <Button variant={tagFilters.length === 0 ? "brand" : "outline"} size="sm" onClick={() => setTagFilters([])}>
+              <Button
+                variant={tagFilters.length === 0 && !noTagOnly ? "brand" : "outline"}
+                size="sm"
+                onClick={() => {
+                  setTagFilters([]);
+                  setNoTagOnly(false);
+                }}
+              >
                 <Tag className="mr-1 h-4 w-4" />
                 전체 {pool.length}
               </Button>
+              {sentences.some((s) => s.tags.length === 0) && (
+                <Button
+                  variant={noTagOnly ? "brand" : "outline"}
+                  size="sm"
+                  aria-pressed={noTagOnly}
+                  onClick={() => {
+                    setNoTagOnly((v) => !v);
+                    setTagFilters([]);
+                  }}
+                >
+                  없음
+                </Button>
+              )}
               {allTags.map((t) => (
                 <Button
                   key={t}
