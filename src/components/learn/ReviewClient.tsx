@@ -485,19 +485,6 @@ export default function ReviewClient({
                 <Tag className="mr-1 h-4 w-4" />
                 전체 {pool.length}
               </Button>
-              {sentences.some((s) => s.tags.length === 0) && (
-                <Button
-                  variant={noTagOnly ? "brand" : "outline"}
-                  size="sm"
-                  aria-pressed={noTagOnly}
-                  onClick={() => {
-                    setNoTagOnly((v) => !v);
-                    setTagFilters([]);
-                  }}
-                >
-                  없음
-                </Button>
-              )}
               {allTags.map((t) => (
                 <Button
                   key={t}
@@ -519,6 +506,19 @@ export default function ReviewClient({
                 >
                   <ArrowLeftRight className="mr-1 h-4 w-4" />
                   {tagMode === "and" ? "모두 포함" : "하나라도"}
+                </Button>
+              )}
+              {sentences.some((s) => s.tags.length === 0) && (
+                <Button
+                  variant={noTagOnly ? "brand" : "outline"}
+                  size="sm"
+                  aria-pressed={noTagOnly}
+                  onClick={() => {
+                    setNoTagOnly((v) => !v);
+                    setTagFilters([]);
+                  }}
+                >
+                  없음
                 </Button>
               )}
             </div>
