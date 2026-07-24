@@ -15,6 +15,8 @@ import {
   Circle,
   Keyboard,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   Search,
   Tag,
   ArrowLeftRight,
@@ -55,6 +57,25 @@ const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { tim
 
 // 문장의 총 정답 연습 횟수(스피킹 + 쓰기). 0이면 "미연습"
 const practiceTotal = (s: Sentence) => s.speech_count + s.text_count;
+
+// 페이지당 문장 카드 수 (클라이언트 사이드 페이지네이션)
+const PAGE_SIZE = 20;
+
+// 페이지 번호 윈도잉: 항상 1·마지막 + 현재 ±1, 간격은 "…"
+const getPageWindow = (current: number, total: number): (number | "…")[] => {
+  const nums = new Set<number>([1, total, current, current - 1, current + 1]);
+  const sorted = Array.from(nums)
+    .filter((n) => n >= 1 && n <= total)
+    .sort((a, b) => a - b);
+  const out: (number | "…")[] = [];
+  let prev = 0;
+  for (const n of sorted) {
+    if (prev && n - prev > 1) out.push("…");
+    out.push(n);
+    prev = n;
+  }
+  return out;
+};
 
 // 입력일(KST) 기간 프리셋. days는 오늘을 포함한 일수, all은 제한 없음
 const DAY_RANGES = [
@@ -108,6 +129,7 @@ export default function ReviewClient({
   // 태그 다중 선택 결합 방식: and = 모두 포함, or = 하나라도 포함
   const [tagMode, setTagMode] = useState<"and" | "or">("and");
   const [sort, setSort] = useState<SortMode>("latest");
+  const [page, setPage] = useState(1);
   const [showFind, setShowFind] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [removingId, setRemovingId] = useState<string | null>(null);
@@ -401,6 +423,20 @@ export default function ReviewClient({
     return sort === "oldest" ? cmp : -cmp;
   });
 
+  // 필터·정렬 변경 시 1페이지로 리셋
+  useEffect(() => {
+    setPage(1);
+  }, [dayFilter, favoriteOnly, tagFilters, noTagOnly, search, sort]);
+
+  // 현재 페이지 분량만 렌더 (삭제 등으로 페이지 초과 시 클램프)
+  const totalPages = Math.max(1, Math.ceil(visibleSentences.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pageItems = visibleSentences.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const goToPage = (p: number) => {
+    setPage(p);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
   return (
     <div className="flex flex-col gap-6">
       <h1 className="text-center text-2xl font-extrabold">문장 목록</h1>
@@ -552,7 +588,7 @@ export default function ReviewClient({
       )}
 
       <div className="flex flex-col gap-4">
-        {visibleSentences.map((sentence, index) => {
+        {pageItems.map((sentence, index) => {
           const isPlaying = playingId === sentence.id;
           const isListening = listeningId === sentence.id;
           const isWriting = writingId === sentence.id;
@@ -923,6 +959,43 @@ export default function ReviewClient({
           );
         })}
       </div>
+
+      {totalPages > 1 && (
+        <nav className="flex flex-wrap items-center justify-center gap-1 pt-2" aria-label="페이지 이동">
+          <Button variant="outline" size="sm" disabled={currentPage <= 1} onClick={() => goToPage(currentPage - 1)} aria-label="이전 페이지">
+            <ChevronLeft className="h-4 w-4" />
+            이전
+          </Button>
+          {getPageWindow(currentPage, totalPages).map((p, i) =>
+            p === "…" ? (
+              <span key={`gap-${i}`} className="text-muted-foreground px-2 text-sm">
+                …
+              </span>
+            ) : (
+              <Button
+                key={p}
+                variant={p === currentPage ? "brand" : "outline"}
+                size="sm"
+                aria-current={p === currentPage ? "page" : undefined}
+                aria-label={`${p}페이지로`}
+                onClick={() => goToPage(p)}
+              >
+                {p}
+              </Button>
+            ),
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={currentPage >= totalPages}
+            onClick={() => goToPage(currentPage + 1)}
+            aria-label="다음 페이지"
+          >
+            다음
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        </nav>
+      )}
     </div>
   );
 }
