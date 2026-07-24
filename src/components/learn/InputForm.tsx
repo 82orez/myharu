@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { Loader2, PenLine, Volume2, RotateCcw, Upload, CalendarDays } from "lucide-react";
+import { toast } from "sonner";
 import { generateAudio, saveSentence } from "@/app/(learn)/learn/input/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,7 +70,6 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
   const [audioMime, setAudioMime] = useState<string>("audio/mpeg");
   const [audioExt, setAudioExt] = useState<string>("mp3");
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
   const [recentSave, setRecentSave] = useState<{ english: string; korean: string } | null>(null);
   const [generating, startGenerating] = useTransition();
   const [saving, startSaving] = useTransition();
@@ -101,7 +101,6 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
 
   function handleGenerate() {
     setError(null);
-    setSuccess(null);
 
     startGenerating(async () => {
       const result = await generateAudio(englishText, voice);
@@ -133,7 +132,6 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
 
   async function handleFileSelected(file: File) {
     setError(null);
-    setSuccess(null);
 
     const ext = ALLOWED_AUDIO[file.type];
     if (!file.type.startsWith("audio/") || !ext) {
@@ -191,7 +189,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
         return;
       }
 
-      setSuccess(result.success);
+      toast.success(result.success);
       setRecentSave({ english: englishText, korean: koreanText });
       setEnglishText("");
       setKoreanText("");
@@ -215,7 +213,6 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setAudioMime("audio/mpeg");
     setAudioExt("mp3");
     setError(null);
-    setSuccess(null);
     setPhase("input");
   }
 
@@ -316,11 +313,6 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
           {error && (
             <p id="input-error" className="text-destructive text-sm" role="alert">
               {error}
-            </p>
-          )}
-          {success && (
-            <p className="animate-in fade-in slide-in-from-bottom-2 rounded-md bg-green-50 px-3 py-2 text-sm text-green-700" role="status">
-              {success}
             </p>
           )}
 
