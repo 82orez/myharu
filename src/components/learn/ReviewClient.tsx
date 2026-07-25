@@ -761,12 +761,8 @@ export default function ReviewClient({
                     {sentence.tags.length > 0 && (
                       <div className="flex flex-wrap gap-1.5">
                         {sentence.tags.map((t) => (
-                          <Badge
-                            key={t}
-                            variant="secondary"
-                            render={<button type="button" onClick={() => toggleTag(t)} />}
-                            className={`${tagColorClass(t)} cursor-pointer ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}
-                          >
+                          // 읽기 전용 라벨 — 태그 필터 토글은 상단 태그 칩 줄에서만 한다
+                          <Badge key={t} variant="secondary" className={tagColorClass(t)}>
                             {t}
                           </Badge>
                         ))}
