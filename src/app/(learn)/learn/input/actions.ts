@@ -5,6 +5,7 @@ import { createClient } from "@/utils/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 import { sanitizeTags } from "@/lib/tags";
 import { DEFAULT_VOICE, isValidVoice } from "@/lib/tts-voices";
+import { sanitizeAudioStats, type AudioStats } from "@/lib/audio-loudness";
 
 export type GenerateAudioResult = { audioBase64: string } | { error: string };
 export type SaveSentenceResult = { success: string } | { error: string };
@@ -70,6 +71,7 @@ export async function saveSentence(
   audioMime: string = "audio/mpeg",
   audioExt: string = "mp3",
   note: string = "",
+  audioStats: AudioStats | null = null,
 ): Promise<SaveSentenceResult> {
   const english = englishText.trim();
   const korean = koreanText.trim();
@@ -124,6 +126,9 @@ export async function saveSentence(
     return { error: "음성 파일 저장 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." };
   }
 
+  // 볼륨 균일화용 측정값. 클라이언트가 보낸 값이라 유한수인지 검증하고, 없으면 null(=재생 시 게인 1.0).
+  const cleanStats = sanitizeAudioStats(audioStats);
+
   const { error: insertError } = await supabase.from("sentences").insert({
     user_id: user.id,
     english_text: english,
@@ -131,6 +136,8 @@ export async function saveSentence(
     audio_path: storagePath,
     tags: cleanTags,
     note: cleanNote,
+    loudness_db: cleanStats?.loudnessDb ?? null,
+    peak_db: cleanStats?.peakDb ?? null,
   });
 
   if (insertError) {

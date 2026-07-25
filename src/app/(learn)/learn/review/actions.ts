@@ -3,6 +3,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { sanitizeTags } from "@/lib/tags";
+import { sanitizeAudioStats, type AudioStats } from "@/lib/audio-loudness";
 import type { Tables } from "@/types/database.types";
 
 // sentences Row에서 audio_path/user_id를 빼고, 서명 URL(audio_url)을 더한 앱 표현형
@@ -22,7 +23,7 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
 
   const { data, error } = await supabase
     .from("sentences")
-    .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags, note, speech_count, text_count")
+    .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags, note, speech_count, text_count, loudness_db, peak_db")
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -46,6 +47,9 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
         note: row.note ?? "",
         speech_count: row.speech_count ?? 0,
         text_count: row.text_count ?? 0,
+        // 미측정(null)이면 재생 시 computeGain이 게인 1.0으로 처리한다
+        loudness_db: row.loudness_db,
+        peak_db: row.peak_db,
       };
     }),
   );
@@ -82,6 +86,7 @@ export async function updateSentence(
   newAudioBase64?: string,
   tags?: string[],
   note?: string,
+  audioStats?: AudioStats | null,
 ): Promise<UpdateSentenceResult> {
   const english = englishText.trim();
   const korean = koreanText.trim();
@@ -134,13 +139,28 @@ export async function updateSentence(
     audioPath = newPath;
   }
 
-  const updatePayload: { english_text: string; korean_text: string; audio_path: string; tags?: string[]; note?: string } = {
+  const updatePayload: {
+    english_text: string;
+    korean_text: string;
+    audio_path: string;
+    tags?: string[];
+    note?: string;
+    loudness_db?: number | null;
+    peak_db?: number | null;
+  } = {
     english_text: english,
     korean_text: korean,
     audio_path: audioPath,
   };
   if (tags !== undefined) updatePayload.tags = sanitizeTags(tags);
   if (note !== undefined) updatePayload.note = note.trim().slice(0, 1000);
+
+  // 오디오를 교체한 경우에만 측정값을 갱신한다. 텍스트/태그/메모만 고친 편집은 기존 측정값을 유지.
+  if (newAudioBase64) {
+    const stats = sanitizeAudioStats(audioStats);
+    updatePayload.loudness_db = stats?.loudnessDb ?? null;
+    updatePayload.peak_db = stats?.peakDb ?? null;
+  }
 
   const { error: updateError } = await supabase.from("sentences").update(updatePayload).eq("id", id).eq("user_id", user.id);
 

@@ -48,6 +48,8 @@ import TagPicker from "@/components/learn/TagPicker";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { tagColorClass, tagChipClass } from "@/lib/tag-color";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
+import { useAudioPlayer } from "@/hooks/use-audio-player";
+import { computeGain, measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
 import { toast } from "sonner";
 
 type SortMode = "latest" | "oldest" | "alpha" | "practice-desc" | "practice-asc";
@@ -146,7 +148,7 @@ export default function ReviewClient({
   const [feedbackStatus, setFeedbackStatus] = useState<"correct" | "incorrect" | null>(null);
   const [writingId, setWritingId] = useState<string | null>(null);
   const [textInput, setTextInput] = useState("");
-  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const { play } = useAudioPlayer();
   const recognitionRef = useRef<any>(null);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
@@ -165,28 +167,17 @@ export default function ReviewClient({
     setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
   }, []);
 
-  const playAudio = useCallback((sentenceId: string, audioUrl: string) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current = null;
-    }
-    const audio = new Audio(audioUrl);
-    audioRef.current = audio;
-    setPlayingId(sentenceId);
-    audio.onended = () => {
-      setPlayingId(null);
-      audioRef.current = null;
-    };
-    audio.onerror = () => {
-      setPlayingId(null);
-      audioRef.current = null;
-    };
-    audio.play().catch((err) => {
-      console.error("[Audio] 재생 실패:", err);
-      setPlayingId(null);
-      audioRef.current = null;
-    });
-  }, []);
+  // 볼륨 균일화: 저장된 측정값으로 계산한 게인을 적용해 재생한다(미측정 문장은 게인 1.0).
+  const playAudio = useCallback(
+    (sentence: Sentence) => {
+      setPlayingId(sentence.id);
+      void play(sentence.audio_url, computeGain(sentence.loudness_db, sentence.peak_db), {
+        onEnded: () => setPlayingId(null),
+        onError: () => setPlayingId(null),
+      });
+    },
+    [play],
+  );
 
   const triggerFeedback = useCallback((sentenceId: string, status: "correct" | "incorrect") => {
     if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
@@ -351,6 +342,7 @@ export default function ReviewClient({
 
     startSaving(async () => {
       let audioBase64: string | undefined;
+      let audioStats: AudioStats | null = null;
 
       if (needRegen) {
         const audioResult = await generateAudio(editing.englishText, voice);
@@ -359,9 +351,12 @@ export default function ReviewClient({
           return;
         }
         audioBase64 = audioResult.audioBase64;
+        // 음성을 새로 만들었으니 볼륨 균일화용 측정값도 다시 구한다
+        const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
+        audioStats = await measureAudioBytes(bytes.buffer);
       }
 
-      const result = await updateSentence(editing.id, editing.englishText, editing.koreanText, audioBase64, editing.tags, editing.note);
+      const result = await updateSentence(editing.id, editing.englishText, editing.koreanText, audioBase64, editing.tags, editing.note, audioStats);
 
       if ("error" in result) {
         toast.error(result.error);
@@ -378,6 +373,8 @@ export default function ReviewClient({
                 audio_url: result.audioUrl,
                 tags: editing.tags,
                 note: editing.note.trim(),
+                // 음성을 재생성한 경우에만 측정값 교체 — 다음 재생에 새 게인이 반영되도록
+                ...(needRegen ? { loudness_db: audioStats?.loudnessDb ?? null, peak_db: audioStats?.peakDb ?? null } : {}),
               }
             : s,
         ),
@@ -697,7 +694,7 @@ export default function ReviewClient({
                             variant="outline"
                             size="sm"
                             disabled={(busyPlaying && !isPlaying) || isEditing || listeningId !== null}
-                            onClick={() => playAudio(sentence.id, sentence.audio_url)}
+                            onClick={() => playAudio(sentence)}
                           >
                             {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
                             듣기
@@ -991,13 +988,7 @@ export default function ReviewClient({
               </Button>
             ),
           )}
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={currentPage >= totalPages}
-            onClick={() => goToPage(currentPage + 1)}
-            aria-label="다음 페이지"
-          >
+          <Button variant="outline" size="sm" disabled={currentPage >= totalPages} onClick={() => goToPage(currentPage + 1)} aria-label="다음 페이지">
             다음
             <ChevronRight className="h-4 w-4" />
           </Button>

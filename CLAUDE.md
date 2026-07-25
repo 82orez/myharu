@@ -78,17 +78,27 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 ### DB 스키마 (`supabase/migrations/`)
 
 3개 테이블. RLS는 모두 `user_id = auth.uid()`.
-- **`sentences`**: id, user_id, english_text, korean_text, audio_path, is_favorite(기본 false), `tags text[]`(기본 `{}`, GIN), `note text`(기본 `''`), `speech_count`·`text_count int`(기본 0, 정답 횟수), created_at. Storage `tts-audio` 버킷 동일 RLS. 카운터 증가는 RPC `increment_practice_count(p_sentence_id, p_mode)`(`SECURITY INVOKER`, UPDATE RLS 따름, review+퀴즈 공유, **게이미피케이션 쿼리와 분리**).
+- **`sentences`**: id, user_id, english_text, korean_text, audio_path, is_favorite(기본 false), `tags text[]`(기본 `{}`, GIN), `note text`(기본 `''`), `speech_count`·`text_count int`(기본 0, 정답 횟수), `loudness_db`·`peak_db real`(**nullable**, 볼륨 균일화 측정값 — NULL=미측정→게인 1.0), created_at. Storage `tts-audio` 버킷 동일 RLS. 카운터 증가는 RPC `increment_practice_count(p_sentence_id, p_mode)`(`SECURITY INVOKER`, UPDATE RLS 따름, review+퀴즈 공유, **게이미피케이션 쿼리와 분리**).
 - **`user_stats`**: user_id(PK), `tag_presets text[]`, `personal_message text`(기본 `''`), `speech_strict boolean`(기본 false, 스피킹 채점 난이도), created_at. 신규 가입 시 `handle_new_user_stats` 트리거로 자동 생성.
 - **`practice_results`**: id, user_id, sentence_id, is_correct, `mode`(`'speech'|'text'`, CHECK, 기본 `'speech'`), practiced_at.
 
-마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(streak 컬럼 3종 삭제) → `simplify_goal_to_daily`(장기 목표 컬럼 3종 삭제, daily_goal만 유지) → `add_note_to_sentences`(메모 컬럼) → `add_personal_message_to_user_stats`(자신에게 한 마디 컬럼) → `add_practice_counts_to_sentences`(speech_count·text_count + `increment_practice_count` RPC) → `add_speech_strict_to_user_stats`(스피킹 채점 난이도 컬럼) → `remove_xp_and_daily_goal`(`total_xp`·`daily_goal`·`xp_earned` 삭제).
+마이그레이션 순서: `create_sentences_and_storage` → `add_gamification` → `add_favorite_to_sentences` → `add_long_term_goals` → `add_practice_mode` → `add_tags_to_sentences` → `add_tag_presets` → `remove_streak`(streak 컬럼 3종 삭제) → `simplify_goal_to_daily`(장기 목표 컬럼 3종 삭제, daily_goal만 유지) → `add_note_to_sentences`(메모 컬럼) → `add_personal_message_to_user_stats`(자신에게 한 마디 컬럼) → `add_practice_counts_to_sentences`(speech_count·text_count + `increment_practice_count` RPC) → `add_speech_strict_to_user_stats`(스피킹 채점 난이도 컬럼) → `remove_xp_and_daily_goal`(`total_xp`·`daily_goal`·`xp_earned` 삭제) → `add_loudness_to_sentences`(볼륨 균일화 측정값 2종).
 
 ### OpenAI (`lib/openai.ts`)
 
 `"server-only"`, 싱글턴. `OPENAI_API_KEY` 미설정 시 throw. TTS: `tts-1`/mp3, 음성은 선택형.
 
 **음성 선택** (`lib/tts-voices.ts`): `tts-1` 지원 3종(`alloy`/`onyx`/`nova`). 클라/서버 공용이라 **`"server-only"` 금지**. `generateAudio(text, voice?)`는 `isValidVoice`로 검증 후 미지정/무효 시 `DEFAULT_VOICE`(alloy) fallback. 선택 UI는 `VoicePicker`(Dialog), 마지막 선택은 `useSelectedVoice` 훅이 localStorage(`myharu:tts-voice`)에 기억(SSR-safe: 초기값 default → mount 후 보정). `InputForm`·`ReviewClient`(편집 재생성)에서 사용.
+
+### 오디오 볼륨 균일화 (`lib/audio-loudness.ts` + `hooks/use-audio-player.ts`)
+
+업로드 파일의 녹음 레벨 편차(실측 13dB)로 카드마다 소리 크기가 널뛰던 문제 대응. **원본 파일은 재인코딩하지 않는다** — 측정값만 DB에 저장하고 재생 시 보정.
+
+- **측정 알고리즘은 `lib/audio-loudness.ts` 하나뿐**(디렉티브 없는 순수 모듈 — 브라우저·서버 액션·Node 스크립트 공용). `measureSamples(Float32Array)` = 무음 게이트(`SILENCE_GATE_DB` -50dB, 앞뒤 공백 긴 녹음의 과증폭 방지) 적용 RMS + 샘플 피크. ⚠️ **여기 말고 다른 곳에서 라우드니스를 계산하지 말 것** — 과거 데이터와 신규 데이터의 게인 기준이 갈라진다.
+- **게인**: `computeGain(loudness_db, peak_db)` = `TARGET_RMS_DB`(-20)까지 올리되 피크가 `PEAK_CEILING_DB`(-1)를 넘지 않는 선에서 clamp, `±12dB` 한계. 값이 NULL/비유한수면 **1.0**(보정 없음) → 미측정 문장도 그냥 재생된다. **파생값이 아닌 원측정값을 저장**하므로 목표 레벨 상수만 바꾸면 재스캔 없이 재조정 가능.
+- **재생**은 `useAudioPlayer` 훅 공용(`ReviewClient`·`QuizView`). `audio.volume`은 0~1이라 **증폭 불가** → Web Audio `GainNode` 사용. ⚠️ `createMediaElementSource`는 **엘리먼트당 1회만** 호출 가능해서 엘리먼트·AudioContext·GainNode를 각각 하나만 만들어 `src`만 교체한다. ⚠️ **`crossOrigin="anonymous"`를 `src` 대입보다 먼저** 설정할 것 — 순서가 바뀌면 크로스 오리진 소스가 taint되어 **예외 없이 무음**이 된다(Supabase Storage는 `access-control-allow-origin: *` 확인됨). 재생 상태(`playingId`/`isPlaying`)는 각 컴포넌트가 계속 소유 — 기존 상호 배제·버튼 비활성 로직 유지용.
+- **신규 저장분**은 브라우저에서 `measureAudioBytes`(decodeAudioData → 모노 다운믹스)로 측정 후 `saveSentence(..., audioStats)`/`updateSentence(..., audioStats)`에 전달, 서버가 `sanitizeAudioStats`로 검증. ⚠️ `decodeAudioData`는 ArrayBuffer를 **detach** 시키므로 base64 인코딩을 먼저 끝낼 것. 측정 실패는 null로 저장하고 저장 자체는 막지 않는다.
+- **기존 파일 백필**: `npm run audio:measure`(`--dry-run`으로 분포 확인, `--force`로 전체 재측정). ffmpeg는 **디코딩에만** 쓰고(`-f f32le -ac 1`) 측정은 공유 모듈에 맡긴다 — `volumedetect`/`ebur128` 파싱 금지(브라우저와 알고리즘 불일치). 되돌리기는 두 컬럼을 NULL로.
 
 ## 컴포넌트/디자인 규칙
 
@@ -129,8 +139,8 @@ src/
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
-├── hooks/{use-caps-lock,use-selected-voice}.ts
-├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config}.ts
+├── hooks/{use-caps-lock,use-selected-voice,use-audio-player}.ts
+├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness}.ts
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts
 ```

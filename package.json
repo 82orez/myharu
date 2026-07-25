@@ -11,7 +11,8 @@
     "db:list": "supabase migration list",
     "db:diff": "supabase db diff --linked",
     "db:types": "supabase gen types typescript --linked --schema public > src/types/database.types.ts",
-    "audio:download": "node --env-file=.env scripts/download-audio.mjs"
+    "audio:download": "node --env-file=.env scripts/download-audio.mjs",
+    "audio:measure": "node --env-file=.env --disable-warning=MODULE_TYPELESS_PACKAGE_JSON scripts/measure-loudness.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

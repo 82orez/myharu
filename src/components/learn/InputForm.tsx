@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import TagPicker from "@/components/learn/TagPicker";
 import VoicePicker from "@/components/learn/VoicePicker";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
+import { measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -69,6 +70,8 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
   const [audioSource, setAudioSource] = useState<AudioSource>("ai");
   const [audioMime, setAudioMime] = useState<string>("audio/mpeg");
   const [audioExt, setAudioExt] = useState<string>("mp3");
+  // 볼륨 균일화용 측정값. 측정 실패는 null로 두고 저장을 막지 않는다(재생 시 게인 1.0).
+  const [audioStats, setAudioStats] = useState<AudioStats | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [recentSave, setRecentSave] = useState<{ english: string; korean: string } | null>(null);
   const [generating, startGenerating] = useTransition();
@@ -84,10 +87,12 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     };
   }, [audioUrl]);
 
-  function base64ToBlobUrl(base64: string): string {
-    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-    const blob = new Blob([bytes], { type: "audio/mpeg" });
-    return URL.createObjectURL(blob);
+  function base64ToBytes(base64: string): Uint8Array<ArrayBuffer> {
+    return Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+  }
+
+  function bytesToBlobUrl(bytes: Uint8Array<ArrayBuffer>): string {
+    return URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
   }
 
   function handleGenerateClick() {
@@ -111,9 +116,10 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       }
 
       if (audioUrl) URL.revokeObjectURL(audioUrl);
-      const url = base64ToBlobUrl(result.audioBase64);
+      const bytes = base64ToBytes(result.audioBase64);
       setAudioBase64(result.audioBase64);
-      setAudioUrl(url);
+      setAudioUrl(bytesToBlobUrl(bytes));
+      setAudioStats(await measureAudioBytes(bytes.buffer));
       setAudioSource("ai");
       setAudioMime("audio/mpeg");
       setAudioExt("mp3");
@@ -145,10 +151,13 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
 
     try {
       const buffer = await file.arrayBuffer();
+      // base64 인코딩을 먼저 끝낸다 — measureAudioBytes 내부의 decodeAudioData가 버퍼를 detach 시킬 수 있다
       const base64 = arrayBufferToBase64(buffer);
+      const stats = await measureAudioBytes(buffer);
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioBase64(base64);
       setAudioUrl(URL.createObjectURL(file));
+      setAudioStats(stats);
       setAudioSource("upload");
       setAudioMime(file.type);
       setAudioExt(ext);
@@ -170,9 +179,10 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       }
 
       if (audioUrl) URL.revokeObjectURL(audioUrl);
-      const url = base64ToBlobUrl(result.audioBase64);
+      const bytes = base64ToBytes(result.audioBase64);
       setAudioBase64(result.audioBase64);
-      setAudioUrl(url);
+      setAudioUrl(bytesToBlobUrl(bytes));
+      setAudioStats(await measureAudioBytes(bytes.buffer));
     });
   }
 
@@ -182,7 +192,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setError(null);
 
     startSaving(async () => {
-      const result = await saveSentence(englishText, koreanText, audioBase64, tags, audioMime, audioExt, note);
+      const result = await saveSentence(englishText, koreanText, audioBase64, tags, audioMime, audioExt, note, audioStats);
 
       if ("error" in result) {
         setError(result.error);
@@ -198,6 +208,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioBase64(null);
       setAudioUrl(null);
+      setAudioStats(null);
       setAudioSource("ai");
       setAudioMime("audio/mpeg");
       setAudioExt("mp3");
@@ -209,6 +220,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     if (audioUrl) URL.revokeObjectURL(audioUrl);
     setAudioBase64(null);
     setAudioUrl(null);
+    setAudioStats(null);
     setAudioSource("ai");
     setAudioMime("audio/mpeg");
     setAudioExt("mp3");
@@ -336,7 +348,8 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                   onClick={handleGenerateClick}
                   disabled={pending}
                   variant="brand"
-                  className="h-12 flex-1 rounded-xl text-lg font-bold">
+                  className="h-12 flex-1 rounded-xl text-lg font-bold"
+                >
                   {generating && <Loader2 className="animate-spin" />}
                   {generating ? "음성 생성 중" : "AI 음성 생성"}
                 </Button>
@@ -357,7 +370,8 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                   onClick={() => setRegenConfirmOpen(true)}
                   disabled={pending}
                   variant="outline"
-                  className="h-12 flex-1 rounded-xl font-bold">
+                  className="h-12 flex-1 rounded-xl font-bold"
+                >
                   {generating && <Loader2 className="animate-spin" />}
                   {generating ? (
                     "생성 중"
@@ -373,7 +387,8 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                   onClick={() => fileInputRef.current?.click()}
                   disabled={pending}
                   variant="outline"
-                  className="h-12 flex-1 rounded-xl font-bold">
+                  className="h-12 flex-1 rounded-xl font-bold"
+                >
                   <Upload size={16} /> 다른 파일 선택
                 </Button>
               )}
@@ -402,7 +417,8 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                   onClick={() => {
                     setGenConfirmOpen(false);
                     handleGenerate();
-                  }}>
+                  }}
+                >
                   확인
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -422,7 +438,8 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                   onClick={() => {
                     setRegenConfirmOpen(false);
                     handleRegenerate();
-                  }}>
+                  }}
+                >
                   다시 생성
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -434,7 +451,8 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               type="button"
               onClick={handleReset}
               disabled={pending}
-              className="text-muted-foreground text-sm underline-offset-4 hover:underline">
+              className="text-muted-foreground text-sm underline-offset-4 hover:underline"
+            >
               처음부터 다시 입력
             </button>
           )}
