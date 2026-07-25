@@ -50,7 +50,7 @@ import { tagColorClass, tagChipClass } from "@/lib/tag-color";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { toast } from "sonner";
 
-type SortMode = "latest" | "oldest" | "alpha";
+type SortMode = "latest" | "oldest" | "alpha" | "practice-desc" | "practice-asc";
 
 // created_at(ISO) → KST 날짜 문자열(YYYY-MM-DD)
 const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
@@ -419,6 +419,11 @@ export default function ReviewClient({
   });
   const visibleSentences = pool.slice().sort((a, b) => {
     if (sort === "alpha") return a.english_text.localeCompare(b.english_text, "en");
+    if (sort === "practice-desc" || sort === "practice-asc") {
+      const diff = practiceTotal(a) - practiceTotal(b);
+      if (diff !== 0) return sort === "practice-asc" ? diff : -diff;
+      return -a.created_at.localeCompare(b.created_at); // 동점(0회 등)은 최신순
+    }
     const cmp = a.created_at.localeCompare(b.created_at);
     return sort === "oldest" ? cmp : -cmp;
   });
@@ -481,6 +486,8 @@ export default function ReviewClient({
               <option value="latest">최신순</option>
               <option value="oldest">오래된순</option>
               <option value="alpha">가나다순(A–Z)</option>
+              <option value="practice-desc">연습 많은순</option>
+              <option value="practice-asc">연습 적은순</option>
             </select>
           </div>
 
