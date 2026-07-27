@@ -24,7 +24,9 @@ import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@
 import { computeGain } from "@/lib/audio-loudness";
 import {
   getSpeechAvailability,
-  isIOS,
+  unavailableKind,
+  rememberUnavailable,
+  forgetUnavailable,
   speechUnavailableMessage,
   SPEECH_START_TIMEOUT_MS,
   type SpeechAvailability,
@@ -127,6 +129,12 @@ export default function QuizView({
     }
   }, []);
 
+  // 수음이 실제로 시작됨 — 워치독 해제 + 과거 실패 기록 폐기
+  const handleSpeechStarted = useCallback(() => {
+    clearStartWatchdog();
+    forgetUnavailable();
+  }, [clearStartWatchdog]);
+
   useEffect(() => {
     setSpeechAvailability(getSpeechAvailability());
     return () => {
@@ -219,8 +227,8 @@ export default function QuizView({
     };
 
     // 실제로 수음이 시작됐다는 신호 — 워치독 해제
-    recognition.onstart = clearStartWatchdog;
-    recognition.onaudiostart = clearStartWatchdog;
+    recognition.onstart = handleSpeechStarted;
+    recognition.onaudiostart = handleSpeechStarted;
 
     recognition.onerror = (event: any) => {
       clearStartWatchdog();
@@ -231,9 +239,11 @@ export default function QuizView({
       if (event.error === "not-allowed") {
         toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
       }
-      // iOS 비-Safari 등 인식 서비스 자체가 없는 환경: 오답 처리하지 않고 복귀
+      // 인식 서비스 자체를 쓸 수 없는 환경: 오답 처리하지 않고 복귀
       if (event.error === "service-not-allowed" || event.error === "language-not-supported") {
-        setSpeechAvailability(isIOS() ? "ios-non-safari" : "unsupported");
+        const availability = unavailableKind();
+        rememberUnavailable(availability);
+        setSpeechAvailability(availability);
         dispatch({ type: "RETRY" });
         return;
       }
@@ -253,20 +263,21 @@ export default function QuizView({
     recognitionRef.current = recognition;
     recognition.start();
 
-    // UA 감지가 빗나간 환경 대비: 수음이 시작되지 않으면 말하기를 비활성화하고 안내한다.
-    // (iOS 비-Safari는 start()가 마이크 권한만 요청하고 어떤 이벤트도 발생시키지 않는다)
+    // 가용성 판정은 여기서만 한다(UA 사전 차단 없음).
+    // 동작하지 않는 환경은 start()가 마이크 권한만 요청하고 어떤 이벤트도 발생시키지 않는다.
     clearStartWatchdog();
     startWatchdogRef.current = setTimeout(() => {
       startWatchdogRef.current = null;
       if (recognitionRef.current !== recognition) return; // 이미 종료·교체됨
       recognition.abort();
       recognitionRef.current = null;
-      const availability = isIOS() ? "ios-non-safari" : "unsupported";
+      const availability = unavailableKind();
+      rememberUnavailable(availability);
       setSpeechAvailability(availability);
       toast.warning(speechUnavailableMessage(availability));
       dispatch({ type: "RETRY" }); // 오답 처리하지 않고 질문 화면으로 복귀
     }, SPEECH_START_TIMEOUT_MS);
-  }, [speechSupported, currentSentence, handleResult, speechThreshold, clearStartWatchdog]);
+  }, [speechSupported, currentSentence, handleResult, speechThreshold, clearStartWatchdog, handleSpeechStarted]);
 
   const handleRevealAnswer = useCallback(() => {
     handleResult(false, "");

@@ -77,11 +77,14 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 ### 음성 인식 가용성 (`lib/speech-recognition.ts`)
 
-⚠️ **`"webkitSpeechRecognition" in window`만으로 판단하지 말 것.** iOS는 모든 브라우저가 WebKit이지만 음성 인식은 **Safari 앱 본체에만** 구현돼 있다 — WKWebView 기반(iOS Chrome/Edge/Firefox, 카카오톡·인스타 인앱)은 **생성자는 존재해 검사를 통과**하지만 `start()`가 마이크 권한만 요청하고(Chrome iOS는 "마이크 액세스가 허용됨" 배너) 수음도, `onresult`/`onerror`/`onend`도 **영영 오지 않는다**(= 말하기 버튼이 먹통).
+⚠️ **`"webkitSpeechRecognition" in window`만으로 판단하지 말 것.** iOS WKWebView 기반 브라우저(iOS Chrome/Edge/Firefox, 카카오톡·인스타 인앱)는 **생성자가 존재해 검사를 통과**하지만, 실제 인식은 embed한 앱이 마이크·음성 인식 usage description과 권한 델리게이트를 갖췄을 때만 동작한다. 안 갖춰진 앱에선 `start()`가 마이크 권한만 요청하고(Chrome iOS는 "마이크 액세스가 허용됨" 배너) 수음도, `onresult`/`onerror`/`onend`도 **영영 오지 않는다**(= 말하기 버튼이 먹통).
 
-- `getSpeechAvailability()` → `"available" | "ios-non-safari" | "unsupported"`. **UA로 iOS 비-Safari를 먼저 걸러낸 뒤** 생성자를 본다(`IOS_WEBVIEW_UA` = `CriOS|FxiOS|EdgiOS|OPiOS|OPT/|Whale|NAVER|DaumApps|KAKAOTALK|Instagram|FBAN|FBAV|Line/`, iPadOS 13+는 데스크톱 UA라 `maxTouchPoints`로 판별). 안내 문구는 `speechUnavailableMessage`.
+⚠️ **그렇다고 UA로 사전 차단하지 말 것**(과거에 그렇게 짰다가 되돌림). "iOS 비-Safari = 불가"는 앱·버전에 따라 틀리며, 멀쩡히 되는 환경에서 기능을 빼앗는다. **판정은 실제 `start()` 결과로만** 한다. `isIOS()`는 실패 시 안내 문구를 고르는 데만 쓴다(`unavailableKind()`).
+
+- `getSpeechAvailability()` → `"available" | "ios-non-safari" | "unsupported"`. 생성자가 없으면 즉시 불가, 있으면 **일단 `"available"`** (단 같은 탭의 이전 실패 기록이 있으면 그걸 재사용).
+- **실패 기억**은 `sessionStorage`(`myharu:speech-unavailable`) — 매번 3초씩 기다리지 않게 하되, 탭을 닫으면 다시 판정해 **오탐이 영구화되지 않는다**. 수음이 실제로 시작되면(`onstart`/`onaudiostart` → `handleSpeechStarted`) `forgetUnavailable()`로 기록 폐기.
 - 두 컴포넌트 모두 `speechAvailability: SpeechAvailability | null` state — **`null`=판정 전(SSR/첫 렌더)** 이라 안내 문구를 안 띄운다(깜빡임 방지). `speechSupported`는 `=== "available"`로 파생.
-- **워치독**(UA 목록에 없는 인앱 브라우저 대비): `start()` 후 `SPEECH_START_TIMEOUT_MS`(3s) 안에 `onstart`/`onaudiostart`가 없으면 abort + availability를 불가로 낮추고 토스트. 이벤트 4종(`onstart`/`onaudiostart`/`onerror`/`onend`)이 모두 `clearStartWatchdog` 호출. `onerror`의 `service-not-allowed`·`language-not-supported`도 같은 판정. QuizView는 이때 오답 처리 대신 `RETRY` dispatch.
+- **워치독**: `start()` 후 `SPEECH_START_TIMEOUT_MS`(3s) 안에 `onstart`/`onaudiostart`가 없으면 abort + 불가 판정 + 기억 + 토스트. 이벤트 4종이 모두 워치독을 해제한다. `onerror`의 `service-not-allowed`·`language-not-supported`도 같은 판정. QuizView는 이때 오답 처리 대신 `RETRY` dispatch.
 - 퀴즈 **리스닝 세션은 말하기 전용**이라 불가 판정 시 ready 화면에서 선택 버튼을 `disabled` 처리.
 
 ### DB 스키마 (`supabase/migrations/`)
