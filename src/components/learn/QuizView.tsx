@@ -134,6 +134,12 @@ export default function QuizView({
   // 볼륨 균일화: 저장된 측정값으로 계산한 게인을 적용해 재생한다(미측정 문장은 게인 1.0).
   const playAudio = useCallback(
     (sentence: Sentence) => {
+      // iOS는 음성 인식이 마이크를 잡고 있으면 오디오 세션이 녹음 상태라 재생이 무음이 된다.
+      // onend가 이미 지나갔더라도 남아 있는 인식 객체를 확실히 끊고 재생한다.
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+        recognitionRef.current = null;
+      }
       setIsPlaying(true);
       void play(sentence.audio_url, computeGain(sentence.loudness_db, sentence.peak_db), {
         onEnded: () => setIsPlaying(false),
