@@ -22,6 +22,13 @@ import {
 import { toast } from "sonner";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { computeGain } from "@/lib/audio-loudness";
+import {
+  getSpeechAvailability,
+  isIOS,
+  speechUnavailableMessage,
+  SPEECH_START_TIMEOUT_MS,
+  type SpeechAvailability,
+} from "@/lib/speech-recognition";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import SessionSummary from "@/components/learn/SessionSummary";
 import { incrementPracticeCount } from "@/app/(learn)/learn/review/gamification-actions";
@@ -99,7 +106,9 @@ export default function QuizView({
 }) {
   const router = useRouter();
   const [state, dispatch] = useReducer(reducer, initialState);
-  const [speechSupported, setSpeechSupported] = useState(false);
+  // null = 아직 판정 전(SSR/첫 렌더) — 안내 문구가 깜빡이지 않도록 구분한다.
+  const [speechAvailability, setSpeechAvailability] = useState<SpeechAvailability | null>(null);
+  const speechSupported = speechAvailability === "available";
   const [quizType, setQuizType] = useState<"translate" | "listening">("translate");
   const [mode, setMode] = useState<QuizMode>("speech");
   const [writingActive, setWritingActive] = useState(false);
@@ -107,11 +116,22 @@ export default function QuizView({
   const [isPlaying, setIsPlaying] = useState(false);
   const [isPending, startTransition] = useTransition();
   const recognitionRef = useRef<any>(null);
+  const startWatchdogRef = useRef<NodeJS.Timeout | null>(null);
   const { play, stop: stopAudio } = useAudioPlayer();
   const textInputRef = useRef<HTMLInputElement>(null);
 
+  const clearStartWatchdog = useCallback(() => {
+    if (startWatchdogRef.current) {
+      clearTimeout(startWatchdogRef.current);
+      startWatchdogRef.current = null;
+    }
+  }, []);
+
   useEffect(() => {
-    setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+    setSpeechAvailability(getSpeechAvailability());
+    return () => {
+      if (startWatchdogRef.current) clearTimeout(startWatchdogRef.current);
+    };
   }, []);
 
   useEffect(() => {
@@ -198,13 +218,24 @@ export default function QuizView({
       handleResult(match, text);
     };
 
+    // 실제로 수음이 시작됐다는 신호 — 워치독 해제
+    recognition.onstart = clearStartWatchdog;
+    recognition.onaudiostart = clearStartWatchdog;
+
     recognition.onerror = (event: any) => {
+      clearStartWatchdog();
       // "aborted"(사용자가 중지)·"no-speech"(무음)는 정상/무해 케이스라 로깅 제외
       if (event.error !== "aborted" && event.error !== "no-speech") {
         console.error("[Speech Recognition] 오류:", event.error);
       }
       if (event.error === "not-allowed") {
         toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
+      }
+      // iOS 비-Safari 등 인식 서비스 자체가 없는 환경: 오답 처리하지 않고 복귀
+      if (event.error === "service-not-allowed" || event.error === "language-not-supported") {
+        setSpeechAvailability(isIOS() ? "ios-non-safari" : "unsupported");
+        dispatch({ type: "RETRY" });
+        return;
       }
       // 사용자가 중지 버튼을 누른 경우: 오답 처리하지 않고 질문 화면으로 복귀
       if (event.error === "aborted") {
@@ -215,12 +246,27 @@ export default function QuizView({
     };
 
     recognition.onend = () => {
+      clearStartWatchdog();
       recognitionRef.current = null;
     };
 
     recognitionRef.current = recognition;
     recognition.start();
-  }, [speechSupported, currentSentence, handleResult, speechThreshold]);
+
+    // UA 감지가 빗나간 환경 대비: 수음이 시작되지 않으면 말하기를 비활성화하고 안내한다.
+    // (iOS 비-Safari는 start()가 마이크 권한만 요청하고 어떤 이벤트도 발생시키지 않는다)
+    clearStartWatchdog();
+    startWatchdogRef.current = setTimeout(() => {
+      startWatchdogRef.current = null;
+      if (recognitionRef.current !== recognition) return; // 이미 종료·교체됨
+      recognition.abort();
+      recognitionRef.current = null;
+      const availability = isIOS() ? "ios-non-safari" : "unsupported";
+      setSpeechAvailability(availability);
+      toast.warning(speechUnavailableMessage(availability));
+      dispatch({ type: "RETRY" }); // 오답 처리하지 않고 질문 화면으로 복귀
+    }, SPEECH_START_TIMEOUT_MS);
+  }, [speechSupported, currentSentence, handleResult, speechThreshold, clearStartWatchdog]);
 
   const handleRevealAnswer = useCallback(() => {
     handleResult(false, "");
@@ -272,8 +318,10 @@ export default function QuizView({
             <span className="text-base font-bold">일반 (한국어 → 영어)</span>
             <span className="text-sm font-normal opacity-80">한국어 뜻을 보고 영어로 말하거나 써요.</span>
           </Button>
+          {/* 리스닝은 말하기 전용이라 음성 인식이 안 되는 환경(iOS 비-Safari 등)에서는 선택할 수 없다 */}
           <Button
             variant={quizType === "listening" ? "brand" : "outline"}
+            disabled={speechAvailability !== null && !speechSupported}
             onClick={() => setQuizType("listening")}
             className="h-auto flex-col items-start gap-1 px-5 py-4 text-left"
           >
@@ -281,6 +329,10 @@ export default function QuizView({
             <span className="text-sm font-normal opacity-80">오디오를 듣고 영어 문장을 따라 말해요.</span>
           </Button>
         </div>
+
+        {speechAvailability !== null && !speechSupported && (
+          <p className="text-muted-foreground max-w-md text-sm">{speechUnavailableMessage(speechAvailability)}</p>
+        )}
 
         <Button variant="brand" onClick={() => dispatch({ type: "START" })} className="mt-2 h-14 px-10 text-lg font-bold">
           시작하기
@@ -430,9 +482,10 @@ export default function QuizView({
               )}
             </div>
 
-            {!speechSupported && (
+            {speechAvailability !== null && speechAvailability !== "available" && (
               <p className="text-muted-foreground text-center text-xs">
-                이 브라우저는 음성 인식을 지원하지 않아요.{quizType === "translate" ? " 쓰기로 연습해 주세요." : ""}
+                {speechUnavailableMessage(speechAvailability)}
+                {quizType === "translate" ? " 쓰기로 연습해 주세요." : ""}
               </p>
             )}
 

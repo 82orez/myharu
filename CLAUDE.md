@@ -75,6 +75,15 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 **스피킹 디버그 로그**: `ReviewClient`·`QuizView`의 음성 인식 `onresult`에서 `console.log("[스피킹 인식]", { 인식, 정답, 유사도, 정답여부 })` 출력(브라우저가 인식한 음성 확인용).
 
+### 음성 인식 가용성 (`lib/speech-recognition.ts`)
+
+⚠️ **`"webkitSpeechRecognition" in window`만으로 판단하지 말 것.** iOS는 모든 브라우저가 WebKit이지만 음성 인식은 **Safari 앱 본체에만** 구현돼 있다 — WKWebView 기반(iOS Chrome/Edge/Firefox, 카카오톡·인스타 인앱)은 **생성자는 존재해 검사를 통과**하지만 `start()`가 마이크 권한만 요청하고(Chrome iOS는 "마이크 액세스가 허용됨" 배너) 수음도, `onresult`/`onerror`/`onend`도 **영영 오지 않는다**(= 말하기 버튼이 먹통).
+
+- `getSpeechAvailability()` → `"available" | "ios-non-safari" | "unsupported"`. **UA로 iOS 비-Safari를 먼저 걸러낸 뒤** 생성자를 본다(`IOS_WEBVIEW_UA` = `CriOS|FxiOS|EdgiOS|OPiOS|OPT/|Whale|NAVER|DaumApps|KAKAOTALK|Instagram|FBAN|FBAV|Line/`, iPadOS 13+는 데스크톱 UA라 `maxTouchPoints`로 판별). 안내 문구는 `speechUnavailableMessage`.
+- 두 컴포넌트 모두 `speechAvailability: SpeechAvailability | null` state — **`null`=판정 전(SSR/첫 렌더)** 이라 안내 문구를 안 띄운다(깜빡임 방지). `speechSupported`는 `=== "available"`로 파생.
+- **워치독**(UA 목록에 없는 인앱 브라우저 대비): `start()` 후 `SPEECH_START_TIMEOUT_MS`(3s) 안에 `onstart`/`onaudiostart`가 없으면 abort + availability를 불가로 낮추고 토스트. 이벤트 4종(`onstart`/`onaudiostart`/`onerror`/`onend`)이 모두 `clearStartWatchdog` 호출. `onerror`의 `service-not-allowed`·`language-not-supported`도 같은 판정. QuizView는 이때 오답 처리 대신 `RETRY` dispatch.
+- 퀴즈 **리스닝 세션은 말하기 전용**이라 불가 판정 시 ready 화면에서 선택 버튼을 `disabled` 처리.
+
 ### DB 스키마 (`supabase/migrations/`)
 
 3개 테이블. RLS는 모두 `user_id = auth.uid()`.
@@ -97,7 +106,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - **측정 알고리즘은 `lib/audio-loudness.ts` 하나뿐**(디렉티브 없는 순수 모듈 — 브라우저·서버 액션·Node 스크립트 공용). `measureSamples(Float32Array)` = 무음 게이트(`SILENCE_GATE_DB` -50dB, 앞뒤 공백 긴 녹음의 과증폭 방지) 적용 RMS + 샘플 피크. ⚠️ **여기 말고 다른 곳에서 라우드니스를 계산하지 말 것** — 과거 데이터와 신규 데이터의 게인 기준이 갈라진다.
 - **게인**: `computeGain(loudness_db, peak_db)` = `TARGET_RMS_DB`(-20)까지 올리되 피크가 `PEAK_CEILING_DB`(-1)를 넘지 않는 선에서 clamp, `±12dB` 한계. 값이 NULL/비유한수면 **1.0**(보정 없음) → 미측정 문장도 그냥 재생된다. **파생값이 아닌 원측정값을 저장**하므로 목표 레벨 상수만 바꾸면 재스캔 없이 재조정 가능.
 - **재생**은 `useAudioPlayer` 훅 공용(`ReviewClient`·`QuizView`). `audio.volume`은 0~1이라 **증폭 불가** → Web Audio `GainNode` 사용. ⚠️ `createMediaElementSource`는 **엘리먼트당 1회만** 호출 가능해서 엘리먼트·AudioContext·GainNode를 각각 하나만 만들어 `src`만 교체한다. ⚠️ **`crossOrigin="anonymous"`를 `src` 대입보다 먼저** 설정할 것 — 순서가 바뀌면 크로스 오리진 소스가 taint되어 **예외 없이 무음**이 된다(Supabase Storage는 `access-control-allow-origin: *` 확인됨). 재생 상태(`playingId`/`isPlaying`)는 각 컴포넌트가 계속 소유 — 기존 상호 배제·버튼 비활성 로직 유지용.
-- **iOS 무음 대응(엘리먼트 2개 구조 — 하나로 줄이지 말 것)**: `createMediaElementSource`에 물린 엘리먼트는 소리가 **오직 `ctx.destination`으로만** 나간다. iOS에서 `SpeechRecognition`이 마이크를 잡으면 오디오 세션이 녹음으로 바뀌며 AudioContext가 WebKit 전용 **`"interrupted"`** 상태가 되는데, WKWebView 기반 브라우저(**iOS Chrome 등**)는 복귀하지 못한다 → `el.play()`는 예외 없이 resolve → `onError`도 안 타고 **영구 무음**(Safari는 정상이라 재현이 브라우저별로 갈림). 그래서 `plain`(Web Audio 미연결) + `boosted`(GainNode 경유) 2개를 유지하고, **게인 > 1일 때만** `boosted`를 lazy 생성한다. 재생 전 `tryResume`(`state !== "running"`이면 resume, 실패 시 `RESUME_RETRY_MS` 뒤 1회 더 — `"interrupted"`는 표준 타입에 없어 `!== "running"`으로 통째 판정, `await` 사이 재조회 필요해 `ctx.state as string`)이 running을 못 만들면 **증폭을 포기하고 `plain`으로 폴백**. `ctx.onstatechange`로도 자동 resume. 추가로 `ReviewClient`·`QuizView`의 `playAudio`가 재생 직전 `recognitionRef.current?.abort()`로 마이크 세션을 확실히 놓는다(`onend` 이후 남은 객체 대비).
+- **오디오 세션 인터럽트 대응(엘리먼트 2개 구조 — 하나로 줄이지 말 것)**: `createMediaElementSource`에 물린 엘리먼트는 소리가 **오직 `ctx.destination`으로만** 나간다 → 컨텍스트가 안 돌면 `el.play()`가 예외 없이 resolve되면서 `onError`도 안 타고 **무음**. iOS는 마이크(음성 인식)가 오디오 세션을 녹음으로 가져가면 AudioContext가 WebKit 전용 **`"interrupted"`** 상태가 된다. 그래서 `plain`(Web Audio 미연결) + `boosted`(GainNode 경유) 2개를 유지하고, **게인 > 1일 때만** `boosted`를 lazy 생성한다. 재생 전 `tryResume`(`state !== "running"`이면 resume, 실패 시 `RESUME_RETRY_MS` 뒤 1회 더 — `"interrupted"`는 표준 타입에 없어 `!== "running"`으로 통째 판정, `await` 사이 재조회 필요해 `ctx.state as string`)이 running을 못 만들면 **증폭을 포기하고 `plain`으로 폴백**. `ctx.onstatechange`로도 자동 resume. 추가로 `ReviewClient`·`QuizView`의 `playAudio`가 재생 직전 `recognitionRef.current?.abort()`로 마이크 세션을 확실히 놓는다(`onend` 이후 남은 객체 대비).
 - **신규 저장분**은 브라우저에서 `measureAudioBytes`(decodeAudioData → 모노 다운믹스)로 측정 후 `saveSentence(..., audioStats)`/`updateSentence(..., audioStats)`에 전달, 서버가 `sanitizeAudioStats`로 검증. ⚠️ `decodeAudioData`는 ArrayBuffer를 **detach** 시키므로 base64 인코딩을 먼저 끝낼 것. 측정 실패는 null로 저장하고 저장 자체는 막지 않는다.
 - **기존 파일 백필**: `npm run audio:measure`(`--dry-run`으로 분포 확인, `--force`로 전체 재측정). ffmpeg는 **디코딩에만** 쓰고(`-f f32le -ac 1`) 측정은 공유 모듈에 맡긴다 — `volumedetect`/`ebur128` 파싱 금지(브라우저와 알고리즘 불일치). 되돌리기는 두 컬럼을 NULL로.
 
@@ -141,7 +150,7 @@ src/
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
 ├── hooks/{use-caps-lock,use-selected-voice,use-audio-player}.ts
-├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness}.ts
+├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,speech-recognition}.ts
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts
 ```

@@ -27,6 +27,13 @@ import {
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
 import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
+import {
+  getSpeechAvailability,
+  isIOS,
+  speechUnavailableMessage,
+  SPEECH_START_TIMEOUT_MS,
+  type SpeechAvailability,
+} from "@/lib/speech-recognition";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -142,7 +149,9 @@ export default function ReviewClient({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [saving, startSaving] = useTransition();
-  const [speechSupported, setSpeechSupported] = useState(false);
+  // null = 아직 판정 전(SSR/첫 렌더) — 안내 문구가 깜빡이지 않도록 구분한다.
+  const [speechAvailability, setSpeechAvailability] = useState<SpeechAvailability | null>(null);
+  const speechSupported = speechAvailability === "available";
   const [listeningId, setListeningId] = useState<string | null>(null);
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<"correct" | "incorrect" | null>(null);
@@ -151,11 +160,20 @@ export default function ReviewClient({
   const { play } = useAudioPlayer();
   const recognitionRef = useRef<any>(null);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const startWatchdogRef = useRef<NodeJS.Timeout | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
+
+  const clearStartWatchdog = useCallback(() => {
+    if (startWatchdogRef.current) {
+      clearTimeout(startWatchdogRef.current);
+      startWatchdogRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
+      if (startWatchdogRef.current) clearTimeout(startWatchdogRef.current);
     };
   }, []);
 
@@ -164,7 +182,7 @@ export default function ReviewClient({
   }, [writingId]);
 
   useEffect(() => {
-    setSpeechSupported("SpeechRecognition" in window || "webkitSpeechRecognition" in window);
+    setSpeechAvailability(getSpeechAvailability());
   }, []);
 
   // 볼륨 균일화: 저장된 측정값으로 계산한 게인을 적용해 재생한다(미측정 문장은 게인 1.0).
@@ -264,7 +282,12 @@ export default function ReviewClient({
         });
       };
 
+      // 실제로 수음이 시작됐다는 신호 — 워치독 해제
+      recognition.onstart = clearStartWatchdog;
+      recognition.onaudiostart = clearStartWatchdog;
+
       recognition.onerror = (event: any) => {
+        clearStartWatchdog();
         // "aborted"(사용자가 중지)·"no-speech"(무음)는 정상/무해 케이스라 로깅 제외
         if (event.error !== "aborted" && event.error !== "no-speech") {
           console.error("[Speech Recognition] 오류:", event.error);
@@ -272,10 +295,15 @@ export default function ReviewClient({
         if (event.error === "not-allowed") {
           toast.warning("마이크 접근 권한이 필요합니다. 브라우저 설정에서 마이크 권한을 허용해 주세요.");
         }
+        // iOS 비-Safari 등 인식 서비스 자체가 없는 환경
+        if (event.error === "service-not-allowed" || event.error === "language-not-supported") {
+          setSpeechAvailability(isIOS() ? "ios-non-safari" : "unsupported");
+        }
         setListeningId(null);
       };
 
       recognition.onend = () => {
+        clearStartWatchdog();
         setListeningId(null);
         recognitionRef.current = null;
       };
@@ -283,8 +311,22 @@ export default function ReviewClient({
       recognitionRef.current = recognition;
       setListeningId(sentenceId);
       recognition.start();
+
+      // UA 감지가 빗나간 환경 대비: 수음이 시작되지 않으면 말하기를 비활성화하고 안내한다.
+      // (iOS 비-Safari는 start()가 마이크 권한만 요청하고 어떤 이벤트도 발생시키지 않는다)
+      clearStartWatchdog();
+      startWatchdogRef.current = setTimeout(() => {
+        startWatchdogRef.current = null;
+        if (recognitionRef.current !== recognition) return; // 이미 종료·교체됨
+        recognition.abort();
+        recognitionRef.current = null;
+        setListeningId(null);
+        const availability = isIOS() ? "ios-non-safari" : "unsupported";
+        setSpeechAvailability(availability);
+        toast.warning(speechUnavailableMessage(availability));
+      }, SPEECH_START_TIMEOUT_MS);
     },
-    [speechSupported, startTransition, triggerFeedback, writingId, speechStrict],
+    [speechSupported, startTransition, triggerFeedback, writingId, speechStrict, clearStartWatchdog],
   );
 
   const handleToggleFavorite = useCallback(
@@ -573,10 +615,8 @@ export default function ReviewClient({
         </div>
       )}
 
-      {!speechSupported && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
-          이 브라우저에서는 음성 인식이 지원되지 않습니다. Chrome 또는 Edge 브라우저를 사용해 주세요.
-        </p>
+      {speechAvailability !== null && speechAvailability !== "available" && (
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">{speechUnavailableMessage(speechAvailability)}</p>
       )}
 
       {initialError && (
