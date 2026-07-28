@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import TagPicker from "@/components/learn/TagPicker";
 import VoicePicker from "@/components/learn/VoicePicker";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
+import { voiceLabel, type TtsVoiceId } from "@/lib/tts-voices";
 import { measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
 import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import {
@@ -44,6 +45,8 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioSource, setAudioSource] = useState<AudioSource>("ai");
+  // 현재 미리듣기 음원이 실제로 만들어진 음색. 선택 state(voice)와 분리해야 "음색을 바꿨는데 아직 재생성 안 함"을 알 수 있다.
+  const [previewVoice, setPreviewVoice] = useState<TtsVoiceId | null>(null);
   const [audioMime, setAudioMime] = useState<string>("audio/mpeg");
   const [audioExt, setAudioExt] = useState<string>("mp3");
   // 볼륨 균일화용 측정값. 측정 실패는 null로 두고 저장을 막지 않는다(재생 시 게인 1.0).
@@ -97,6 +100,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setAudioUrl(bytesToBlobUrl(bytes));
       setAudioStats(await measureAudioBytes(bytes.buffer));
       setAudioSource("ai");
+      setPreviewVoice(voice);
       setAudioMime("audio/mpeg");
       setAudioExt("mp3");
       setPhase("preview");
@@ -135,6 +139,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setAudioUrl(URL.createObjectURL(file));
       setAudioStats(stats);
       setAudioSource("upload");
+      setPreviewVoice(null);
       setAudioMime(file.type);
       setAudioExt(ext);
       setPhase("preview");
@@ -159,6 +164,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setAudioBase64(result.audioBase64);
       setAudioUrl(bytesToBlobUrl(bytes));
       setAudioStats(await measureAudioBytes(bytes.buffer));
+      setPreviewVoice(voice);
     });
   }
 
@@ -186,6 +192,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setAudioUrl(null);
       setAudioStats(null);
       setAudioSource("ai");
+      setPreviewVoice(null);
       setAudioMime("audio/mpeg");
       setAudioExt("mp3");
       setPhase("input");
@@ -198,6 +205,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setAudioUrl(null);
     setAudioStats(null);
     setAudioSource("ai");
+    setPreviewVoice(null);
     setAudioMime("audio/mpeg");
     setAudioExt("mp3");
     setError(null);
@@ -292,7 +300,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
             <div className="animate-in fade-in slide-in-from-bottom-2 border-brand/20 bg-brand/5 flex flex-col gap-3 rounded-xl border p-4">
               <div className="text-brand flex items-center gap-2 text-sm font-medium">
                 <Volume2 size={16} />
-                {audioSource === "upload" ? "업로드한 음성" : "음성 미리듣기"}
+                {audioSource === "upload" ? "업로드한 음성" : `음성 미리듣기${previewVoice ? ` · ${voiceLabel(previewVoice)}` : ""}`}
               </div>
               <audio ref={audioRef} src={audioUrl} controls className="w-full" />
             </div>
@@ -339,39 +347,52 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               </Button>
             </div>
           ) : (
-            <div className="mt-2 flex gap-2">
-              {audioSource === "ai" ? (
-                <Button
-                  type="button"
-                  onClick={() => setRegenConfirmOpen(true)}
-                  disabled={pending}
-                  variant="outline"
-                  className="h-12 flex-1 rounded-xl font-bold"
-                >
-                  {generating && <Loader2 className="animate-spin" />}
-                  {generating ? (
-                    "생성 중"
-                  ) : (
-                    <>
-                      <RotateCcw size={16} /> 다시 생성
-                    </>
+            <div className="mt-2 flex flex-col gap-2">
+              {/* 미리듣기 중에도 음색을 다시 고를 수 있다. 고르는 것만으로 재생성하지 않는다(토큰은 "다시 생성"에서만 소모). */}
+              {audioSource === "ai" && (
+                <>
+                  <VoicePicker value={voice} onChange={setVoice} disabled={pending} className="h-12 w-full rounded-xl font-bold" />
+                  {previewVoice && voice !== previewVoice && (
+                    <p className="text-accent-orange animate-in fade-in text-xs">
+                      {`선택한 음성(${voiceLabel(voice)})으로 들으려면 "다시 생성"을 눌러 주세요.`}
+                    </p>
                   )}
-                </Button>
-              ) : (
-                <Button
-                  type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  disabled={pending}
-                  variant="outline"
-                  className="h-12 flex-1 rounded-xl font-bold"
-                >
-                  <Upload size={16} /> 다른 파일 선택
-                </Button>
+                </>
               )}
-              <Button type="button" onClick={handleSave} disabled={pending} variant="brand" className="h-12 flex-1 rounded-xl text-lg font-bold">
-                {saving && <Loader2 className="animate-spin" />}
-                {saving ? "저장 중..." : "저장"}
-              </Button>
+              <div className="flex gap-2">
+                {audioSource === "ai" ? (
+                  <Button
+                    type="button"
+                    onClick={() => setRegenConfirmOpen(true)}
+                    disabled={pending}
+                    variant="outline"
+                    className="h-12 flex-1 rounded-xl font-bold"
+                  >
+                    {generating && <Loader2 className="animate-spin" />}
+                    {generating ? (
+                      "생성 중"
+                    ) : (
+                      <>
+                        <RotateCcw size={16} /> 다시 생성
+                      </>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={pending}
+                    variant="outline"
+                    className="h-12 flex-1 rounded-xl font-bold"
+                  >
+                    <Upload size={16} /> 다른 파일 선택
+                  </Button>
+                )}
+                <Button type="button" onClick={handleSave} disabled={pending} variant="brand" className="h-12 flex-1 rounded-xl text-lg font-bold">
+                  {saving && <Loader2 className="animate-spin" />}
+                  {saving ? "저장 중..." : "저장"}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -405,7 +426,9 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>음성을 다시 생성할까요?</AlertDialogTitle>
-                <AlertDialogDescription>현재 미리듣기 음성이 새 음성으로 교체됩니다.</AlertDialogDescription>
+                <AlertDialogDescription>
+                  선택한 음성({voiceLabel(voice)})으로 새로 만듭니다. 현재 미리듣기 음성이 교체되고 Token이 소모됩니다.
+                </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
                 <AlertDialogCancel>취소</AlertDialogCancel>

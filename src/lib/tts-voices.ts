@@ -33,6 +33,10 @@ export function isValidVoice(value: unknown): value is TtsVoiceId {
   return typeof value === "string" && VOICE_IDS.has(value);
 }
 
+export function voiceLabel(id: TtsVoiceId): string {
+  return TTS_VOICES.find((v) => v.id === id)?.label ?? id;
+}
+
 export function voiceModel(id: TtsVoiceId): TtsModel {
   return TTS_VOICES.find((v) => v.id === id)?.model ?? DEFAULT_TTS_MODEL;
 }
