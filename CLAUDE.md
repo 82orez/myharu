@@ -98,9 +98,9 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 ### OpenAI (`lib/openai.ts`)
 
-`"server-only"`, 싱글턴. `OPENAI_API_KEY` 미설정 시 throw. TTS: `tts-1`/mp3, 음성은 선택형.
+`"server-only"`, 싱글턴. `OPENAI_API_KEY` 미설정 시 throw. TTS: mp3, 모델·음성은 선택형(아래).
 
-**음성 선택** (`lib/tts-voices.ts`): `tts-1` 지원 3종(`alloy`/`onyx`/`nova`). 클라/서버 공용이라 **`"server-only"` 금지**. `generateAudio(text, voice?)`는 `isValidVoice`로 검증 후 미지정/무효 시 `DEFAULT_VOICE`(alloy) fallback. 선택 UI는 `VoicePicker`(Dialog), 마지막 선택은 `useSelectedVoice` 훅이 localStorage(`myharu:tts-voice`)에 기억(SSR-safe: 초기값 default → mount 후 보정). `InputForm`·`ReviewClient`(편집 재생성)에서 사용.
+**음성 선택** (`lib/tts-voices.ts`): 5종 — `alloy`/`onyx`/`nova`(`tts-1`) + `ash`/`coral`(신규 음색이라 `tts-1`에서 품질 미보장 → 항목의 `model: "gpt-4o-mini-tts"`로 분기). 클라/서버 공용이라 **`"server-only"` 금지**. `generateAudio(text, voice?)`는 `isValidVoice`로 검증 후 미지정/무효 시 `DEFAULT_VOICE`(alloy) fallback, 모델은 `voiceModel(voice)`(미지정 음색은 `DEFAULT_TTS_MODEL`=`tts-1`). 음색 추가 시 `TTS_VOICES`만 수정하면 UI·검증·localStorage에 자동 반영. 선택 UI는 `VoicePicker`(Dialog), 마지막 선택은 `useSelectedVoice` 훅이 localStorage(`myharu:tts-voice`)에 기억(SSR-safe: 초기값 default → mount 후 보정). `InputForm`·`ReviewClient`(편집 재생성)에서 사용.
 
 ### 오디오 볼륨 균일화 (`lib/audio-loudness.ts` + `hooks/use-audio-player.ts`)
 

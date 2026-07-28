@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 import { sanitizeTags } from "@/lib/tags";
-import { DEFAULT_VOICE, isValidVoice } from "@/lib/tts-voices";
+import { DEFAULT_VOICE, isValidVoice, voiceModel } from "@/lib/tts-voices";
 import { sanitizeAudioStats, type AudioStats } from "@/lib/audio-loudness";
 
 export type GenerateAudioResult = { audioBase64: string } | { error: string };
@@ -34,7 +34,7 @@ export async function generateAudio(englishText: string, voice?: string): Promis
   try {
     const openai = getOpenAIClient();
     const mp3Response = await openai.audio.speech.create({
-      model: "tts-1",
+      model: voiceModel(safeVoice),
       voice: safeVoice,
       input: text,
       response_format: "mp3",
