@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Mic, Target, ListChecks, Tag, AlertTriangle, Mail } from "lucide-react";
+import { Mic, Target, ListChecks, Tag, AlertTriangle, Mail, Volume2 } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { fetchUserStats } from "@/lib/gamification";
 import { getTagPresets } from "@/app/(learn)/learn/tag-actions";
@@ -10,6 +10,7 @@ import { DAILY_PRACTICE_GOAL } from "@/lib/settings-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import SpeechStrictField from "@/components/settings/SpeechStrictField";
+import FeedbackSoundField from "@/components/settings/FeedbackSoundField";
 import TagManagerCard from "@/components/settings/TagManagerCard";
 import DeleteAllSentences from "@/components/settings/DeleteAllSentences";
 
@@ -87,6 +88,9 @@ export default async function SettingsPage() {
         <CardContent className="pt-0">
           <Row icon={<Mic size={16} />} label="스피킹 채점 난이도" description="말하기 정답 인정 기준 (쓰기는 항상 보통 기준)">
             <SpeechStrictField initialStrict={stats?.speech_strict ?? false} />
+          </Row>
+          <Row icon={<Volume2 size={16} />} label="효과음" description="정답·오답 알림음 (이 기기에만 적용)">
+            <FeedbackSoundField />
           </Row>
           <Row icon={<Target size={16} />} label="하루 목표" description="고정값이며 변경할 수 없습니다.">
             <span className="text-sm font-semibold tabular-nums">연습 {DAILY_PRACTICE_GOAL.toLocaleString()}회</span>

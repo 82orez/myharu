@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { computeGain } from "@/lib/audio-loudness";
+import { playFeedbackSound } from "@/lib/feedback-sound";
 import {
   getSpeechAvailability,
   unavailableKind,
@@ -181,6 +182,7 @@ export default function QuizView({
     (isCorrect: boolean, recognizedText: string) => {
       if (!currentSentence) return;
 
+      playFeedbackSound(isCorrect ? "correct" : "incorrect");
       dispatch({
         type: "SHOW_RESULT",
         sentenceId: currentSentence.id,

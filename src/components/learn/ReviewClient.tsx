@@ -64,6 +64,7 @@ import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { computeGain, measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
 import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
+import { playFeedbackSound } from "@/lib/feedback-sound";
 import { toast } from "sonner";
 
 type SortMode = "latest" | "oldest" | "alpha" | "practice-desc" | "practice-asc";
@@ -248,6 +249,8 @@ export default function ReviewClient({
       const trimmed = textInput.trim();
       if (!trimmed) return;
       const { match } = textsMatch(trimmed, targetText);
+      // 판정 즉시 소리 — 서버 왕복(recordPracticeResult)을 기다리면 늦게 울린다
+      playFeedbackSound(match ? "correct" : "incorrect");
       startTransition(async () => {
         const result = await recordPracticeResult(sentenceId, match, "text");
         if (result.error) {
@@ -295,6 +298,8 @@ export default function ReviewClient({
         const threshold = speechStrict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
         const { match, similarity } = textsMatch(recognizedText, targetText, threshold);
         console.log("[스피킹 인식]", { 인식: recognizedText, 정답: targetText, 유사도: similarity, 정답여부: match });
+        // 판정 즉시 소리 — 서버 왕복(recordPracticeResult)을 기다리면 늦게 울린다
+        playFeedbackSound(match ? "correct" : "incorrect");
         startTransition(async () => {
           const result = await recordPracticeResult(sentenceId, match, "speech");
           if (result.error) {

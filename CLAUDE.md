@@ -75,6 +75,13 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 **스피킹 디버그 로그**: `ReviewClient`·`QuizView`의 음성 인식 `onresult`에서 `console.log("[스피킹 인식]", { 인식, 정답, 유사도, 정답여부 })` 출력(브라우저가 인식한 음성 확인용).
 
+### 정답/오답 알림음 (`lib/feedback-sound.ts`)
+
+짧은 톤을 **코드로 합성**(사인파+지수 감쇠 → 16bit WAV 인코딩 → Blob URL)해 재생. 에셋 파일 없음, 종류별 엘리먼트 1개 lazy 생성 후 재사용. 정답=상승 2음(880→1319Hz, 0.25s), 오답=하강 2음(320→200Hz, 0.3s), 피크 0.35(문장 음성보다 작게) — 음색·볼륨은 `TONES`/`PEAK` 상수만 수정.
+- ⚠️ **재생에 Web Audio(AudioContext)를 쓰지 말 것**(plain `HTMLAudioElement` 유지). 알림음은 하필 음성 인식 직후에 울리는데, iOS는 마이크가 오디오 세션을 잡으면 AudioContext가 `"interrupted"`가 되어 예외 없이 무음이 된다(`use-audio-player.ts`의 2엘리먼트 구조와 같은 이유). 합성도 오실레이터/OfflineAudioContext가 아닌 **순수 JS 계산**으로 한다.
+- 호출은 **`textsMatch` 판정 직후 3곳**(`ReviewClient`의 음성 `onresult`·`handleTextSubmit`, `QuizView.handleResult`) — `triggerFeedback`은 `await recordPracticeResult` 뒤라 거기 넣으면 소리가 늦는다. 시각 피드백(링/shake/토스트)은 기존대로 유지.
+- 켜기/끄기는 `localStorage("myharu:feedback-sound")`(`"off"`만 저장, 기본 켜짐, **재생 때마다 읽어** 다른 탭 변경도 즉시 반영). UI는 `/settings` 학습 섹션 `FeedbackSoundField`(기기별 설정이라 DB 컬럼 없음, "켜기" 누르면 정답음 미리 재생).
+
 ### 음성 인식 가용성 (`lib/speech-recognition.ts`)
 
 ⚠️ **`"webkitSpeechRecognition" in window`만으로 판단하지 말 것.** iOS WKWebView 기반 브라우저(iOS Chrome/Edge/Firefox, 카카오톡·인스타 인앱)는 **생성자가 존재해 검사를 통과**하지만, 실제 인식은 embed한 앱이 마이크·음성 인식 usage description과 권한 델리게이트를 갖췄을 때만 동작한다. 안 갖춰진 앱에선 `start()`가 마이크 권한만 요청하고(Chrome iOS는 "마이크 액세스가 허용됨" 배너) 수음도, `onresult`/`onerror`/`onend`도 **영영 오지 않는다**(= 말하기 버튼이 먹통).
@@ -146,14 +153,14 @@ src/
 │   ├── auth/                  # LoginForm/SignupForm/ForgotPasswordForm/ResetPasswordForm/KakaoButton/AuthHashHandler/AuthLayout
 │   ├── learn/                 # LearnModeTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/TagManager/VoicePicker/GoalProgressCard/PersonalMessageCard/LearningCalendar
 │   ├── ui/                    # shadcn
-│   ├── settings/              # SpeechStrictField(즉시 저장)/TagManagerCard/DeleteAllSentences
+│   ├── settings/              # SpeechStrictField(즉시 저장)/FeedbackSoundField(localStorage)/TagManagerCard/DeleteAllSentences
 │   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=문장 입력/연습하기/설정 메뉴
 │   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/입력/연습/프로필), md:hidden
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
 ├── hooks/{use-caps-lock,use-selected-voice,use-audio-player}.ts
-├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,speech-recognition}.ts
+├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,feedback-sound,speech-recognition}.ts
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts
 ```
