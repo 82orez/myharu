@@ -5,8 +5,8 @@ import { usePathname } from "next/navigation";
 import { BookOpen, List } from "lucide-react";
 
 const tabs = [
-  { href: "/learn/review", label: "문장 목록", Icon: List },
-  { href: "/learn/quiz", label: "퀴즈", Icon: BookOpen },
+  { href: "/learn/review", label: "학습 모드", Icon: List },
+  { href: "/learn/quiz", label: "퀴즈 모드", Icon: BookOpen },
 ] as const;
 
 export default function LearnModeTabs() {
