@@ -4,7 +4,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 import { sanitizeTags } from "@/lib/tags";
-import { DEFAULT_VOICE, isValidVoice, voiceModel } from "@/lib/tts-voices";
+import { DEFAULT_VOICE, isValidVoice, voiceModel, voiceSpeed } from "@/lib/tts-voices";
 import { sanitizeAudioStats, type AudioStats } from "@/lib/audio-loudness";
 import { ALLOWED_AUDIO, ALLOWED_EXT, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 
@@ -39,6 +39,8 @@ export async function generateAudio(englishText: string, voice?: string): Promis
       voice: safeVoice,
       input: text,
       response_format: "mp3",
+      // 음색별 속도 보정(미지정이면 API 기본 1.0) — tts-voices.ts 참고
+      speed: voiceSpeed(safeVoice),
     });
     const arrayBuffer = await mp3Response.arrayBuffer();
     const audioBase64 = Buffer.from(arrayBuffer).toString("base64");
