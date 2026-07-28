@@ -914,25 +914,29 @@ export default function ReviewClient({
                         {revealedIds.has(sentence.id) ? "정답 숨기기" : "정답 보기"}
                       </Button>
 
-                      {sentence.note && (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          disabled={isBusy}
-                          onClick={() =>
-                            setNotesShownIds((prev) => {
-                              const next = new Set(prev);
-                              if (next.has(sentence.id)) next.delete(sentence.id);
-                              else next.add(sentence.id);
-                              return next;
-                            })
-                          }
-                          className={notesShownIds.has(sentence.id) ? "text-brand" : "text-muted-foreground hover:text-brand"}
-                        >
-                          <StickyNote className="mr-1 h-4 w-4" />
-                          메모
-                        </Button>
-                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isBusy || !sentence.note}
+                        onClick={() =>
+                          setNotesShownIds((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(sentence.id)) next.delete(sentence.id);
+                            else next.add(sentence.id);
+                            return next;
+                          })
+                        }
+                        className={
+                          !sentence.note
+                            ? "text-muted-foreground/40"
+                            : notesShownIds.has(sentence.id)
+                              ? "text-brand"
+                              : "text-foreground hover:text-brand"
+                        }
+                      >
+                        <StickyNote className="mr-1 h-4 w-4" />
+                        메모
+                      </Button>
 
                       <Button
                         variant="ghost"
