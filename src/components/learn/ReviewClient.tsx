@@ -23,6 +23,9 @@ import {
   X,
   Plus,
   StickyNote,
+  Upload,
+  RotateCcw,
+  Undo2,
 } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
@@ -54,11 +57,13 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import TagPicker from "@/components/learn/TagPicker";
+import VoicePicker from "@/components/learn/VoicePicker";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { tagColorClass, tagChipClass } from "@/lib/tag-color";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { computeGain, measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
+import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import { toast } from "sonner";
 
 type SortMode = "latest" | "oldest" | "alpha" | "practice-desc" | "practice-asc";
@@ -106,14 +111,24 @@ function rangeCutoff(range: DayRange): string | null {
   return kstDate(new Date(Date.now() - (days - 1) * 86400000).toISOString());
 }
 
+// 편집 중 교체 대기 상태인 새 음성. 저장을 눌러야 실제로 반영된다(취소하면 폐기).
+type StagedAudio = {
+  base64: string;
+  mime: string;
+  ext: string;
+  stats: AudioStats | null;
+  url: string; // 미리듣기용 blob URL
+  source: "ai" | "upload";
+};
+
 type EditState = {
   id: string;
   englishText: string;
   koreanText: string;
-  originalEnglish: string;
-  regenAudio: boolean;
   tags: string[];
   note: string;
+  currentAudioUrl: string; // 기존 음성(서명 URL) — 미리듣기용
+  newAudio: StagedAudio | null;
 };
 
 export default function ReviewClient({
@@ -129,7 +144,7 @@ export default function ReviewClient({
 }) {
   const [sentences, setSentences] = useState(initialSentences);
   const [presets, setPresets] = useState<string[]>(initialPresets);
-  const [voice] = useSelectedVoice();
+  const [voice, setVoice] = useSelectedVoice();
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   // 입력일 기간 프리셋(DAY_RANGES)
   const [dayFilter, setDayFilter] = useState<DayRange>("all");
@@ -151,6 +166,9 @@ export default function ReviewClient({
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [editing, setEditing] = useState<EditState | null>(null);
   const [saving, startSaving] = useTransition();
+  const [regenerating, startRegenerating] = useTransition();
+  // AI 음성 재생성 확인(토큰 소모) 다이얼로그
+  const [regenConfirmOpen, setRegenConfirmOpen] = useState(false);
   // null = 아직 판정 전(SSR/첫 렌더) — 안내 문구가 깜빡이지 않도록 구분한다.
   const [speechAvailability, setSpeechAvailability] = useState<SpeechAvailability | null>(null);
   const speechSupported = speechAvailability === "available";
@@ -164,6 +182,9 @@ export default function ReviewClient({
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startWatchdogRef = useRef<NodeJS.Timeout | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
+  const editFileInputRef = useRef<HTMLInputElement>(null);
+  // 스테이징된 음성의 blob URL — 교체/취소/저장/언마운트 시 해제해야 해서 ref로도 들고 있는다
+  const stagedAudioUrlRef = useRef<string | null>(null);
 
   // 수음이 실제로 시작됨 — 워치독 해제 + 과거 실패 기록 폐기
   const clearStartWatchdog = useCallback(() => {
@@ -376,47 +397,109 @@ export default function ReviewClient({
     [startTransition],
   );
 
+  // 스테이징된 음성의 blob URL 해제 (교체/취소/저장/언마운트 공용)
+  const revokeStagedAudio = useCallback(() => {
+    if (stagedAudioUrlRef.current) {
+      URL.revokeObjectURL(stagedAudioUrlRef.current);
+      stagedAudioUrlRef.current = null;
+    }
+  }, []);
+
+  useEffect(() => revokeStagedAudio, [revokeStagedAudio]);
+
   const startEditing = (sentence: Sentence) => {
     if (writingId !== null) {
       setWritingId(null);
       setTextInput("");
     }
+    revokeStagedAudio();
     setEditing({
       id: sentence.id,
       englishText: sentence.english_text,
       koreanText: sentence.korean_text,
-      originalEnglish: sentence.english_text,
-      regenAudio: true,
       tags: sentence.tags,
       note: sentence.note,
+      currentAudioUrl: sentence.audio_url,
+      newAudio: null,
     });
   };
 
-  const cancelEditing = () => setEditing(null);
+  const cancelEditing = () => {
+    revokeStagedAudio();
+    setEditing(null);
+  };
+
+  // 새 음성을 스테이징(이전 스테이징 blob은 해제). 저장 전까지 서버는 건드리지 않는다.
+  const stageAudio = (staged: Omit<StagedAudio, "url">, blobUrl: string) => {
+    revokeStagedAudio();
+    stagedAudioUrlRef.current = blobUrl;
+    setEditing((prev) => (prev ? { ...prev, newAudio: { ...staged, url: blobUrl } } : prev));
+  };
+
+  const revertStagedAudio = () => {
+    revokeStagedAudio();
+    setEditing((prev) => (prev ? { ...prev, newAudio: null } : prev));
+  };
+
+  // AI 음성 재생성 — 영어 문장 수정 여부와 무관하게 언제든 가능
+  const handleRegenAudio = () => {
+    if (!editing) return;
+    const english = editing.englishText.trim();
+    if (!english) {
+      toast.error("영어 문장을 입력해 주세요.");
+      return;
+    }
+
+    startRegenerating(async () => {
+      const result = await generateAudio(english, voice);
+      if ("error" in result) {
+        toast.error(result.error);
+        return;
+      }
+      const bytes = Uint8Array.from(atob(result.audioBase64), (c) => c.charCodeAt(0));
+      const blobUrl = URL.createObjectURL(new Blob([bytes], { type: "audio/mpeg" }));
+      // 음성을 새로 만들었으니 볼륨 균일화용 측정값도 다시 구한다
+      const stats = await measureAudioBytes(bytes.buffer);
+      stageAudio({ base64: result.audioBase64, mime: "audio/mpeg", ext: "mp3", stats, source: "ai" }, blobUrl);
+    });
+  };
+
+  const handleEditFileSelected = async (file: File) => {
+    const ext = ALLOWED_AUDIO[file.type];
+    if (!file.type.startsWith("audio/") || !ext) {
+      toast.error(AUDIO_FORMAT_ERROR);
+      return;
+    }
+    if (file.size > MAX_AUDIO_BYTES) {
+      toast.error(AUDIO_SIZE_ERROR);
+      return;
+    }
+
+    try {
+      const buffer = await file.arrayBuffer();
+      // base64 인코딩을 먼저 끝낸다 — measureAudioBytes 내부의 decodeAudioData가 버퍼를 detach 시킬 수 있다
+      const base64 = arrayBufferToBase64(buffer);
+      const stats = await measureAudioBytes(buffer);
+      stageAudio({ base64, mime: file.type, ext, stats, source: "upload" }, URL.createObjectURL(file));
+    } catch {
+      toast.error("파일을 읽는 중 오류가 발생했습니다. 다시 시도해 주세요.");
+    }
+  };
 
   const handleSaveEdit = () => {
     if (!editing) return;
 
-    const englishChanged = editing.englishText.trim() !== editing.originalEnglish;
-    const needRegen = englishChanged && editing.regenAudio;
+    const newAudio = editing.newAudio;
 
     startSaving(async () => {
-      let audioBase64: string | undefined;
-      let audioStats: AudioStats | null = null;
-
-      if (needRegen) {
-        const audioResult = await generateAudio(editing.englishText, voice);
-        if ("error" in audioResult) {
-          toast.error(audioResult.error);
-          return;
-        }
-        audioBase64 = audioResult.audioBase64;
-        // 음성을 새로 만들었으니 볼륨 균일화용 측정값도 다시 구한다
-        const bytes = Uint8Array.from(atob(audioBase64), (c) => c.charCodeAt(0));
-        audioStats = await measureAudioBytes(bytes.buffer);
-      }
-
-      const result = await updateSentence(editing.id, editing.englishText, editing.koreanText, audioBase64, editing.tags, editing.note, audioStats);
+      const result = await updateSentence(
+        editing.id,
+        editing.englishText,
+        editing.koreanText,
+        editing.tags,
+        editing.note,
+        newAudio ? { base64: newAudio.base64, mime: newAudio.mime, ext: newAudio.ext, stats: newAudio.stats } : undefined,
+      );
 
       if ("error" in result) {
         toast.error(result.error);
@@ -433,18 +516,21 @@ export default function ReviewClient({
                 audio_url: result.audioUrl,
                 tags: editing.tags,
                 note: editing.note.trim(),
-                // 음성을 재생성한 경우에만 측정값 교체 — 다음 재생에 새 게인이 반영되도록
-                ...(needRegen ? { loudness_db: audioStats?.loudnessDb ?? null, peak_db: audioStats?.peakDb ?? null } : {}),
+                // 음성을 교체한 경우에만 측정값 교체 — 다음 재생에 새 게인이 반영되도록
+                ...(newAudio ? { loudness_db: newAudio.stats?.loudnessDb ?? null, peak_db: newAudio.stats?.peakDb ?? null } : {}),
               }
             : s,
         ),
       );
       toast.success("문장이 수정되었습니다.");
+      revokeStagedAudio();
       setEditing(null);
     });
   };
 
   const isEditing = editing !== null;
+  // 편집 폼 내 작업 진행 중(저장 또는 AI 음성 생성) — 폼 버튼 전체 비활성용
+  const editPending = saving || regenerating;
   const isBusy = playingId !== null || isEditing || listeningId !== null || writingId !== null;
 
   // 전체 문장의 distinct 태그(태그 필터 칩 / 편집 자동완성용)
@@ -627,7 +713,9 @@ export default function ReviewClient({
       )}
 
       {speechAvailability !== null && speechAvailability !== "available" && (
-        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">{speechUnavailableMessage(speechAvailability)}</p>
+        <p className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
+          {speechUnavailableMessage(speechAvailability)}
+        </p>
       )}
 
       {initialError && (
@@ -717,31 +805,92 @@ export default function ReviewClient({
                         className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[140px] w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
                       />
                     </div>
-                    {editing.englishText.trim() !== editing.originalEnglish && (
-                      <label className="text-muted-foreground flex items-center gap-2 text-sm">
-                        <input
-                          type="checkbox"
-                          checked={editing.regenAudio}
-                          onChange={(e) => setEditing({ ...editing, regenAudio: e.target.checked })}
-                          className="accent-brand h-4 w-4 rounded"
-                        />
-                        음성 재생성
-                      </label>
-                    )}
+                    <div className="flex flex-col gap-1.5">
+                      <Label className="text-muted-foreground text-xs">
+                        {editing.newAudio ? (
+                          <span className="text-brand">
+                            새 음성 ({editing.newAudio.source === "upload" ? "업로드" : "AI 생성"}) · 저장하면 교체됩니다
+                          </span>
+                        ) : (
+                          "음성"
+                        )}
+                      </Label>
+                      {/* 미리듣기는 폼 로컬 audio 엘리먼트 — 카드 재생용 useAudioPlayer(싱글턴 + Web Audio)와 섞지 않는다 */}
+                      <audio src={editing.newAudio?.url ?? editing.currentAudioUrl} controls className="w-full" />
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setRegenConfirmOpen(true)}
+                          disabled={editPending || !editing.englishText.trim()}
+                        >
+                          {regenerating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-1 h-4 w-4" />}
+                          {regenerating ? "생성 중..." : "AI 음성 재생성"}
+                        </Button>
+                        <VoicePicker value={voice} onChange={setVoice} disabled={editPending} className="h-8 gap-1 px-3 text-xs" />
+                        <Button variant="outline" size="sm" onClick={() => editFileInputRef.current?.click()} disabled={editPending}>
+                          <Upload className="mr-1 h-4 w-4" />
+                          음원 파일 업로드
+                        </Button>
+                        {editing.newAudio && (
+                          <Button variant="ghost" size="sm" onClick={revertStagedAudio} disabled={editPending} className="text-muted-foreground">
+                            <Undo2 className="mr-1 h-4 w-4" />
+                            되돌리기
+                          </Button>
+                        )}
+                      </div>
+                      <input
+                        ref={editFileInputRef}
+                        type="file"
+                        accept="audio/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) handleEditFileSelected(file);
+                          e.target.value = ""; // 같은 파일 재선택 허용
+                        }}
+                      />
+                    </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={cancelEditing} disabled={saving}>
+                      <Button variant="outline" size="sm" onClick={cancelEditing} disabled={editPending}>
                         취소
                       </Button>
                       <Button
                         variant="brand"
                         size="sm"
                         onClick={handleSaveEdit}
-                        disabled={saving || !editing.englishText.trim() || !editing.koreanText.trim()}
+                        disabled={editPending || !editing.englishText.trim() || !editing.koreanText.trim()}
                       >
                         {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                         {saving ? "저장 중..." : "저장"}
                       </Button>
                     </div>
+
+                    <AlertDialog open={regenConfirmOpen} onOpenChange={setRegenConfirmOpen}>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>AI 음성을 생성할까요?</AlertDialogTitle>
+                          <AlertDialogDescription render={<div />}>
+                            <ul className="list-disc space-y-1 pl-5 text-left">
+                              <li>현재 편집 중인 영어 문장으로 새 음성을 만듭니다.</li>
+                              <li>확인 버튼을 클릭하면 Token이 소모됩니다.</li>
+                            </ul>
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>취소</AlertDialogCancel>
+                          <AlertDialogAction
+                            variant="brand"
+                            onClick={() => {
+                              setRegenConfirmOpen(false);
+                              handleRegenAudio();
+                            }}
+                          >
+                            확인
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                 ) : (
                   <>

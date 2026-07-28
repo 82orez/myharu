@@ -13,6 +13,7 @@ import TagPicker from "@/components/learn/TagPicker";
 import VoicePicker from "@/components/learn/VoicePicker";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
+import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,31 +29,6 @@ const MAX_LENGTH = 500;
 const WARN_THRESHOLD = 450;
 const NOTE_MAX_LENGTH = 1000;
 const NOTE_WARN_THRESHOLD = 900;
-const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10MB
-
-// 업로드 허용 오디오 포맷 (mime → 확장자)
-const ALLOWED_AUDIO: Record<string, string> = {
-  "audio/mpeg": "mp3",
-  "audio/mp3": "mp3",
-  "audio/wav": "wav",
-  "audio/x-wav": "wav",
-  "audio/mp4": "m4a",
-  "audio/x-m4a": "m4a",
-  "audio/aac": "aac",
-  "audio/ogg": "ogg",
-  "audio/webm": "webm",
-};
-
-// ArrayBuffer → base64 (큰 파일도 안전하게 청크 처리)
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)));
-  }
-  return btoa(binary);
-}
 
 type Phase = "input" | "preview" | "saving";
 type AudioSource = "ai" | "upload";
@@ -141,11 +117,11 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
 
     const ext = ALLOWED_AUDIO[file.type];
     if (!file.type.startsWith("audio/") || !ext) {
-      setError("오디오 파일만 업로드할 수 있습니다. (mp3, wav, m4a, aac, ogg, webm)");
+      setError(AUDIO_FORMAT_ERROR);
       return;
     }
     if (file.size > MAX_AUDIO_BYTES) {
-      setError("파일 크기는 10MB 이하여야 합니다.");
+      setError(AUDIO_SIZE_ERROR);
       return;
     }
 

@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { sanitizeTags } from "@/lib/tags";
 import { sanitizeAudioStats, type AudioStats } from "@/lib/audio-loudness";
+import { ALLOWED_AUDIO, ALLOWED_EXT, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import type { Tables } from "@/types/database.types";
 
 // sentences Row에서 audio_path/user_id를 빼고, 서명 URL(audio_url)을 더한 앱 표현형
@@ -79,14 +80,16 @@ export async function toggleFavorite(id: string, isFavorite: boolean): Promise<{
 
 export type UpdateSentenceResult = { audioUrl: string } | { error: string };
 
+// 편집 폼에서 교체할 새 음성(AI 재생성 또는 업로드 파일). 없으면 기존 음성을 그대로 둔다.
+export type NewAudioInput = { base64: string; mime: string; ext: string; stats: AudioStats | null };
+
 export async function updateSentence(
   id: string,
   englishText: string,
   koreanText: string,
-  newAudioBase64?: string,
   tags?: string[],
   note?: string,
-  audioStats?: AudioStats | null,
+  newAudio?: NewAudioInput,
 ): Promise<UpdateSentenceResult> {
   const english = englishText.trim();
   const korean = koreanText.trim();
@@ -101,6 +104,11 @@ export async function updateSentence(
 
   if (korean.length > 500) {
     return { error: "한국어 뜻은 500자 이내로 입력해 주세요." };
+  }
+
+  // 음성 교체 요청이면 saveSentence와 동일한 기준으로 포맷을 검증한다
+  if (newAudio && (!ALLOWED_AUDIO[newAudio.mime] || !ALLOWED_EXT.has(newAudio.ext))) {
+    return { error: "지원하지 않는 오디오 형식입니다." };
   }
 
   const supabase = createClient(await cookies());
@@ -120,13 +128,18 @@ export async function updateSentence(
 
   let audioPath = existing.audio_path;
 
-  if (newAudioBase64) {
-    const audioBuffer = Buffer.from(newAudioBase64, "base64");
+  if (newAudio) {
+    const audioBuffer = Buffer.from(newAudio.base64, "base64");
+
+    if (audioBuffer.length > MAX_AUDIO_BYTES) {
+      return { error: AUDIO_SIZE_ERROR };
+    }
+
     const fileId = crypto.randomUUID();
-    const newPath = `${user.id}/${fileId}.mp3`;
+    const newPath = `${user.id}/${fileId}.${newAudio.ext}`;
 
     const { error: uploadError } = await supabase.storage.from("tts-audio").upload(newPath, audioBuffer, {
-      contentType: "audio/mpeg",
+      contentType: newAudio.mime,
       upsert: false,
     });
 
@@ -156,8 +169,8 @@ export async function updateSentence(
   if (note !== undefined) updatePayload.note = note.trim().slice(0, 1000);
 
   // 오디오를 교체한 경우에만 측정값을 갱신한다. 텍스트/태그/메모만 고친 편집은 기존 측정값을 유지.
-  if (newAudioBase64) {
-    const stats = sanitizeAudioStats(audioStats);
+  if (newAudio) {
+    const stats = sanitizeAudioStats(newAudio.stats);
     updatePayload.loudness_db = stats?.loudnessDb ?? null;
     updatePayload.peak_db = stats?.peakDb ?? null;
   }

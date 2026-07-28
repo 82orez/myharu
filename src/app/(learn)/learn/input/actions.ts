@@ -6,6 +6,7 @@ import { getOpenAIClient } from "@/lib/openai";
 import { sanitizeTags } from "@/lib/tags";
 import { DEFAULT_VOICE, isValidVoice, voiceModel } from "@/lib/tts-voices";
 import { sanitizeAudioStats, type AudioStats } from "@/lib/audio-loudness";
+import { ALLOWED_AUDIO, ALLOWED_EXT, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 
 export type GenerateAudioResult = { audioBase64: string } | { error: string };
 export type SaveSentenceResult = { success: string } | { error: string };
@@ -47,21 +48,6 @@ export async function generateAudio(englishText: string, voice?: string): Promis
     return { error: "음성 생성 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요." };
   }
 }
-
-// 업로드 허용 오디오 포맷 화이트리스트 (mime → 확장자)
-const ALLOWED_AUDIO: Record<string, string> = {
-  "audio/mpeg": "mp3",
-  "audio/mp3": "mp3",
-  "audio/wav": "wav",
-  "audio/x-wav": "wav",
-  "audio/mp4": "m4a",
-  "audio/x-m4a": "m4a",
-  "audio/aac": "aac",
-  "audio/ogg": "ogg",
-  "audio/webm": "webm",
-};
-const ALLOWED_EXT = new Set(["mp3", "wav", "m4a", "aac", "ogg", "webm"]);
-const MAX_AUDIO_BYTES = 10 * 1024 * 1024; // 10MB
 
 export async function saveSentence(
   englishText: string,
@@ -110,7 +96,7 @@ export async function saveSentence(
   const audioBuffer = Buffer.from(audioBase64, "base64");
 
   if (audioBuffer.length > MAX_AUDIO_BYTES) {
-    return { error: "파일 크기는 10MB 이하여야 합니다." };
+    return { error: AUDIO_SIZE_ERROR };
   }
 
   const fileId = crypto.randomUUID();

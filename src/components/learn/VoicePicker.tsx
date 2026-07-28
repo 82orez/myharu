@@ -22,10 +22,13 @@ export default function VoicePicker({
   value,
   onChange,
   disabled,
+  className = "h-12 rounded-xl font-bold",
 }: {
   value: TtsVoiceId;
   onChange: (voice: TtsVoiceId) => void;
   disabled?: boolean;
+  // 트리거 버튼 크기 — 편집 폼처럼 작은 버튼 줄에 놓을 때 덮어쓴다
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const current = TTS_VOICES.find((v) => v.id === value) ?? TTS_VOICES[0];
@@ -37,10 +40,7 @@ export default function VoicePicker({
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button type="button" variant="outline" disabled={disabled} className="h-12 rounded-xl font-bold" />
-        }>
+      <DialogTrigger render={<Button type="button" variant="outline" disabled={disabled} className={className} />}>
         <SlidersHorizontal size={16} />
         음성: {current.label}
       </DialogTrigger>
@@ -60,7 +60,8 @@ export default function VoicePicker({
                 className={cn(
                   "relative flex flex-col gap-2 rounded-xl border p-3 text-left transition-colors",
                   selected ? "border-brand bg-brand/5" : "border-border hover:border-brand/40 hover:bg-muted/40",
-                )}>
+                )}
+              >
                 {selected && <Check size={16} className="text-brand absolute top-3 right-3" />}
                 <span className={cn("text-base font-bold", selected ? "text-brand" : "text-foreground")}>{v.label}</span>
                 <div className="flex gap-1.5">
