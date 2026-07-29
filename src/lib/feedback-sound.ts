@@ -7,6 +7,8 @@
 //    그래서 샘플은 순수 JS로 계산하고(오실레이터·OfflineAudioContext 금지),
 //    WAV로 인코딩해 Web Audio에 연결되지 않은 plain HTMLAudioElement로 재생한다.
 
+import { arrayBufferToBase64 } from "@/lib/audio-formats";
+
 export type FeedbackSoundKind = "correct" | "incorrect";
 
 const STORAGE_KEY = "myharu:feedback-sound";
@@ -49,7 +51,7 @@ function renderTones(tones: Tone[]): Float32Array {
 }
 
 // Float32 샘플 → 16-bit PCM WAV (헤더 44B)
-function encodeWav(samples: Float32Array): Blob {
+function encodeWav(samples: Float32Array): ArrayBuffer {
   const buffer = new ArrayBuffer(44 + samples.length * 2);
   const view = new DataView(buffer);
 
@@ -76,7 +78,7 @@ function encodeWav(samples: Float32Array): Blob {
     view.setInt16(44 + i * 2, clamped < 0 ? clamped * 0x8000 : clamped * 0x7fff, true);
   }
 
-  return new Blob([buffer], { type: "audio/wav" });
+  return buffer;
 }
 
 // 종류별 엘리먼트는 한 번만 만들어 재사용한다
@@ -87,13 +89,66 @@ function getElement(kind: FeedbackSoundKind): HTMLAudioElement | null {
   if (cached) return cached;
 
   try {
-    const el = new Audio(URL.createObjectURL(encodeWav(renderTones(TONES[kind]))));
+    // ⚠️ blob: URL이 아니라 data: URI를 쓴다 — iOS Safari의 미디어 로더는 blob: URL 오디오를
+    //    재생하지 못하는 경우가 있다(예외 없이 무음). 몇십 KB라 인라인해도 부담이 없다.
+    const el = new Audio(`data:audio/wav;base64,${arrayBufferToBase64(encodeWav(renderTones(TONES[kind])))}`);
     el.preload = "auto";
     elements.set(kind, el);
     return el;
   } catch {
     return null; // 합성 실패 — 알림음만 포기하고 학습 흐름은 유지
   }
+}
+
+// ⚠️ iOS는 엘리먼트마다 "사용자 제스처 안에서 한 번 play()" 되기 전엔 프로그램 재생을 막는다.
+//    말하기 채점음은 음성 인식 콜백(제스처 밖)에서 울리므로, 미리 제스처 시점에 무음 재생으로 잠금을 풀어 둔다.
+let primed = false;
+
+// 잠금 해제용 무음 재생을 되돌리기까지의 최대 대기(ms)
+const PRIME_RESTORE_MS = 400;
+
+export function primeFeedbackSounds(): void {
+  if (primed || typeof window === "undefined") return;
+  primed = true;
+
+  for (const kind of ["correct", "incorrect"] as const) {
+    const el = getElement(kind);
+    if (!el) continue;
+
+    // 음소거로 잠깐 재생했다가 즉시 되돌린다.
+    // ⚠️ 되돌리기를 play() 프로미스에만 맡기면 안 된다 — 백그라운드 탭처럼 미디어 로딩이 지연되는 환경에선
+    //    프로미스가 영영 resolve되지 않아 엘리먼트가 음소거인 채로 굳는다(= 이후 채점음이 전부 무음).
+    const restore = () => {
+      try {
+        el.pause();
+        el.currentTime = 0;
+      } catch {
+        // 무시
+      }
+      el.muted = false;
+    };
+
+    try {
+      el.muted = true;
+      void Promise.resolve(el.play()).then(restore).catch(restore);
+      setTimeout(restore, PRIME_RESTORE_MS);
+    } catch {
+      restore();
+    }
+  }
+}
+
+// 페이지의 첫 사용자 입력에서 잠금 해제. 반환값은 정리 함수(useEffect cleanup).
+export function installFeedbackSoundUnlock(): () => void {
+  if (typeof window === "undefined") return () => {};
+
+  const handler = () => primeFeedbackSounds();
+  const events = ["pointerdown", "touchend", "keydown"] as const;
+  for (const type of events) window.addEventListener(type, handler, { once: true, passive: true });
+
+  return () => {
+    for (const type of events) window.removeEventListener(type, handler);
+  };
 }
 
 export function isFeedbackSoundEnabled(): boolean {
@@ -123,6 +178,7 @@ export function playFeedbackSound(kind: FeedbackSoundKind): void {
   if (!el) return;
 
   try {
+    el.muted = false; // 잠금 해제(primeFeedbackSounds)가 덜 되돌아간 경우 대비
     el.currentTime = 0;
     void el.play().catch(() => {});
   } catch {

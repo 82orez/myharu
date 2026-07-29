@@ -22,7 +22,7 @@ import {
 import { toast } from "sonner";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { computeGain } from "@/lib/audio-loudness";
-import { playFeedbackSound } from "@/lib/feedback-sound";
+import { installFeedbackSoundUnlock, playFeedbackSound, primeFeedbackSounds } from "@/lib/feedback-sound";
 import {
   getSpeechAvailability,
   unavailableKind,
@@ -143,6 +143,9 @@ export default function QuizView({
     };
   }, []);
 
+  // iOS: 첫 사용자 입력에서 알림음 엘리먼트 잠금 해제 (제스처 밖에서 울리는 채점음 대비)
+  useEffect(() => installFeedbackSoundUnlock(), []);
+
   useEffect(() => {
     setTextInput("");
     setWritingActive(false);
@@ -205,6 +208,9 @@ export default function QuizView({
 
   const startRecognition = useCallback(() => {
     if (!speechSupported || !currentSentence) return;
+
+    // 채점음은 인식 콜백(제스처 밖)에서 울린다 — 버튼을 누른 지금(제스처 안) 잠금을 풀어 둔다.
+    primeFeedbackSounds();
 
     if (recognitionRef.current) {
       recognitionRef.current.abort();

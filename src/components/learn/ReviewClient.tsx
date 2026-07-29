@@ -64,7 +64,7 @@ import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { computeGain, measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
 import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
-import { playFeedbackSound } from "@/lib/feedback-sound";
+import { installFeedbackSoundUnlock, playFeedbackSound, primeFeedbackSounds } from "@/lib/feedback-sound";
 import { toast } from "sonner";
 
 type SortMode = "latest" | "oldest" | "alpha" | "practice-desc" | "practice-asc";
@@ -215,6 +215,9 @@ export default function ReviewClient({
     setSpeechAvailability(getSpeechAvailability());
   }, []);
 
+  // iOS: 첫 사용자 입력에서 알림음 엘리먼트 잠금 해제 (제스처 밖에서 울리는 채점음 대비)
+  useEffect(() => installFeedbackSoundUnlock(), []);
+
   // 볼륨 균일화: 저장된 측정값으로 계산한 게인을 적용해 재생한다(미측정 문장은 게인 1.0).
   const playAudio = useCallback(
     (sentence: Sentence) => {
@@ -276,6 +279,9 @@ export default function ReviewClient({
   const startRecognition = useCallback(
     (sentenceId: string, targetText: string) => {
       if (!speechSupported) return;
+
+      // 채점음은 인식 콜백(제스처 밖)에서 울린다 — 버튼을 누른 지금(제스처 안) 잠금을 풀어 둔다.
+      primeFeedbackSounds();
 
       if (writingId !== null) {
         setWritingId(null);

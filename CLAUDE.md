@@ -79,6 +79,10 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 짧은 톤을 **코드로 합성**(사인파+지수 감쇠 → 16bit WAV 인코딩 → Blob URL)해 재생. 에셋 파일 없음, 종류별 엘리먼트 1개 lazy 생성 후 재사용. 정답=상승 2음(880→1319Hz, 0.25s), 오답=하강 2음(320→200Hz, 0.3s), 피크 0.35(문장 음성보다 작게) — 음색·볼륨은 `TONES`/`PEAK` 상수만 수정.
 - ⚠️ **재생에 Web Audio(AudioContext)를 쓰지 말 것**(plain `HTMLAudioElement` 유지). 알림음은 하필 음성 인식 직후에 울리는데, iOS는 마이크가 오디오 세션을 잡으면 AudioContext가 `"interrupted"`가 되어 예외 없이 무음이 된다(`use-audio-player.ts`의 2엘리먼트 구조와 같은 이유). 합성도 오실레이터/OfflineAudioContext가 아닌 **순수 JS 계산**으로 한다.
+- **iOS 무음 대응 2종**(아이폰에서 안 들린다는 제보로 추가):
+  ① 소스는 `blob:` URL이 아니라 **`data:audio/wav;base64,…`**(`arrayBufferToBase64` 재사용) — iOS Safari 미디어 로더가 blob URL 오디오를 못 읽는 경우가 있다. blob으로 되돌리지 말 것.
+  ② **`primeFeedbackSounds()`** — iOS는 엘리먼트별로 "제스처 안에서 한 번 play()" 전엔 프로그램 재생을 막는데, 말하기 채점음은 인식 콜백(제스처 밖)에서 울린다. 그래서 `installFeedbackSoundUnlock()`(두 컴포넌트의 `useEffect`, 첫 pointerdown/touchend/keydown)과 `startRecognition` 진입부에서 미리 음소거 재생으로 잠금을 푼다. ⚠️ 음소거 복구를 `play()` 프로미스에만 맡기지 말 것 — 백그라운드 탭 등에서 프로미스가 resolve되지 않아 **엘리먼트가 음소거로 굳는다**(실제로 겪음). `PRIME_RESTORE_MS`(400ms) 타이머 폴백 + `playFeedbackSound`의 `muted = false` 방어를 유지.
+  ※ 그래도 **아이폰 무음 스위치(벨소리/무음)가 켜져 있으면 HTML 오디오는 재생되지 않는다** — 웹에서 우회 불가.
 - 호출은 **`textsMatch` 판정 직후 3곳**(`ReviewClient`의 음성 `onresult`·`handleTextSubmit`, `QuizView.handleResult`) — `triggerFeedback`은 `await recordPracticeResult` 뒤라 거기 넣으면 소리가 늦는다. 시각 피드백(링/shake/토스트)은 기존대로 유지.
 - 켜기/끄기는 `localStorage("myharu:feedback-sound")`(`"off"`만 저장, 기본 켜짐, **재생 때마다 읽어** 다른 탭 변경도 즉시 반영). UI는 `/settings` 학습 섹션 `FeedbackSoundField`(기기별 설정이라 DB 컬럼 없음, "켜기" 누르면 정답음 미리 재생).
 
