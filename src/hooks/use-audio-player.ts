@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef } from "react";
+import { isIOS } from "@/lib/speech-recognition";
 
 // 문장 오디오 재생 공용 훅 (ReviewClient·QuizView 공유).
 //
@@ -18,6 +19,15 @@ import { useCallback, useEffect, useRef } from "react";
 //    그래서 재생마다 new Audio()를 만들지 않고 엘리먼트를 재사용하며 src만 교체한다.
 // ⚠️ crossOrigin은 반드시 src 대입보다 먼저 설정해야 한다. 순서가 바뀌면 크로스 오리진 소스가
 //    taint되어 예외 없이 "무음"으로 재생된다. (Supabase Storage는 CORS 허용 확인 완료)
+//
+// ⚠️ iOS 앞부분 잘림 (pre-roll을 걷어내지 말 것).
+//    아이폰에서 "듣기" 첫 단어가 잘린다는 제보 → 사용자 문장 61개의 오디오를 디코딩해
+//    첫 소리까지의 무음(lead-in)을 실측하니 두 무리로 갈렸다:
+//      47~70ms(34개) = 잘린다고 지목된 카드 / 142~558ms(27개) = 정상이라고 확인된 카드.
+//    즉 파일·코덱(전부 mp3 48kHz) 문제도, 볼륨 보정 경로 문제도 아니고
+//    iOS가 재생 시작 직후 ~0.1초의 출력을 삼키는 것이다. 여백이 그보다 긴 파일은 티가 안 날 뿐이다.
+//    → iOS에서만 소리를 끈 채로 IOS_PREROLL_MS 동안 흘려보낸 뒤 currentTime을 0으로 되감아 재생한다.
+//    (버퍼링이 원인이라 보고 "준비 대기"만 넣었던 앞선 수정으로는 해결되지 않았다)
 //
 // 재생 상태(playingId / isPlaying)는 호출하는 컴포넌트가 그대로 소유한다 —
 // 기존의 상호 배제·버튼 비활성 로직을 건드리지 않기 위함.
@@ -39,6 +49,9 @@ const RESUME_RETRY_MS = 150;
 
 // 버퍼가 찰 때까지 기다리는 최대 시간. 넘으면 그냥 재생을 시도한다(느린 네트워크에서 무한 대기 방지).
 const READY_TIMEOUT_MS = 2000;
+// iOS 전용 무음 pre-roll 길이. 기기가 삼키는 구간(~0.1초)보다 넉넉히 잡는다.
+// 첫 단어가 여전히 잘리면 늘리고, 탭 반응이 굼뜨면 줄인다. (실측 근거는 파일 헤더 주석 참고)
+const IOS_PREROLL_MS = 400;
 // 잠금 해제용 무음 재생을 되돌리기까지의 최대 대기
 const WARMUP_RESTORE_MS = 400;
 // 0.05초 무음 WAV(8kHz 모노 16bit) — iOS 오디오 세션을 미리 깨우는 용도
@@ -178,25 +191,52 @@ export function useAudioPlayer() {
       el.src = url; // src 대입이 currentTime을 0으로 되돌린다
       el.load();
 
-      // ⚠️ 버퍼가 찰 때까지 기다렸다 재생한다. src 대입 직후 곧바로 play()하면 iOS Safari에서
-      //    앞부분(약 1초)이 유실된다 — 실제 아이폰 제보로 확인. 되돌리지 말 것.
+      // 버퍼가 찰 때까지 기다렸다 재생한다(느린 네트워크 대비).
       await waitUntilReady(el);
       if (request !== requestRef.current) return; // 기다리는 사이 다음 재생이 끼어듦 — 조용히 폐기
       el.currentTime = 0;
 
-      try {
-        await el.play();
-      } catch (err) {
+      // iOS는 재생 시작 직후 ~0.1초 출력을 삼킨다 → 무음으로 먼저 흘려보낸 뒤 0으로 되감아 재생한다.
+      // (증폭 경로는 muted가 그래프 입력까지 끄는지 보장되지 않아 GainNode를 0으로 내린다)
+      const preroll = isIOS();
+      const unsilence = () => {
+        if (useBoosted) nodes.gain.gain.value = safeGain;
+        else el.muted = false;
+      };
+
+      if (preroll) {
+        if (useBoosted) nodes.gain.gain.value = 0;
+        else el.muted = true;
+      }
+
+      // ⚠️ play()를 await 해서 pre-roll 타이밍을 잡지 말 것 — 탭이 백그라운드로 가는 등
+      //    프로미스가 영영 resolve되지 않는 상황에서 소리가 음소거인 채로 굳는다.
+      //    에러 처리만 프로미스에 걸고, 복구 타이밍은 타이머로 독립시킨다.
+      el.play().catch((err) => {
+        if (preroll) unsilence();
         // 다음 재생이 끼어들어 취소된 경우(AbortError)는 정상 흐름이라 무시한다
         if (err instanceof DOMException && err.name === "AbortError") return;
         console.error("[Audio] 재생 실패:", err);
         handlers.onError?.();
-      }
+      });
+
+      if (!preroll) return;
+
+      await new Promise((resolve) => setTimeout(resolve, IOS_PREROLL_MS));
+      if (request !== requestRef.current) return; // 그 사이 다른 재생·정지가 있었음 — 건드리지 않는다
+
+      el.currentTime = 0; // 삼켜진 구간을 되감는다
+      unsilence();
+      // pre-roll보다 짧은 음원이라 이미 끝난 경우
+      if (el.paused) void el.play().catch(() => {});
     },
     [ensureNodes, ensureBoosted, tryResume],
   );
 
   const stop = useCallback(() => {
+    // ⚠️ 순번을 올려 진행 중인 pre-roll 대기를 무효화한다.
+    //    안 그러면 정지 직후 pre-roll 타이머가 깨어나 재생을 되살린다.
+    requestRef.current++;
     const nodes = nodesRef.current;
     if (!nodes) return;
     handlersRef.current = {}; // 정지는 onEnded/onError를 발생시키지 않는다
@@ -252,6 +292,7 @@ export function useAudioPlayer() {
   // 언마운트 시 정리 (페이지 이탈 후 소리가 남는 것을 막는다)
   useEffect(() => {
     return () => {
+      requestRef.current++; // 진행 중인 pre-roll 대기 무효화 (페이지 이탈 후 되살아나는 것 방지)
       const nodes = nodesRef.current;
       if (!nodes) return;
       handlersRef.current = {};
