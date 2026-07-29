@@ -22,7 +22,7 @@ export type TtsVoice = {
 };
 
 // gpt-4o-mini-tts 음색을 tts-1 음색과 비슷한 속도로 맞추는 배속. 체감이 빠르거나 느리면 이 값만 조정한다.
-const NEW_VOICE_SPEED = 1.25;
+const NEW_VOICE_SPEED = 1.3;
 
 export const TTS_VOICES: TtsVoice[] = [
   { id: "alloy", label: "Alloy", gender: "중성", accent: "미국식", desc: "중성적이고 균형 잡힌 톤" },
