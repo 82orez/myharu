@@ -30,6 +30,8 @@ import {
   forgetUnavailable,
   speechUnavailableMessage,
   SPEECH_START_TIMEOUT_MS,
+  MAX_SPEECH_ALTERNATIVES,
+  pickBestAlternative,
   type SpeechAvailability,
 } from "@/lib/speech-recognition";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
@@ -223,12 +225,12 @@ export default function QuizView({
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
     recognition.interimResults = false;
-    recognition.maxAlternatives = 1;
+    recognition.maxAlternatives = MAX_SPEECH_ALTERNATIVES;
 
     recognition.onresult = (event: any) => {
-      const text = event.results[0][0].transcript;
-      const { match, similarity } = textsMatch(text, currentSentence.english_text, speechThreshold);
-      console.log("[스피킹 인식]", { 인식: text, 정답: currentSentence.english_text, 유사도: similarity, 정답여부: match });
+      // 1순위만 보지 않고 후보 전부를 채점해 최대 유사도를 채택한다
+      const { text, match, similarity, alternatives } = pickBestAlternative(event, currentSentence.english_text, speechThreshold);
+      console.log("[스피킹 인식]", { 인식: text, 후보: alternatives, 정답: currentSentence.english_text, 유사도: similarity, 정답여부: match });
       // 정답일 때만 모드별 정답 횟수 누적(문장 목록에 표시)
       if (match) void incrementPracticeCount(currentSentence.id, "speech");
       handleResult(match, text);

@@ -37,6 +37,8 @@ import {
   forgetUnavailable,
   speechUnavailableMessage,
   SPEECH_START_TIMEOUT_MS,
+  MAX_SPEECH_ALTERNATIVES,
+  pickBestAlternative,
   type SpeechAvailability,
 } from "@/lib/speech-recognition";
 import { Button } from "@/components/ui/button";
@@ -297,13 +299,13 @@ export default function ReviewClient({
       const recognition = new SpeechRecognition();
       recognition.lang = "en-US";
       recognition.interimResults = false;
-      recognition.maxAlternatives = 1;
+      recognition.maxAlternatives = MAX_SPEECH_ALTERNATIVES;
 
       recognition.onresult = (event: any) => {
-        const recognizedText = event.results[0][0].transcript;
         const threshold = speechStrict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
-        const { match, similarity } = textsMatch(recognizedText, targetText, threshold);
-        console.log("[스피킹 인식]", { 인식: recognizedText, 정답: targetText, 유사도: similarity, 정답여부: match });
+        // 1순위만 보지 않고 후보 전부를 채점해 최대 유사도를 채택한다
+        const { text: recognizedText, match, similarity, alternatives } = pickBestAlternative(event, targetText, threshold);
+        console.log("[스피킹 인식]", { 인식: recognizedText, 후보: alternatives, 정답: targetText, 유사도: similarity, 정답여부: match });
         // 판정 즉시 소리 — 서버 왕복(recordPracticeResult)을 기다리면 늦게 울린다
         playFeedbackSound(match ? "correct" : "incorrect");
         startTransition(async () => {

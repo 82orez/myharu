@@ -12,6 +12,8 @@
 //
 // 디렉티브 없는 순수 모듈이지만 navigator/window에 의존하므로 브라우저(effect·핸들러 안)에서만 호출할 것.
 
+import { textsMatch } from "@/lib/normalize-text";
+
 export type SpeechAvailability =
   | "available" // 사용 가능(또는 아직 실패가 관측되지 않음)
   | "ios-non-safari" // iOS인데 수음이 시작되지 않음
@@ -82,3 +84,51 @@ export function speechUnavailableMessage(availability: SpeechAvailability): stri
 // start() 후 이 시간 안에 onstart/onaudiostart가 오지 않으면 "동작하지 않는 환경"으로 판정한다.
 // 정상 환경에서는 start() 직후 수 ms 안에 onstart가 오므로 오탐 위험은 낮다.
 export const SPEECH_START_TIMEOUT_MS = 3000;
+
+// 인식 엔진에 요청할 후보 개수(`recognition.maxAlternatives`).
+// 엔진이 이보다 적게 돌려주는 경우가 흔하므로 "최대치"로만 이해할 것.
+export const MAX_SPEECH_ALTERNATIVES = 5;
+
+// onresult 이벤트에서 후보 문장들을 뽑는다(1순위부터 순서대로).
+function speechAlternatives(event: any): string[] {
+  const result = event?.results?.[0];
+  if (!result) return [];
+  const texts: string[] = [];
+  for (let i = 0; i < result.length; i++) {
+    const transcript = result[i]?.transcript?.trim();
+    if (transcript) texts.push(transcript);
+  }
+  return texts;
+}
+
+// ⚠️ **1순위 후보만 채점하지 말 것.** 엔진은 보통 여러 후보를 돌려주는데, 정답을 정확히 말해도
+//    동음이의(there/their)·관사 유무 같은 이유로 1순위가 빗나가고 2~3순위가 정확한 경우가 잦다.
+//    후보 전부에 textsMatch를 돌려 **유사도가 가장 높은 것**을 채택한다
+//    (normalize-text의 normalizedVariants가 정규화형을 여러 개 두고 최대치를 취하는 것과 같은 발상).
+//
+// 표시용 문장(`text`)은 판정 결과에 따라 다르다:
+//   - 정답이면 실제로 맞은 후보(1순위가 아닐 수 있음)
+//   - 오답이면 **1순위** — 오답인데 "정답에 가장 가까운 후보"를 보여주면 실제보다 잘 말한 것처럼 보인다.
+export function pickBestAlternative(
+  event: any,
+  target: string,
+  threshold?: number,
+): { text: string; match: boolean; similarity: number; alternatives: string[] } {
+  const alternatives = speechAlternatives(event);
+  const top = alternatives[0] ?? "";
+
+  let best = top;
+  let bestSimilarity = 0;
+  let bestMatch = false;
+
+  for (const text of alternatives) {
+    const { match, similarity } = textsMatch(text, target, threshold);
+    if (similarity > bestSimilarity) {
+      best = text;
+      bestSimilarity = similarity;
+      bestMatch = match;
+    }
+  }
+
+  return { text: bestMatch ? best : top, match: bestMatch, similarity: bestSimilarity, alternatives };
+}
