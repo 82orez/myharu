@@ -37,11 +37,41 @@ type Nodes = {
 // 인터럽트 직후엔 resume이 곧바로 먹지 않을 수 있어 한 번 더 시도한다.
 const RESUME_RETRY_MS = 150;
 
+// 버퍼가 찰 때까지 기다리는 최대 시간. 넘으면 그냥 재생을 시도한다(느린 네트워크에서 무한 대기 방지).
+const READY_TIMEOUT_MS = 2000;
+// 잠금 해제용 무음 재생을 되돌리기까지의 최대 대기
+const WARMUP_RESTORE_MS = 400;
+// 0.05초 무음 WAV(8kHz 모노 16bit) — iOS 오디오 세션을 미리 깨우는 용도
+const SILENT_WAV = `data:audio/wav;base64,UklGRkQDAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YSADAAA${"A".repeat(1067)}==`;
+
+// readyState가 HAVE_FUTURE_DATA(3) 이상이 될 때까지 기다린다.
+// ⚠️ src 대입 직후 곧바로 play()하면 iOS Safari에서 재생 클럭만 흘러가고 출력이 늦게 붙어
+//    앞부분이 통째로 유실된다(아이폰에서 듣기 앞 1초가 잘린다는 제보). 반드시 준비를 기다릴 것.
+function waitUntilReady(el: HTMLAudioElement, timeoutMs = READY_TIMEOUT_MS): Promise<void> {
+  if (el.readyState >= 3) return Promise.resolve();
+
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = () => {
+      if (done) return;
+      done = true;
+      clearTimeout(timer);
+      for (const type of ["canplaythrough", "canplay", "error"] as const) el.removeEventListener(type, finish);
+      resolve();
+    };
+
+    const timer = setTimeout(finish, timeoutMs);
+    for (const type of ["canplaythrough", "canplay", "error"] as const) el.addEventListener(type, finish);
+  });
+}
+
 export function useAudioPlayer() {
   const nodesRef = useRef<Nodes | null>(null);
   const activeRef = useRef<HTMLAudioElement | null>(null);
   // onEnded/onError는 재생마다 달라지므로 ref에 담고 엘리먼트 핸들러는 한 번만 등록한다.
   const handlersRef = useRef<PlayHandlers>({});
+  // 재생 요청 순번 — 준비를 기다리는 사이 다음 재생이 끼어들면 이전 요청은 조용히 폐기한다.
+  const requestRef = useRef(0);
 
   const createElement = useCallback((): HTMLAudioElement => {
     const el = new Audio();
@@ -60,31 +90,34 @@ export function useAudioPlayer() {
   }, [createElement]);
 
   // 증폭 경로는 실제로 필요할 때만 만든다(게인 ≤ 1이면 AudioContext 자체를 만들지 않는다).
-  const ensureBoosted = useCallback((nodes: Nodes): boolean => {
-    if (nodes.ctx && nodes.gain && nodes.boosted) return true;
+  const ensureBoosted = useCallback(
+    (nodes: Nodes): boolean => {
+      if (nodes.ctx && nodes.gain && nodes.boosted) return true;
 
-    const Ctx: typeof AudioContext | undefined = window.AudioContext ?? (window as any).webkitAudioContext;
-    if (!Ctx) return false; // Web Audio 미지원 — plain 폴백
+      const Ctx: typeof AudioContext | undefined = window.AudioContext ?? (window as any).webkitAudioContext;
+      if (!Ctx) return false; // Web Audio 미지원 — plain 폴백
 
-    try {
-      const ctx = new Ctx();
-      const gain = ctx.createGain();
-      const el = createElement();
-      ctx.createMediaElementSource(el).connect(gain).connect(ctx.destination);
+      try {
+        const ctx = new Ctx();
+        const gain = ctx.createGain();
+        const el = createElement();
+        ctx.createMediaElementSource(el).connect(gain).connect(ctx.destination);
 
-      // iOS는 오디오 세션 인터럽트(마이크 점유 등)로 컨텍스트를 멈춘다. 복귀 시 자동으로 되살린다.
-      ctx.onstatechange = () => {
-        if (ctx.state !== "running" && ctx.state !== "closed") void ctx.resume().catch(() => {});
-      };
+        // iOS는 오디오 세션 인터럽트(마이크 점유 등)로 컨텍스트를 멈춘다. 복귀 시 자동으로 되살린다.
+        ctx.onstatechange = () => {
+          if (ctx.state !== "running" && ctx.state !== "closed") void ctx.resume().catch(() => {});
+        };
 
-      nodes.ctx = ctx;
-      nodes.gain = gain;
-      nodes.boosted = el;
-      return true;
-    } catch {
-      return false; // 컨텍스트 생성 실패 — plain 폴백
-    }
-  }, [createElement]);
+        nodes.ctx = ctx;
+        nodes.gain = gain;
+        nodes.boosted = el;
+        return true;
+      } catch {
+        return false; // 컨텍스트 생성 실패 — plain 폴백
+      }
+    },
+    [createElement],
+  );
 
   // running이 아니면 resume을 시도하고, 최종 상태가 running인지 알려준다.
   // ("interrupted"는 표준 타입에 없는 WebKit 전용 상태라 `!== "running"`으로 통째로 잡는다.)
@@ -114,6 +147,7 @@ export function useAudioPlayer() {
   const play = useCallback(
     async (url: string, gainValue: number, handlers: PlayHandlers = {}) => {
       const nodes = ensureNodes();
+      const request = ++requestRef.current;
 
       handlersRef.current = handlers;
       const safeGain = Number.isFinite(gainValue) && gainValue > 0 ? gainValue : 1;
@@ -140,7 +174,15 @@ export function useAudioPlayer() {
       if (!useBoosted) el.volume = Math.min(1, safeGain); // 폴백: 증폭 불가, 감쇠만
 
       activeRef.current = el;
+      el.muted = false; // 방어: 어떤 경로로든 음소거가 남아 있으면 해제
       el.src = url; // src 대입이 currentTime을 0으로 되돌린다
+      el.load();
+
+      // ⚠️ 버퍼가 찰 때까지 기다렸다 재생한다. src 대입 직후 곧바로 play()하면 iOS Safari에서
+      //    앞부분(약 1초)이 유실된다 — 실제 아이폰 제보로 확인. 되돌리지 말 것.
+      await waitUntilReady(el);
+      if (request !== requestRef.current) return; // 기다리는 사이 다음 재생이 끼어듦 — 조용히 폐기
+      el.currentTime = 0;
 
       try {
         await el.play();
@@ -162,6 +204,50 @@ export function useAudioPlayer() {
     nodes.boosted?.pause();
     activeRef.current = null;
   }, []);
+
+  // 첫 사용자 입력에서 무음을 짧게 재생해 iOS 오디오 세션을 미리 깨워 둔다.
+  // (제스처 밖에서 시작하는 재생이 세션 활성화를 기다리다 앞부분을 잃는 것을 줄인다)
+  useEffect(() => {
+    let warmed = false;
+
+    const warmUp = () => {
+      if (warmed) return;
+      warmed = true;
+
+      const nodes = ensureNodes();
+      if (nodes.ctx) void tryResume(nodes.ctx);
+
+      // ⚠️ 재생용 엘리먼트(nodes.plain)를 재사용하면 안 된다 —
+      //    "듣기" 탭이 곧 첫 pointerdown이라, 워밍업의 정리 로직이 방금 시작된 진짜 재생을
+      //    pause/​src 제거로 죽인다. 세션 활성화는 프로세스 단위라 별도 엘리먼트로도 충분하다.
+      const el = new Audio(SILENT_WAV);
+      el.muted = true;
+
+      // ⚠️ 음소거 해제/정리를 play() 프로미스에만 맡기면 안 된다 — 프로미스가 resolve되지 않는
+      //    환경(백그라운드 탭 등)에서 그대로 굳는다(feedback-sound에서 겪은 함정). 타이머 폴백 필수.
+      const restore = () => {
+        try {
+          el.pause();
+          el.removeAttribute("src");
+        } catch {
+          // 무시
+        }
+      };
+
+      try {
+        void Promise.resolve(el.play()).then(restore).catch(restore);
+        setTimeout(restore, WARMUP_RESTORE_MS);
+      } catch {
+        restore();
+      }
+    };
+
+    const events = ["pointerdown", "touchend", "keydown"] as const;
+    for (const type of events) window.addEventListener(type, warmUp, { once: true, passive: true });
+    return () => {
+      for (const type of events) window.removeEventListener(type, warmUp);
+    };
+  }, [ensureNodes, tryResume]);
 
   // 언마운트 시 정리 (페이지 이탈 후 소리가 남는 것을 막는다)
   useEffect(() => {
