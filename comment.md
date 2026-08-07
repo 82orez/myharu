@@ -10,5 +10,9 @@
 # 저장된 음성 파일 일괄 다운로드
 - npm run audio:download                          # 기본: naver 계정 → ./audio-backup/
 
+
+# Ash, Coral 말하기 속도 조절하기
+- const NEW_VOICE_SPEED=1.4
+
 # 오십만 영어
 - 영어의 가장 기본적인 문장 구조를 가진 문장 500개를 1000번씩 연습하기
