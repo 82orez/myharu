@@ -7,7 +7,6 @@ import { toast } from "sonner";
 import { generateAudio, saveSentence } from "@/app/(learn)/learn/input/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import TagPicker from "@/components/learn/TagPicker";
 import VoicePicker from "@/components/learn/VoicePicker";
@@ -253,16 +252,15 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
 
           <div className="flex flex-col gap-2">
             <Label htmlFor="koreanText">한국어 뜻</Label>
-            <Input
+            <textarea
               id="koreanText"
               name="koreanText"
-              type="text"
               required
               placeholder="안녕하세요, 오늘 어떠세요?"
               value={koreanText}
               onChange={(e) => setKoreanText(e.target.value)}
               readOnly={isPreview}
-              className="read-only:bg-muted/50 h-10"
+              className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 read-only:bg-muted/50 flex min-h-[80px] w-full rounded-md border px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50"
               maxLength={MAX_LENGTH}
             />
             <div className="flex justify-end">

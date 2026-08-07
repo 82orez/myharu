@@ -789,7 +789,12 @@ export default function ReviewClient({
                       <Label className="text-muted-foreground text-xs">
                         <span className="tabular-nums">#{sentenceNumbers.get(sentence.id)}</span> · 한국어 뜻
                       </Label>
-                      <Input value={editing.koreanText} onChange={(e) => setEditing({ ...editing, koreanText: e.target.value })} maxLength={500} />
+                      <textarea
+                        value={editing.koreanText}
+                        onChange={(e) => setEditing({ ...editing, koreanText: e.target.value })}
+                        maxLength={500}
+                        className="border-input bg-background ring-ring/10 placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/20 flex min-h-[60px] w-full rounded-md border px-3 py-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
+                      />
                     </div>
                     <div className="flex flex-col gap-1.5">
                       <Label className="text-muted-foreground text-xs">영어 문장</Label>
