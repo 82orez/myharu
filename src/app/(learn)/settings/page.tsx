@@ -6,10 +6,11 @@ import { createClient } from "@/utils/supabase/server";
 import { fetchUserStats } from "@/lib/gamification";
 import { getTagPresets } from "@/app/(learn)/learn/tag-actions";
 import { logout } from "@/app/(auth)/logout/actions";
-import { DAILY_PRACTICE_GOAL } from "@/lib/settings-config";
+import { MAX_DAILY_GOAL, MIN_DAILY_GOAL, resolveDailyGoal } from "@/lib/settings-config";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import SpeechStrictField from "@/components/settings/SpeechStrictField";
+import DailyGoalField from "@/components/settings/DailyGoalField";
 import FeedbackSoundField from "@/components/settings/FeedbackSoundField";
 import TagManagerCard from "@/components/settings/TagManagerCard";
 import DeleteAllSentences from "@/components/settings/DeleteAllSentences";
@@ -92,8 +93,12 @@ export default async function SettingsPage() {
           <Row icon={<Volume2 size={16} />} label="효과음" description="정답·오답 알림음 (이 기기에만 적용)">
             <FeedbackSoundField />
           </Row>
-          <Row icon={<Target size={16} />} label="하루 목표" description="고정값이며 변경할 수 없습니다.">
-            <span className="text-sm font-semibold tabular-nums">연습 {DAILY_PRACTICE_GOAL.toLocaleString()}회</span>
+          <Row
+            icon={<Target size={16} />}
+            label="하루 목표"
+            description={`홈 진도·학습 달력 기준 (${MIN_DAILY_GOAL}~${MAX_DAILY_GOAL.toLocaleString()}회)`}
+          >
+            <DailyGoalField initialGoal={resolveDailyGoal(stats?.daily_goal)} />
           </Row>
           <Row icon={<ListChecks size={16} />} label="등록된 문장" description="지금까지 저장한 문장 수">
             <span className="text-sm font-semibold tabular-nums">{sentenceCount.toLocaleString()}개</span>

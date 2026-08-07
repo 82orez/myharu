@@ -2,7 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/types/database.types";
 import type { UserStats, QuizMode } from "@/types/gamification";
-import { DAILY_PRACTICE_GOAL } from "@/lib/settings-config";
+import { resolveDailyGoal } from "@/lib/settings-config";
 
 type DbClient = SupabaseClient<Database>;
 
@@ -20,24 +20,32 @@ export async function fetchUserStats(supabase: DbClient, userId: string): Promis
   return retry ?? null;
 }
 
-// 오늘(KST) 정답 연습 횟수 / 고정 목표(DAILY_PRACTICE_GOAL). 문장 목록·퀴즈 정답 모두 practice_results에 기록되므로 함께 집계된다.
-export async function fetchDailyProgress(supabase: DbClient, userId: string): Promise<{ completed: number; goal: number; percentage: number }> {
+// 오늘(KST) 정답 연습 횟수 / 사용자 목표(user_stats.daily_goal). 문장 목록·퀴즈 정답 모두 practice_results에 기록되므로 함께 집계된다.
+// goalOverride를 주면 목표 조회를 건너뛴다(이미 user_stats를 읽은 호출자용). 없으면 카운트와 병렬로 조회해 왕복을 늘리지 않는다.
+export async function fetchDailyProgress(
+  supabase: DbClient,
+  userId: string,
+  goalOverride?: number | null,
+): Promise<{ completed: number; goal: number; percentage: number }> {
   const today = todayKST();
   const start = `${today}T00:00:00+09:00`;
   const nextDay = new Date(start);
   nextDay.setDate(nextDay.getDate() + 1);
   const nextDayIso = nextDay.toISOString();
 
-  const { count } = await supabase
-    .from("practice_results")
-    .select("*", { count: "exact", head: true })
-    .eq("user_id", userId)
-    .eq("is_correct", true)
-    .gte("practiced_at", start)
-    .lt("practiced_at", nextDayIso);
+  const [{ count }, goalRow] = await Promise.all([
+    supabase
+      .from("practice_results")
+      .select("*", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("is_correct", true)
+      .gte("practiced_at", start)
+      .lt("practiced_at", nextDayIso),
+    goalOverride == null ? supabase.from("user_stats").select("daily_goal").eq("user_id", userId).maybeSingle() : Promise.resolve(null),
+  ]);
 
   const completed = count ?? 0;
-  const goal = DAILY_PRACTICE_GOAL;
+  const goal = resolveDailyGoal(goalOverride ?? goalRow?.data?.daily_goal);
 
   return { completed, goal, percentage: goal > 0 ? Math.min(Math.round((completed / goal) * 100), 100) : 0 };
 }

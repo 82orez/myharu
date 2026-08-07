@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
-import { MAX_PERSONAL_MESSAGE } from "@/lib/settings-config";
+import { MAX_DAILY_GOAL, MAX_PERSONAL_MESSAGE, MIN_DAILY_GOAL } from "@/lib/settings-config";
 
 export type SettingsActionResult = { success: true } | { error: string };
 
@@ -19,6 +19,31 @@ export async function setSpeechStrict(strict: boolean): Promise<SettingsActionRe
 
   if (error) {
     console.error("[setSpeechStrict] 업데이트 실패:", error);
+    return { error: "저장 중 오류가 발생했습니다." };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/settings");
+  return { success: true };
+}
+
+// 하루 목표 연습 횟수. 범위 밖은 clamp 대신 거부한다(오타를 사용자가 알아채야 한다).
+export async function setDailyGoal(goal: number): Promise<SettingsActionResult> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  if (!Number.isInteger(goal) || goal < MIN_DAILY_GOAL || goal > MAX_DAILY_GOAL) {
+    return { error: `하루 목표는 ${MIN_DAILY_GOAL}~${MAX_DAILY_GOAL.toLocaleString()} 사이의 정수로 입력해 주세요.` };
+  }
+
+  const { error } = await supabase.from("user_stats").update({ daily_goal: goal }).eq("user_id", user.id);
+
+  if (error) {
+    console.error("[setDailyGoal] 업데이트 실패:", error);
     return { error: "저장 중 오류가 발생했습니다." };
   }
 

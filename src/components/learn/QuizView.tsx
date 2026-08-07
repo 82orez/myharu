@@ -1,6 +1,6 @@
 "use client";
 
-import { useReducer, useCallback, useRef, useEffect, useState, useTransition } from "react";
+import { useReducer, useCallback, useRef, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Volume2, Mic, MicOff, Eye, X as XIcon, Loader2, Keyboard } from "lucide-react";
@@ -22,6 +22,7 @@ import {
 import { toast } from "sonner";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { computeGain } from "@/lib/audio-loudness";
+import { buildSentenceNumbers } from "@/lib/sentence-number";
 import { installFeedbackSoundUnlock, playFeedbackSound, primeFeedbackSounds } from "@/lib/feedback-sound";
 import {
   getSpeechAvailability,
@@ -162,6 +163,7 @@ export default function QuizView({
   }, [writingActive, state.phase, state.currentIndex]);
 
   const currentSentence = sentences[state.currentIndex];
+  const sentenceNumbers = useMemo(() => buildSentenceNumbers(sentences), [sentences]);
   const progressPercent = sentences.length > 0 ? Math.round(((state.currentIndex + 1) / sentences.length) * 100) : 0;
   const speechThreshold = initialStats?.speech_strict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
 
@@ -405,13 +407,15 @@ export default function QuizView({
       {currentSentence &&
         (() => {
           const listenClickable = quizType === "listening" && !!currentSentence.audio_url && state.phase !== "listening" && !isPlaying;
+          // 리스닝 세션은 문장을 통째로 숨기므로, 번호로 목록을 찾아보는 걸 막기 위해 결과 공개 후에만 노출
+          const showNumber = quizType !== "listening" || state.resultStatus !== null;
           return (
             <Card
               key={state.currentIndex}
               onClick={listenClickable ? () => playAudio(currentSentence) : undefined}
               role={listenClickable ? "button" : undefined}
               aria-label={listenClickable ? "오디오 듣기" : undefined}
-              className={`animate-in fade-in slide-in-from-right-4 mx-auto w-full max-w-lg duration-300 ${
+              className={`animate-in fade-in slide-in-from-right-4 relative mx-auto w-full max-w-lg duration-300 ${
                 listenClickable ? "hover:border-brand/50 cursor-pointer transition-colors" : ""
               } ${
                 state.resultStatus === "correct"
@@ -422,6 +426,12 @@ export default function QuizView({
               }`}
             >
               <CardContent className="flex min-h-[240px] flex-col items-center justify-center gap-6 py-10 text-center">
+                {showNumber && (
+                  <span className="text-muted-foreground/70 absolute top-3 left-4 text-xs font-semibold tabular-nums">
+                    #{sentenceNumbers.get(currentSentence.id)}
+                  </span>
+                )}
+
                 {quizType === "listening" ? (
                   <>
                     <p className="text-muted-foreground text-sm font-medium">{isPlaying ? "재생 중..." : "카드를 눌러 듣고 따라 말해 보세요"}</p>

@@ -2,7 +2,7 @@
 
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats, fetchDailyProgress, recordPractice } from "@/lib/gamification";
+import { fetchUserStats, recordPractice } from "@/lib/gamification";
 import type { UserStats, QuizMode } from "@/types/gamification";
 
 export async function getUserStats(): Promise<{ stats?: UserStats; error?: string }> {
@@ -19,22 +19,7 @@ export async function getUserStats(): Promise<{ stats?: UserStats; error?: strin
   return { stats };
 }
 
-export async function getDailyProgress(): Promise<{ completed: number; goal: number; percentage: number; error?: string }> {
-  const supabase = createClient(await cookies());
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) return { completed: 0, goal: 5, percentage: 0, error: "로그인이 필요합니다." };
-
-  return await fetchDailyProgress(supabase, user.id);
-}
-
-export async function recordPracticeResult(
-  sentenceId: string,
-  isCorrect: boolean,
-  mode: QuizMode = "speech",
-): Promise<{ error?: string }> {
+export async function recordPracticeResult(sentenceId: string, isCorrect: boolean, mode: QuizMode = "speech"): Promise<{ error?: string }> {
   const supabase = createClient(await cookies());
   const {
     data: { user },

@@ -62,6 +62,7 @@ import TagPicker from "@/components/learn/TagPicker";
 import VoicePicker from "@/components/learn/VoicePicker";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { tagColorClass, tagChipClass } from "@/lib/tag-color";
+import { buildSentenceNumbers, parseSentenceNumberQuery } from "@/lib/sentence-number";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { computeGain, measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
@@ -558,10 +559,14 @@ export default function ReviewClient({
     setTagFilters((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]));
   };
 
-  // 필터 결합: 입력일 → 즐겨찾기 → 태그(다중 AND) → 검색(문장·뜻)
+  // 문장 번호: 필터·페이지네이션 이전의 전체 목록 기준이라 조회 조건을 바꿔도 같은 문장은 같은 번호
+  const sentenceNumbers = useMemo(() => buildSentenceNumbers(sentences), [sentences]);
+
+  // 필터 결합: 입력일 → 즐겨찾기 → 태그(다중 AND) → 검색(문장·뜻, "#12"면 번호)
   const cutoff = rangeCutoff(dayFilter);
   const byDay = cutoff ? sentences.filter((s) => kstDate(s.created_at) >= cutoff) : sentences;
   const q = search.trim().toLowerCase();
+  const numQuery = parseSentenceNumberQuery(search);
   const pool = byDay.filter((s) => {
     if (favoriteOnly && !s.is_favorite) return false;
     if (noTagOnly) {
@@ -570,7 +575,9 @@ export default function ReviewClient({
       const hit = tagMode === "or" ? tagFilters.some((t) => s.tags.includes(t)) : tagFilters.every((t) => s.tags.includes(t));
       if (!hit) return false;
     }
-    if (q && !`${s.english_text} ${s.korean_text}`.toLowerCase().includes(q)) return false;
+    if (numQuery !== null) {
+      if (sentenceNumbers.get(s.id) !== numQuery) return false;
+    } else if (q && !`${s.english_text} ${s.korean_text}`.toLowerCase().includes(q)) return false;
     return true;
   });
   const visibleSentences = pool.slice().sort((a, b) => {
@@ -639,8 +646,9 @@ export default function ReviewClient({
               aria-label="정렬"
               className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
             >
-              <option value="latest">최신순</option>
-              <option value="oldest">오래된순</option>
+              {/* 번호는 created_at 순위 파생값이라 "번호순" = 아래 두 옵션과 동일 — 중복 옵션을 추가하지 말 것 */}
+              <option value="latest">최신순 (번호 ↓)</option>
+              <option value="oldest">오래된순 (#1부터)</option>
               <option value="alpha">가나다순(A–Z)</option>
               <option value="practice-desc">연습 많은순</option>
               <option value="practice-asc">연습 적은순</option>
@@ -654,7 +662,7 @@ export default function ReviewClient({
                 type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="영어 문장/한글 뜻 검색"
+                placeholder="영어 문장/한글 뜻 검색 · #12로 번호 찾기"
                 className="h-9 pr-9 pl-9"
               />
               {search && (
@@ -778,7 +786,9 @@ export default function ReviewClient({
                 {isThisEditing && editing ? (
                   <div className="flex flex-col gap-3">
                     <div className="flex flex-col gap-1.5">
-                      <Label className="text-muted-foreground text-xs">한국어 뜻</Label>
+                      <Label className="text-muted-foreground text-xs">
+                        <span className="tabular-nums">#{sentenceNumbers.get(sentence.id)}</span> · 한국어 뜻
+                      </Label>
                       <Input value={editing.koreanText} onChange={(e) => setEditing({ ...editing, koreanText: e.target.value })} maxLength={500} />
                     </div>
                     <div className="flex flex-col gap-1.5">
@@ -909,6 +919,8 @@ export default function ReviewClient({
                   <>
                     <div className="flex items-center justify-between gap-2">
                       <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-muted-foreground shrink-0 text-xs font-semibold tabular-nums">#{sentenceNumbers.get(sentence.id)}</span>
+
                         {sentence.audio_url && (
                           <Button
                             variant="outline"

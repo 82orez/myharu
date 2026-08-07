@@ -100,6 +100,7 @@ export type Database = {
       user_stats: {
         Row: {
           created_at: string
+          daily_goal: number
           personal_message: string
           speech_strict: boolean
           tag_presets: string[]
@@ -107,6 +108,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          daily_goal?: number
           personal_message?: string
           speech_strict?: boolean
           tag_presets?: string[]
@@ -114,6 +116,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          daily_goal?: number
           personal_message?: string
           speech_strict?: boolean
           tag_presets?: string[]
