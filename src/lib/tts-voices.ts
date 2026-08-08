@@ -23,8 +23,18 @@ export type TtsVoice = {
 };
 
 // gpt-4o-mini-tts 음색을 tts-1 음색과 비슷한 속도로 맞추는 배속(음색 정규화 전용).
-// 사용자가 고르는 빠르기는 SPEED_OPTIONS이고, 이 값과 곱해진다 — 여기서 사용자 취향을 반영하지 말 것.
-const NEW_VOICE_SPEED = 1.6;
+// 사용자가 고르는 빠르기는 SPEED_OPTIONS이고, 이 값과 곱해진다 — 여기서 사용자 취향(더 빠르게/느리게)을 반영하지 말 것.
+//
+// 측정 근거(같은 문장 3개, 무음 제외 발화 구간 길이, raw API speed=1.0):
+//   alloy 8.98s · onyx 9.02s · nova 8.81s → tts-1 기준선 8.93s
+//   ash 12.06s · coral 12.14s → 기준선의 1.35배 길이
+// 기준선 대비(여러 회 평균): ash@1.35 −2% / coral@1.25 +3% / coral@1.35 −7% → coral의 일치점은 그 사이인 1.3.
+// 과거 값 1.6은 ash −13% / coral −21%로 **명백히 과속**이었다(같은 배속인데 ash가 더 빠르게 들린다는 제보로 발견).
+// ⚠️ ash와 coral의 값이 다른 건 오타가 아니다 — 같은 speed에서 coral이 일관되게 더 빠르게 읽는다(1.35·1.6 두 지점 모두 ~9%p 차이).
+// ⚠️ gpt-4o-mini-tts는 생성형이라 같은 입력도 호출마다 길이가 ±8%p까지 흔들린다(실측). 한 번 재보고 소수점을 미세 조정하지 말 것 —
+//    현재 값은 노이즈 범위 안에서 기준선과 일치하는 수준이라, 그 이상 정밀하게 맞추는 건 의미가 없다.
+const ASH_SPEED = 1.35;
+const CORAL_SPEED = 1.3;
 
 // 사용자가 고르는 말하기 배율. 음색별 보정값(TtsVoice.speed)에 곱해져 최종 API speed가 된다.
 // 1~1.25배를 0.05 단위로 — 체감 차이가 큰 구간이라 촘촘하게 둔다. desc는 양 끝만(중간값은 숫자로 충분).
@@ -54,7 +64,7 @@ export const TTS_VOICES: TtsVoice[] = [
     accent: "미국식",
     desc: "차분하고 또렷한 톤",
     model: "gpt-4o-mini-tts",
-    speed: NEW_VOICE_SPEED,
+    speed: ASH_SPEED,
   },
   {
     id: "coral",
@@ -63,7 +73,7 @@ export const TTS_VOICES: TtsVoice[] = [
     accent: "미국식",
     desc: "따뜻하고 친근한 톤",
     model: "gpt-4o-mini-tts",
-    speed: NEW_VOICE_SPEED,
+    speed: CORAL_SPEED,
   },
 ];
 

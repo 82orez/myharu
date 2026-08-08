@@ -123,10 +123,11 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 **음성 선택** (`lib/tts-voices.ts`): 5종 — `alloy`/`onyx`/`nova`(`tts-1`) + `ash`/`coral`(신규 음색이라 `tts-1`에서 품질 미보장 → 항목의 `model: "gpt-4o-mini-tts"`로 분기). 클라/서버 공용이라 **`"server-only"` 금지**. `generateAudio(text, voice?, speed?)`는 `isValidVoice`/`isValidSpeed`로 검증 후 미지정/무효 시 `DEFAULT_VOICE`(alloy)·`DEFAULT_SPEED`(1) fallback, 모델은 `voiceModel(voice)`(미지정 음색은 `DEFAULT_TTS_MODEL`=`tts-1`).
 
 **말하기 속도** — 두 층이 곱해진다. ⚠️ 이 구분을 뭉개지 말 것:
-- **음색 보정** `TtsVoice.speed`: `gpt-4o-mini-tts` 음색(ash/coral)이 `tts-1`보다 느려서 맞추는 **정규화 전용** 상수 `NEW_VOICE_SPEED`(1.6). 사용자 취향을 여기 반영하지 말 것.
+- **음색 보정** `TtsVoice.speed`: `gpt-4o-mini-tts` 음색이 `tts-1`보다 느려서 맞추는 **정규화 전용** 값 — `ASH_SPEED`(1.35)·`CORAL_SPEED`(1.3). ⚠️ 두 값이 다른 건 의도적(같은 speed에서 coral이 일관되게 ~9%p 더 빠르게 읽음). 사용자 취향(더 빠르게/느리게)은 여기가 아니라 `SPEED_OPTIONS`로.
 - **사용자 배율** `SPEED_OPTIONS`(1~1.25배를 0.05 단위로 6종)·`DEFAULT_SPEED`(1): `SpeedPicker`(Dialog, `VoicePicker`와 같은 구조)에서 선택, `useSelectedSpeed` 훅이 localStorage(`myharu:tts-speed`)에 기억.
 - 합성은 **`resolveTtsSpeed(voice, userSpeed)` 하나에서만** (`voiceSpeed(voice) ?? 1` × 배율 → 0.25~4.0 clamp). 다른 곳에서 speed를 계산하지 말 것 — 과거 데이터와 기준이 갈라진다.
-- 실측(같은 문장, 미리듣기 오디오 길이): onyx·1배 2.784s / onyx·1.5배 1.944s / **ash·1배 2.616s** — 음색이 달라도 "1배"가 비슷한 빠르기로 들리는 게 정규화가 살아 있다는 증거다. 여기서 ash가 눈에 띄게 느려지면 `NEW_VOICE_SPEED`를 다시 맞춰야 한다.
+- **보정값 재측정 방법**(체감이 어긋날 때만): 같은 문장 3개를 음색마다 **raw speed 1.0**으로 생성 → ffmpeg로 mono f32 디코딩 → **무음(-50dBFS) 제외한 발화 구간 길이**를 잰다. ⚠️ 총 길이가 아니라 발화 구간으로 볼 것(앞뒤 여백이 음색마다 다름). 실측: alloy 8.98s·onyx 9.02s·nova 8.81s → tts-1 기준선 **8.93s**, ash 12.06s·coral 12.14s(기준선의 1.35배). 보정 후 ash@1.35·coral@1.3이 기준선 ±수%(노이즈 범위). 과거 값 1.6은 ash −13%·coral −21%로 과속이었다.
+- ⚠️ **`gpt-4o-mini-tts`는 생성형이라 같은 입력도 호출마다 길이가 수 % 흔들린다** — 한 번 재고 소수점을 미세 조정하지 말 것. 실제로 ash@1.35(+2%)와 ash@1.38(−7%)처럼 속도 변화보다 노이즈가 큰 구간이 나온다. 조정은 여러 문장 평균 + 여러 speed 지점의 **추세**로 판단한다.
 - ⚠️ **"gpt-4o-mini-tts는 speed를 무시한다"는 문서·포럼 설명은 실측과 다르다**(ash 기본 5.66s → 1.25배 4.78s → 1.4배 3.65s, alloy 3.6~4.3s). `instructions`(자연어 지시)로도 시도했으나 5.66s→5.16s로 효과가 약해 채택하지 않음.
 
 음색 추가 시 `TTS_VOICES`만 수정하면 UI·검증·localStorage에 자동 반영. 선택 UI는 `VoicePicker`/`SpeedPicker`(둘 다 Dialog, `className`으로 트리거 버튼 크기 조절 — 편집 폼은 `h-8 text-xs`), 마지막 선택은 각 훅이 localStorage에 기억(SSR-safe: 초기값 default → mount 후 보정). `InputForm`·`ReviewClient`(편집 재생성)에서 사용. **voice·speed 모두 DB에 저장하지 않는다**(기기별 설정).
