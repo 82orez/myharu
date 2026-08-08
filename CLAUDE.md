@@ -124,7 +124,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 **말하기 속도** — 두 층이 곱해진다. ⚠️ 이 구분을 뭉개지 말 것:
 - **음색 보정** `TtsVoice.speed`: `gpt-4o-mini-tts` 음색(ash/coral)이 `tts-1`보다 느려서 맞추는 **정규화 전용** 상수 `NEW_VOICE_SPEED`(1.6). 사용자 취향을 여기 반영하지 말 것.
-- **사용자 배율** `SPEED_OPTIONS`(0.75/1/1.25/1.5/2배)·`DEFAULT_SPEED`(1): `SpeedPicker`(Dialog, `VoicePicker`와 같은 구조)에서 선택, `useSelectedSpeed` 훅이 localStorage(`myharu:tts-speed`)에 기억.
+- **사용자 배율** `SPEED_OPTIONS`(1~1.25배를 0.05 단위로 6종)·`DEFAULT_SPEED`(1): `SpeedPicker`(Dialog, `VoicePicker`와 같은 구조)에서 선택, `useSelectedSpeed` 훅이 localStorage(`myharu:tts-speed`)에 기억.
 - 합성은 **`resolveTtsSpeed(voice, userSpeed)` 하나에서만** (`voiceSpeed(voice) ?? 1` × 배율 → 0.25~4.0 clamp). 다른 곳에서 speed를 계산하지 말 것 — 과거 데이터와 기준이 갈라진다.
 - 실측(같은 문장, 미리듣기 오디오 길이): onyx·1배 2.784s / onyx·1.5배 1.944s / **ash·1배 2.616s** — 음색이 달라도 "1배"가 비슷한 빠르기로 들리는 게 정규화가 살아 있다는 증거다. 여기서 ash가 눈에 띄게 느려지면 `NEW_VOICE_SPEED`를 다시 맞춰야 한다.
 - ⚠️ **"gpt-4o-mini-tts는 speed를 무시한다"는 문서·포럼 설명은 실측과 다르다**(ash 기본 5.66s → 1.25배 4.78s → 1.4배 3.65s, alloy 3.6~4.3s). `instructions`(자연어 지시)로도 시도했으나 5.66s→5.16s로 효과가 약해 채택하지 않음.

@@ -27,12 +27,14 @@ export type TtsVoice = {
 const NEW_VOICE_SPEED = 1.6;
 
 // 사용자가 고르는 말하기 배율. 음색별 보정값(TtsVoice.speed)에 곱해져 최종 API speed가 된다.
+// 1~1.25배를 0.05 단위로 — 체감 차이가 큰 구간이라 촘촘하게 둔다. desc는 양 끝만(중간값은 숫자로 충분).
 export const SPEED_OPTIONS = [
-  { value: 0.75, label: "0.75배", desc: "천천히 또박또박" },
   { value: 1, label: "1배", desc: "기본 속도" },
-  { value: 1.25, label: "1.25배", desc: "약간 빠르게" },
-  { value: 1.5, label: "1.5배", desc: "빠르게" },
-  { value: 2, label: "2배", desc: "매우 빠르게" },
+  { value: 1.05, label: "1.05배", desc: "" },
+  { value: 1.1, label: "1.1배", desc: "" },
+  { value: 1.15, label: "1.15배", desc: "" },
+  { value: 1.2, label: "1.2배", desc: "" },
+  { value: 1.25, label: "1.25배", desc: "가장 빠르게" },
 ] as const;
 
 export const DEFAULT_SPEED = 1;

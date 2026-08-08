@@ -52,7 +52,7 @@ export default function SpeedPicker({
               >
                 {selected && <Check size={16} className="text-brand absolute top-3 right-3" />}
                 <span className={cn("text-base font-bold tabular-nums", selected ? "text-brand" : "text-foreground")}>{s.label}</span>
-                <span className={cn("text-sm", selected ? "text-brand/80" : "text-muted-foreground")}>{s.desc}</span>
+                {s.desc && <span className={cn("text-sm", selected ? "text-brand/80" : "text-muted-foreground")}>{s.desc}</span>}
               </button>
             );
           })}
