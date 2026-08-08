@@ -4,14 +4,14 @@ import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
 import { sanitizeTags } from "@/lib/tags";
-import { DEFAULT_VOICE, isValidVoice, voiceModel, voiceSpeed } from "@/lib/tts-voices";
+import { DEFAULT_VOICE, isValidVoice, resolveTtsSpeed, voiceModel } from "@/lib/tts-voices";
 import { sanitizeAudioStats, type AudioStats } from "@/lib/audio-loudness";
 import { ALLOWED_AUDIO, ALLOWED_EXT, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 
 export type GenerateAudioResult = { audioBase64: string } | { error: string };
 export type SaveSentenceResult = { success: string } | { error: string };
 
-export async function generateAudio(englishText: string, voice?: string): Promise<GenerateAudioResult> {
+export async function generateAudio(englishText: string, voice?: string, speed?: number): Promise<GenerateAudioResult> {
   const text = englishText.trim();
   const safeVoice = isValidVoice(voice) ? voice : DEFAULT_VOICE;
 
@@ -39,8 +39,8 @@ export async function generateAudio(englishText: string, voice?: string): Promis
       voice: safeVoice,
       input: text,
       response_format: "mp3",
-      // 음색별 속도 보정(미지정이면 API 기본 1.0) — tts-voices.ts 참고
-      speed: voiceSpeed(safeVoice),
+      // 음색 보정값 × 사용자 배율(무효/미지정이면 1배) — 합성은 tts-voices.ts의 resolveTtsSpeed 하나에서만
+      speed: resolveTtsSpeed(safeVoice, speed),
     });
     const arrayBuffer = await mp3Response.arrayBuffer();
     const audioBase64 = Buffer.from(arrayBuffer).toString("base64");

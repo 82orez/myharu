@@ -13,7 +13,8 @@ export type TtsVoice = {
   desc: string;
   // 미지정이면 DEFAULT_TTS_MODEL. 신규 음색은 tts-1에서 품질이 보장되지 않아 모델을 따로 지정한다.
   model?: TtsModel;
-  // 말하기 속도(0.25~4.0). 미지정이면 API 기본값 1.0.
+  // 음색별 속도 보정값. 미지정이면 1.0(보정 없음).
+  // ⚠️ 사용자 설정이 아니라 "음색 정규화" 전용 — 사용자가 고른 배율과 곱해져 최종 API speed가 된다(resolveTtsSpeed).
   // gpt-4o-mini-tts 음색(ash/coral)은 기본 속도가 tts-1보다 눈에 띄게 느려서 여기서 보정한다.
   // ⚠️ 실측 결과 gpt-4o-mini-tts에서도 speed가 정상 동작한다(같은 문장: ash 기본 5.66s → 1.25배 4.78s → 1.4배 3.65s,
   //    tts-1 alloy는 3.6~4.3s). "speed는 무시되고 instructions로만 제어된다"는 문서·포럼 설명은 이 프로젝트 실측과 다르다.
@@ -21,8 +22,24 @@ export type TtsVoice = {
   speed?: number;
 };
 
-// gpt-4o-mini-tts 음색을 tts-1 음색과 비슷한 속도로 맞추는 배속. 체감이 빠르거나 느리면 이 값만 조정한다.
+// gpt-4o-mini-tts 음색을 tts-1 음색과 비슷한 속도로 맞추는 배속(음색 정규화 전용).
+// 사용자가 고르는 빠르기는 SPEED_OPTIONS이고, 이 값과 곱해진다 — 여기서 사용자 취향을 반영하지 말 것.
 const NEW_VOICE_SPEED = 1.6;
+
+// 사용자가 고르는 말하기 배율. 음색별 보정값(TtsVoice.speed)에 곱해져 최종 API speed가 된다.
+export const SPEED_OPTIONS = [
+  { value: 0.75, label: "0.75배", desc: "천천히 또박또박" },
+  { value: 1, label: "1배", desc: "기본 속도" },
+  { value: 1.25, label: "1.25배", desc: "약간 빠르게" },
+  { value: 1.5, label: "1.5배", desc: "빠르게" },
+  { value: 2, label: "2배", desc: "매우 빠르게" },
+] as const;
+
+export const DEFAULT_SPEED = 1;
+
+// OpenAI TTS가 받는 speed 범위
+const MIN_API_SPEED = 0.25;
+const MAX_API_SPEED = 4.0;
 
 export const TTS_VOICES: TtsVoice[] = [
   { id: "alloy", label: "Alloy", gender: "중성", accent: "미국식", desc: "중성적이고 균형 잡힌 톤" },
@@ -68,4 +85,24 @@ export function voiceModel(id: TtsVoiceId): TtsModel {
 
 export function voiceSpeed(id: TtsVoiceId): number | undefined {
   return TTS_VOICES.find((v) => v.id === id)?.speed;
+}
+
+const SPEED_VALUES = new Set<number>(SPEED_OPTIONS.map((s) => s.value));
+
+export function isValidSpeed(value: unknown): value is number {
+  return typeof value === "number" && SPEED_VALUES.has(value);
+}
+
+export function speedLabel(speed: number): string {
+  return SPEED_OPTIONS.find((s) => s.value === speed)?.label ?? `${speed}배`;
+}
+
+/**
+ * 음색 보정값 × 사용자 배율 → OpenAI 허용 범위(0.25~4.0)로 clamp.
+ * ⚠️ 최종 speed를 만드는 곳은 여기 하나뿐 — 다른 곳에서 다시 계산하지 말 것.
+ */
+export function resolveTtsSpeed(voice: TtsVoiceId, userSpeed?: number): number {
+  const base = voiceSpeed(voice) ?? 1;
+  const factor = isValidSpeed(userSpeed) ? userSpeed : DEFAULT_SPEED;
+  return Math.min(Math.max(base * factor, MIN_API_SPEED), MAX_API_SPEED);
 }

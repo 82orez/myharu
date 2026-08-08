@@ -120,7 +120,16 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 
 `"server-only"`, 싱글턴. `OPENAI_API_KEY` 미설정 시 throw. TTS: mp3, 모델·음성은 선택형(아래).
 
-**음성 선택** (`lib/tts-voices.ts`): 5종 — `alloy`/`onyx`/`nova`(`tts-1`) + `ash`/`coral`(신규 음색이라 `tts-1`에서 품질 미보장 → 항목의 `model: "gpt-4o-mini-tts"`로 분기). 클라/서버 공용이라 **`"server-only"` 금지**. `generateAudio(text, voice?)`는 `isValidVoice`로 검증 후 미지정/무효 시 `DEFAULT_VOICE`(alloy) fallback, 모델은 `voiceModel(voice)`(미지정 음색은 `DEFAULT_TTS_MODEL`=`tts-1`). **말하기 속도**는 항목의 `speed`(0.25~4.0, 미지정=API 기본 1.0)로 제어하고 `generateAudio`가 `voiceSpeed(voice)`로 항상 전달한다 — `gpt-4o-mini-tts` 음색(ash/coral)이 `tts-1`보다 느려서 `NEW_VOICE_SPEED`(1.3)로 보정. ⚠️ **"gpt-4o-mini-tts는 speed를 무시한다"는 문서·포럼 설명은 실측과 다르다**(같은 문장 기준 ash 5.66s → 1.25배 4.78s → 1.4배 3.65s, alloy 3.6~4.3s). `instructions`(자연어 지시)로도 시도했으나 5.66s→5.16s로 효과가 약해 채택하지 않음 — 속도 조정은 `NEW_VOICE_SPEED` 숫자만 바꿀 것. 음색 추가 시 `TTS_VOICES`만 수정하면 UI·검증·localStorage에 자동 반영. 선택 UI는 `VoicePicker`(Dialog), 마지막 선택은 `useSelectedVoice` 훅이 localStorage(`myharu:tts-voice`)에 기억(SSR-safe: 초기값 default → mount 후 보정). `InputForm`·`ReviewClient`(편집 재생성)에서 사용.
+**음성 선택** (`lib/tts-voices.ts`): 5종 — `alloy`/`onyx`/`nova`(`tts-1`) + `ash`/`coral`(신규 음색이라 `tts-1`에서 품질 미보장 → 항목의 `model: "gpt-4o-mini-tts"`로 분기). 클라/서버 공용이라 **`"server-only"` 금지**. `generateAudio(text, voice?, speed?)`는 `isValidVoice`/`isValidSpeed`로 검증 후 미지정/무효 시 `DEFAULT_VOICE`(alloy)·`DEFAULT_SPEED`(1) fallback, 모델은 `voiceModel(voice)`(미지정 음색은 `DEFAULT_TTS_MODEL`=`tts-1`).
+
+**말하기 속도** — 두 층이 곱해진다. ⚠️ 이 구분을 뭉개지 말 것:
+- **음색 보정** `TtsVoice.speed`: `gpt-4o-mini-tts` 음색(ash/coral)이 `tts-1`보다 느려서 맞추는 **정규화 전용** 상수 `NEW_VOICE_SPEED`(1.6). 사용자 취향을 여기 반영하지 말 것.
+- **사용자 배율** `SPEED_OPTIONS`(0.75/1/1.25/1.5/2배)·`DEFAULT_SPEED`(1): `SpeedPicker`(Dialog, `VoicePicker`와 같은 구조)에서 선택, `useSelectedSpeed` 훅이 localStorage(`myharu:tts-speed`)에 기억.
+- 합성은 **`resolveTtsSpeed(voice, userSpeed)` 하나에서만** (`voiceSpeed(voice) ?? 1` × 배율 → 0.25~4.0 clamp). 다른 곳에서 speed를 계산하지 말 것 — 과거 데이터와 기준이 갈라진다.
+- 실측(같은 문장, 미리듣기 오디오 길이): onyx·1배 2.784s / onyx·1.5배 1.944s / **ash·1배 2.616s** — 음색이 달라도 "1배"가 비슷한 빠르기로 들리는 게 정규화가 살아 있다는 증거다. 여기서 ash가 눈에 띄게 느려지면 `NEW_VOICE_SPEED`를 다시 맞춰야 한다.
+- ⚠️ **"gpt-4o-mini-tts는 speed를 무시한다"는 문서·포럼 설명은 실측과 다르다**(ash 기본 5.66s → 1.25배 4.78s → 1.4배 3.65s, alloy 3.6~4.3s). `instructions`(자연어 지시)로도 시도했으나 5.66s→5.16s로 효과가 약해 채택하지 않음.
+
+음색 추가 시 `TTS_VOICES`만 수정하면 UI·검증·localStorage에 자동 반영. 선택 UI는 `VoicePicker`/`SpeedPicker`(둘 다 Dialog, `className`으로 트리거 버튼 크기 조절 — 편집 폼은 `h-8 text-xs`), 마지막 선택은 각 훅이 localStorage에 기억(SSR-safe: 초기값 default → mount 후 보정). `InputForm`·`ReviewClient`(편집 재생성)에서 사용. **voice·speed 모두 DB에 저장하지 않는다**(기기별 설정).
 
 ### 오디오 볼륨 균일화 (`lib/audio-loudness.ts` + `hooks/use-audio-player.ts`)
 
@@ -168,7 +177,7 @@ src/
 │   └── globals.css            # Tailwind v4 + 컬러 토큰 + 애니메이션
 ├── components/
 │   ├── auth/                  # LoginForm/SignupForm/ForgotPasswordForm/ResetPasswordForm/KakaoButton/AuthHashHandler/AuthLayout
-│   ├── learn/                 # LearnModeTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/TagManager/VoicePicker/GoalProgressCard/PersonalMessageCard/LearningCalendar
+│   ├── learn/                 # LearnModeTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/TagManager/VoicePicker/SpeedPicker/GoalProgressCard/PersonalMessageCard/LearningCalendar
 │   ├── ui/                    # shadcn
 │   ├── settings/              # SpeechStrictField(즉시 저장)/DailyGoalField(입력+저장)/FeedbackSoundField(localStorage)/TagManagerCard/DeleteAllSentences
 │   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=문장 입력/연습하기/설정 메뉴
@@ -176,7 +185,7 @@ src/
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
-├── hooks/{use-caps-lock,use-selected-voice,use-audio-player}.ts
+├── hooks/{use-caps-lock,use-selected-voice,use-selected-speed,use-audio-player}.ts
 ├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,feedback-sound,speech-recognition,sentence-number}.ts
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts

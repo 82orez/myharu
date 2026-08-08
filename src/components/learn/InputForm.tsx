@@ -10,8 +10,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Label } from "@/components/ui/label";
 import TagPicker from "@/components/learn/TagPicker";
 import VoicePicker from "@/components/learn/VoicePicker";
+import SpeedPicker from "@/components/learn/SpeedPicker";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
-import { voiceLabel, type TtsVoiceId } from "@/lib/tts-voices";
+import { useSelectedSpeed } from "@/hooks/use-selected-speed";
+import { speedLabel, voiceLabel, type TtsVoiceId } from "@/lib/tts-voices";
 import { measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
 import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import {
@@ -40,12 +42,14 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
   const [tags, setTags] = useState<string[]>([]);
   const [presets, setPresets] = useState<string[]>(initialPresets);
   const [voice, setVoice] = useSelectedVoice();
+  const [speed, setSpeed] = useSelectedSpeed();
   const [phase, setPhase] = useState<Phase>("input");
   const [audioBase64, setAudioBase64] = useState<string | null>(null);
   const [audioUrl, setAudioUrl] = useState<string | null>(null);
   const [audioSource, setAudioSource] = useState<AudioSource>("ai");
-  // 현재 미리듣기 음원이 실제로 만들어진 음색. 선택 state(voice)와 분리해야 "음색을 바꿨는데 아직 재생성 안 함"을 알 수 있다.
+  // 현재 미리듣기 음원이 실제로 만들어진 음색·배율. 선택 state(voice/speed)와 분리해야 "바꿨는데 아직 재생성 안 함"을 알 수 있다.
   const [previewVoice, setPreviewVoice] = useState<TtsVoiceId | null>(null);
+  const [previewSpeed, setPreviewSpeed] = useState<number | null>(null);
   const [audioMime, setAudioMime] = useState<string>("audio/mpeg");
   const [audioExt, setAudioExt] = useState<string>("mp3");
   // 볼륨 균일화용 측정값. 측정 실패는 null로 두고 저장을 막지 않는다(재생 시 게인 1.0).
@@ -86,7 +90,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setError(null);
 
     startGenerating(async () => {
-      const result = await generateAudio(englishText, voice);
+      const result = await generateAudio(englishText, voice, speed);
 
       if ("error" in result) {
         setError(result.error);
@@ -100,6 +104,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setAudioStats(await measureAudioBytes(bytes.buffer));
       setAudioSource("ai");
       setPreviewVoice(voice);
+      setPreviewSpeed(speed);
       setAudioMime("audio/mpeg");
       setAudioExt("mp3");
       setPhase("preview");
@@ -139,6 +144,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setAudioStats(stats);
       setAudioSource("upload");
       setPreviewVoice(null);
+      setPreviewSpeed(null);
       setAudioMime(file.type);
       setAudioExt(ext);
       setPhase("preview");
@@ -151,7 +157,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setError(null);
 
     startGenerating(async () => {
-      const result = await generateAudio(englishText, voice);
+      const result = await generateAudio(englishText, voice, speed);
 
       if ("error" in result) {
         setError(result.error);
@@ -164,6 +170,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setAudioUrl(bytesToBlobUrl(bytes));
       setAudioStats(await measureAudioBytes(bytes.buffer));
       setPreviewVoice(voice);
+      setPreviewSpeed(speed);
     });
   }
 
@@ -192,6 +199,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
       setAudioStats(null);
       setAudioSource("ai");
       setPreviewVoice(null);
+      setPreviewSpeed(null);
       setAudioMime("audio/mpeg");
       setAudioExt("mp3");
       setPhase("input");
@@ -205,6 +213,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
     setAudioStats(null);
     setAudioSource("ai");
     setPreviewVoice(null);
+    setPreviewSpeed(null);
     setAudioMime("audio/mpeg");
     setAudioExt("mp3");
     setError(null);
@@ -298,7 +307,9 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
             <div className="animate-in fade-in slide-in-from-bottom-2 border-brand/20 bg-brand/5 flex flex-col gap-3 rounded-xl border p-4">
               <div className="text-brand flex items-center gap-2 text-sm font-medium">
                 <Volume2 size={16} />
-                {audioSource === "upload" ? "업로드한 음성" : `음성 미리듣기${previewVoice ? ` · ${voiceLabel(previewVoice)}` : ""}`}
+                {audioSource === "upload"
+                  ? "업로드한 음성"
+                  : `음성 미리듣기${previewVoice ? ` · ${voiceLabel(previewVoice)}` : ""}${previewSpeed ? ` · ${speedLabel(previewSpeed)}` : ""}`}
               </div>
               <audio ref={audioRef} src={audioUrl} controls className="w-full" />
             </div>
@@ -324,18 +335,20 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
 
           {!isPreview ? (
             <div className="mt-2 flex flex-col gap-2">
-              <div className="flex gap-2">
+              {/* 좁은 화면에선 생성 버튼이 한 줄을 차지하고 두 피커가 아래로 wrap된다 */}
+              <div className="flex flex-wrap gap-2">
                 <Button
                   type="button"
                   onClick={handleGenerateClick}
                   disabled={pending}
                   variant="brand"
-                  className="h-12 flex-1 rounded-xl text-lg font-bold"
+                  className="h-12 min-w-[12rem] flex-1 rounded-xl text-lg font-bold"
                 >
                   {generating && <Loader2 className="animate-spin" />}
                   {generating ? "음성 생성 중" : "AI 음성 생성"}
                 </Button>
                 <VoicePicker value={voice} onChange={setVoice} disabled={pending} />
+                <SpeedPicker value={speed} onChange={setSpeed} disabled={pending} />
               </div>
               <Button type="button" onClick={handleUploadClick} disabled={pending} variant="outline" className="h-12 rounded-xl font-bold">
                 <Upload size={16} /> 음원 파일 업로드
@@ -346,13 +359,16 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
             </div>
           ) : (
             <div className="mt-2 flex flex-col gap-2">
-              {/* 미리듣기 중에도 음색을 다시 고를 수 있다. 고르는 것만으로 재생성하지 않는다(토큰은 "다시 생성"에서만 소모). */}
+              {/* 미리듣기 중에도 음색·속도를 다시 고를 수 있다. 고르는 것만으로 재생성하지 않는다(토큰은 "다시 생성"에서만 소모). */}
               {audioSource === "ai" && (
                 <>
-                  <VoicePicker value={voice} onChange={setVoice} disabled={pending} className="h-12 w-full rounded-xl font-bold" />
-                  {previewVoice && voice !== previewVoice && (
+                  <div className="grid grid-cols-2 gap-2">
+                    <VoicePicker value={voice} onChange={setVoice} disabled={pending} className="h-12 w-full rounded-xl font-bold" />
+                    <SpeedPicker value={speed} onChange={setSpeed} disabled={pending} className="h-12 w-full rounded-xl font-bold" />
+                  </div>
+                  {previewVoice && previewSpeed && (voice !== previewVoice || speed !== previewSpeed) && (
                     <p className="text-accent-orange animate-in fade-in text-xs">
-                      {`선택한 음성(${voiceLabel(voice)})으로 들으려면 "다시 생성"을 눌러 주세요.`}
+                      {`선택한 설정(${voiceLabel(voice)} · ${speedLabel(speed)})으로 들으려면 "다시 생성"을 눌러 주세요.`}
                     </p>
                   )}
                 </>
@@ -425,7 +441,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               <AlertDialogHeader>
                 <AlertDialogTitle>음성을 다시 생성할까요?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  선택한 음성({voiceLabel(voice)})으로 새로 만듭니다. 현재 미리듣기 음성이 교체되고 Token이 소모됩니다.
+                  선택한 설정({voiceLabel(voice)} · {speedLabel(speed)})으로 새로 만듭니다. 현재 미리듣기 음성이 교체되고 Token이 소모됩니다.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

@@ -60,10 +60,12 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import TagPicker from "@/components/learn/TagPicker";
 import VoicePicker from "@/components/learn/VoicePicker";
+import SpeedPicker from "@/components/learn/SpeedPicker";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { tagColorClass, tagChipClass } from "@/lib/tag-color";
 import { buildSentenceNumbers, parseSentenceNumberQuery } from "@/lib/sentence-number";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
+import { useSelectedSpeed } from "@/hooks/use-selected-speed";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { computeGain, measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
 import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
@@ -149,6 +151,7 @@ export default function ReviewClient({
   const [sentences, setSentences] = useState(initialSentences);
   const [presets, setPresets] = useState<string[]>(initialPresets);
   const [voice, setVoice] = useSelectedVoice();
+  const [speed, setSpeed] = useSelectedSpeed();
   const [favoriteOnly, setFavoriteOnly] = useState(false);
   // 입력일 기간 프리셋(DAY_RANGES)
   const [dayFilter, setDayFilter] = useState<DayRange>("all");
@@ -465,7 +468,7 @@ export default function ReviewClient({
     }
 
     startRegenerating(async () => {
-      const result = await generateAudio(english, voice);
+      const result = await generateAudio(english, voice, speed);
       if ("error" in result) {
         toast.error(result.error);
         return;
@@ -856,6 +859,7 @@ export default function ReviewClient({
                           {regenerating ? "생성 중..." : "AI 음성 재생성"}
                         </Button>
                         <VoicePicker value={voice} onChange={setVoice} disabled={editPending} className="h-8 gap-1 px-3 text-xs" />
+                        <SpeedPicker value={speed} onChange={setSpeed} disabled={editPending} className="h-8 gap-1 px-3 text-xs" />
                         <Button variant="outline" size="sm" onClick={() => editFileInputRef.current?.click()} disabled={editPending}>
                           <Upload className="mr-1 h-4 w-4" />
                           음원 파일 업로드
