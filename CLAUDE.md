@@ -144,8 +144,34 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - **plain 경로 순서**: `src` 대입 → `load()` → `waitUntilReady`(canplay/canplaythrough, `READY_TIMEOUT_MS`=2s 타임아웃 시 그냥 재생) → `currentTime=0` → `play()`.
 - **첫 사용자 입력에 무음 워밍업**(0.05s 무음 WAV data URI)으로 iOS 오디오 세션을 미리 깨운다. ⚠️ 워밍업은 **반드시 별도 엘리먼트**로 — 재생용 `nodes.plain`을 쓰면 "듣기" 탭이 곧 첫 pointerdown이라 워밍업 정리(pause/src 제거)가 **방금 시작된 진짜 재생을 죽인다**(구현 중 실제로 만든 버그). 정리는 타이머 폴백 필수(`WARMUP_RESTORE_MS`) — `play()` 프로미스에만 맡기면 백그라운드 탭 등에서 굳는다.
 - **오디오 세션 인터럽트 대응**: iOS는 마이크(음성 인식)가 오디오 세션을 녹음으로 가져가면 AudioContext가 WebKit 전용 **`"interrupted"`** 상태가 된다. 재생 전 `tryResume`(`state !== "running"`이면 resume, 실패 시 `RESUME_RETRY_MS` 뒤 1회 더 — `"interrupted"`는 표준 타입에 없어 `!== "running"`으로 통째 판정, `await` 사이 재조회 필요해 `ctx.state as string`)이 running을 못 만들면 **증폭을 포기하고 plain 엘리먼트로 폴백**(무음보다 낫다). `ctx.onstatechange`로도 자동 resume. 추가로 `ReviewClient`·`QuizView`의 `playAudio`가 재생 직전 `recognitionRef.current?.abort()`로 마이크 세션을 확실히 놓는다(`onend` 이후 남은 객체 대비).
-- **신규 저장분**은 브라우저에서 `measureAudioBytes`(decodeAudioData → 모노 다운믹스)로 측정 후 `saveSentence(..., audioStats)`/`updateSentence(..., audioStats)`에 전달, 서버가 `sanitizeAudioStats`로 검증. ⚠️ `decodeAudioData`는 ArrayBuffer를 **detach** 시키므로 base64 인코딩을 먼저 끝낼 것. 측정 실패는 null로 저장하고 저장 자체는 막지 않는다.
+- **신규 저장분**은 브라우저에서 `measureAudioBytes`(decodeAudioData → 모노 다운믹스)로 측정 후 `saveSentence(..., audioStats)`/`updateSentence(..., audioStats)`에 전달, 서버가 `sanitizeAudioStats`로 검증. ⚠️ `decodeAudioData`는 ArrayBuffer를 **detach** 시키므로 base64 인코딩을 먼저 끝낼 것 — 이 순서는 `lib/audio-upload.ts`의 **`prepareAudioBuffer(buffer)`** 하나에 가둬 뒀다(`InputForm`·`ReviewClient`·`SaveSentenceDialog` 3곳 공용). 호출부에서 base64/측정을 다시 풀어쓰지 말 것. 측정 실패는 null로 저장하고 저장 자체는 막지 않는다.
 - **기존 파일 백필**: `npm run audio:measure`(`--dry-run`으로 분포 확인, `--force`로 전체 재측정). ffmpeg는 **디코딩에만** 쓰고(`-f f32le -ac 1`) 측정은 공유 모듈에 맡긴다 — `volumedetect`/`ebur128` 파싱 금지(브라우저와 알고리즘 불일치). 되돌리기는 두 컬럼을 NULL로.
+
+### 반복 듣기 플레이어 (`/learn/player`)
+
+`next-repeater`(별도 리포, 독립 유지)에서 **파일 복사로 이식**한 A–B 구간 반복 플레이어. 목적은 "구간 추출 → 다운로드 → 재업로드 → 타이핑" 왕복을 없애는 것. 세부 동작·gotcha는 **원본 리포의 CLAUDE.md가 정본** — 여기엔 myharu 통합분만 적는다.
+
+- **구성**: `components/player/*`(Player·Waveform·MediaView·CaptionEditor·CaptionPanel·PlaylistDialog·Recorder·ConfirmDialog·TimeReadout) + `store/playerStore.ts`(Zustand) + `lib/{audioExport,subtitles,subtitleDraft,videoTranscode,time,id,dom}.ts`. 이 lib 7개는 **디렉티브 없는 순수/브라우저 모듈**이고 myharu lib과 이름이 겹치지 않아 원본 import를 무수정 이식했다.
+- ⚠️ **동작 코드를 shadcn/토큰으로 리라이트하지 말 것.** `Player.tsx`(1100줄)·`Waveform.tsx`(1000줄)는 원본 CLAUDE.md에 "되살리지 말 것" 항목이 촘촘하다. 라이트 전용 zinc 하드코딩 색은 **알고 남긴 것**.
+- **`player-root` 클래스 필수**: `globals.css` 맨 아래 range 슬라이더 규칙이 이 클래스로 스코프된다(원본은 레이어 밖 전역 + 라이트 전용 hex라 그대로 두면 앞으로 생길 다른 화면의 range까지 물든다). `Player.tsx` 최상위 `<div>`에서 떼지 말 것.
+- **전역 keydown은 `window` 리스너**(`Player.tsx` Space/화살표/`R`/`Ctrl+±,0`, `Waveform.tsx` Esc). 전용 라우트라 그대로 뒀지만 **Navbar·BottomNav 위에서도 키가 잡히고 `Ctrl/⌘ +/-/0`이 브라우저 확대를 덮어쓴다** — 알려진 트레이드오프. `isModalOpen()`(`lib/dom.ts`, `dialog[open]` 조회)은 네이티브 `<dialog>`만 보는데 myharu의 shadcn Dialog는 div+portal이라 **서로 간섭하지 않는다**(그래서 저장 다이얼로그를 열어도 단축키가 살아 있다 — 필요해지면 여기에 가드를 추가할 것).
+- **localStorage**: `myharu:player-v1`(persist), `myharu:player-subedit-v1`(자막 드래프트). 원본의 `repeat-player-*` 키에서 네임스페이스만 바꿨다.
+- **ffmpeg.wasm**: `public/ffmpeg/`(코어 32MB)를 `toBlobURL`로 런타임 로드. 싱글스레드 코어라 **COOP/COEP 헤더 불필요**. 정적 에셋이라 함수 번들·타 라우트에 영향 없음.
+- **미이식**: 원본의 `/tts` 페이지(myharu는 자체 TTS 보유), 독립 `/stt` 페이지. `Player` 헤더의 STT/TTS 링크는 죽은 링크가 되므로 제거했다.
+
+#### 구간 → 문장 저장 (`SaveSentenceDialog`)
+
+- 진입은 `Player`의 **"문장으로 저장"** 버튼(구간 추출 옆, `canLoop` 조건 동일). 저장 성공 후 **A–B 구간을 유지**한다(연속 저장).
+- 열릴 때 ① 자막 프리필 ② `extractRegionToMp3Blob` → `prepareAudioBuffer`로 base64+라우드니스 준비. 준비가 비동기라 `prepareSeqRef` 순번으로 **늦게 끝난 요청이 덮어쓰는 것**을 막고, blob URL은 `clipUrlRef` 1개만 유지(교체·닫기·언마운트에서 revoke).
+- **자막 프리필**: 구간 중앙 시각에 `findCueText`. 언어는 `SubTrack.lang`(`labelFromFileName`이 파일명에서 추출) 우선, 없으면 첫 트랙=영어·두 번째=한국어. 추측이 빗나가도 폼에서 고칠 수 있으므로 **자동 저장하지 않는다**.
+- ⚠️ 클립 미리듣기는 **다이얼로그 로컬 `<audio>`**다. 플레이어의 WaveSurfer/`mediaUrl`이나 `useAudioPlayer` 싱글턴과 섞지 말 것.
+- `lib/audioExport.ts`는 **Blob 반환(`extractRegionToMp3Blob`/`extractRegionToWavBlob`)과 다운로드(`extractRegionToMp3`/`...Wav`)가 분리**돼 있다. 다운로드 쪽은 Blob 쪽을 호출할 뿐이니 기존 "구간 추출" 동작은 그대로다. ⚠️ 분리 후에도 `decodeRegion`은 **구간 길이와 무관하게 파일 전체를 풀 샘플레이트로 디코드**한다(65분 → 피크 ~2GB).
+- **STT**(`/api/stt`, 라우트 핸들러): 원본 복사본에 `getUser()` 가드 추가 + `lib/openai.ts` 싱글턴 재사용. 다이얼로그는 `whisper-1`/`format=text`만 쓴다.
+
+#### 업로드 페이로드 한계 (⚠️ 두 층이 다름)
+
+- `next.config.ts` `serverActions.bodySizeLimit: "16mb"` — **없으면 Next 기본 1MB**라 `MAX_AUDIO_BYTES`(10MB)와 어긋나 1MB 넘는 오디오가 `saveSentence`/`updateSentence` **진입 전에** 잘렸다(이식 중 발견한 기존 버그). 낮추지 말 것.
+- 그러나 **Vercel 서버리스 요청 본문 4.5MB 벽은 이 설정으로 넘을 수 없다.** base64는 원본보다 ~33% 크므로 `SaveSentenceDialog`가 `SAFE_PAYLOAD_BYTES`(3MB) 초과 시 경고만 띄운다(로컬은 통과하므로 막지는 않는다). 근본 해결은 Storage 직접 업로드.
 
 ## 컴포넌트/디자인 규칙
 
@@ -170,7 +196,8 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 src/
 ├── app/
 │   ├── (auth)/                # login/signup/forgot-password/reset-password/logout/oauth (+ loading.tsx)
-│   ├── (learn)/               # learn/input·review·quiz + settings (+ gamification-actions.ts, loading.tsx, error.tsx)
+│   ├── (learn)/               # learn/input·review·quiz·player + settings (+ gamification-actions.ts, loading.tsx, error.tsx)
+│   ├── api/stt/route.ts       # OpenAI 음성→텍스트 프록시 (인증 필수, SaveSentenceDialog 전용)
 │   ├── auth/confirm/route.ts  # OTP/code 처리 (recovery vs OAuth vs signup 분기)
 │   ├── layout.tsx             # Pretendard + Navbar + Footer + BottomNav + AuthHashHandler + ScrollToTop + Toaster
 │   ├── page.tsx               # 비로그인 마케팅 / 로그인 게이미피케이션 대시보드
@@ -179,15 +206,18 @@ src/
 ├── components/
 │   ├── auth/                  # LoginForm/SignupForm/ForgotPasswordForm/ResetPasswordForm/KakaoButton/AuthHashHandler/AuthLayout
 │   ├── learn/                 # LearnModeTabs/ReviewClient/QuizView/SessionSummary/InputForm/TagPicker/TagManager/VoicePicker/SpeedPicker/GoalProgressCard/PersonalMessageCard/LearningCalendar
+│   ├── player/                # next-repeater 이식분: Player/Waveform/MediaView/CaptionEditor/CaptionPanel/PlaylistDialog/Recorder/ConfirmDialog/TimeReadout + SaveSentenceDialog(myharu 이음매)
 │   ├── ui/                    # shadcn
 │   ├── settings/              # SpeechStrictField(즉시 저장)/DailyGoalField(입력+저장)/FeedbackSoundField(localStorage)/TagManagerCard/DeleteAllSentences
-│   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=문장 입력/연습하기/설정 메뉴
+│   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=문장 입력/연습하기/반복 듣기/설정 메뉴
 │   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/입력/연습/프로필), md:hidden
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
 ├── hooks/{use-caps-lock,use-selected-voice,use-selected-speed,use-audio-player}.ts
-├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,feedback-sound,speech-recognition,sentence-number}.ts
+├── store/playerStore.ts       # Zustand + persist, 플레이어 전용 (myharu의 유일한 전역 스토어)
+├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,audio-upload,feedback-sound,speech-recognition,sentence-number}.ts
+├── lib/{audioExport,subtitles,subtitleDraft,videoTranscode,time,id,dom}.ts   # next-repeater 이식분(camelCase 파일명은 원본 유지)
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts
 ```

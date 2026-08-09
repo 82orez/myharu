@@ -1,0 +1,1124 @@
+// src/components/player/Player.tsx
+"use client";
+
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import clsx from "clsx";
+import {
+  Pause,
+  Play,
+  Flag,
+  Upload,
+  ChevronLeft,
+  ChevronRight,
+  Volume2,
+  Gauge,
+  RotateCcw,
+  ArrowLeftToLine,
+  ArrowRightFromLine,
+  BookmarkPlus,
+  Download,
+  FolderOpen,
+  ListMusic,
+  SkipBack,
+  SkipForward,
+} from "lucide-react";
+import { toast } from "sonner";
+import Waveform from "@/components/player/Waveform";
+import MediaView from "@/components/player/MediaView";
+import Recorder from "@/components/player/Recorder";
+import CaptionPanel from "@/components/player/CaptionPanel";
+import CaptionEditor from "@/components/player/CaptionEditor";
+import PlaylistDialog from "@/components/player/PlaylistDialog";
+import SaveSentenceDialog from "@/components/player/SaveSentenceDialog";
+import { usePlayerStore } from "@/store/playerStore";
+import { fmtTime, clamp, MIN_LOOP_SEC } from "@/lib/time";
+import { isModalOpen } from "@/lib/dom";
+import { extractRegionToMp3 } from "@/lib/audioExport";
+import { transcodeVideo, type TranscodeOptions } from "@/lib/videoTranscode";
+import { parseSubtitles, labelFromFileName, SUB_EXT_RE, type SubTrack } from "@/lib/subtitles";
+import { loadDraft } from "@/lib/subtitleDraft";
+import { uid } from "@/lib/id";
+
+// 이 크기 초과 시 브라우저 변환(ffmpeg.wasm)은 메모리 한계로 불가 → 로컬 명령어로 유도
+const LARGE_BYTES = 700 * 1024 * 1024;
+
+// ✅ 업로드 차단 기준: 재생시간 90분 초과 OR 용량 1GB 초과 → 파형 디코드 시 브라우저 OOM(오류 5) 위험이라 처음부터 거부
+const MAX_UPLOAD_SEC = 90 * 60;
+const MAX_UPLOAD_BYTES = 1 * 1024 * 1024 * 1024;
+
+// 자막은 텍스트라 훨씬 작다(1시간 분량이 ~80KB) — 오선택 방지용 상한
+const MAX_SUB_BYTES = 5 * 1024 * 1024;
+
+// 폴더 스캔용: file.type이 비어 있는 경우가 많아 확장자로도 판정한다
+const MEDIA_EXT_RE = /\.(mp3|m4a|aac|wav|ogg|opus|flac|mp4|m4v|mov|webm|mkv)$/i;
+
+// 001.mp3 ↔ 001.srt / 001.en.srt / 001.ko.vtt 를 파일명으로 짝지어 준다
+const matchSubFiles = (mediaName: string, subFiles: File[]): File[] => {
+  const base = mediaName.replace(/\.[^.]+$/, "");
+  return subFiles.filter((s) => {
+    const sBase = s.name.replace(SUB_EXT_RE, "");
+    return sBase === base || sBase.startsWith(`${base}.`);
+  });
+};
+import { BsRepeat, BsRepeat1 } from "react-icons/bs";
+import { TbRepeatOff } from "react-icons/tb";
+
+// 트랜스포트 버튼 공통 스타일(Recorder.tsx와 같은 패턴)
+const btnBase =
+  "inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60";
+
+const Divider = () => <div className="h-8 w-px bg-zinc-200" />;
+
+// 구분선 + 버튼 묶음 — 줄바꿈 시 통째로 넘어가도록 하나의 flex 아이템으로 만든다
+const clusterBase = "flex items-center gap-2";
+
+// 버튼 묶음 머리글 — 라벨 + 남는 폭을 채우는 실선
+const GroupLabel = ({ children }: { children: React.ReactNode }) => (
+  <div className="mb-2 flex items-center gap-2 text-[11px] font-medium text-zinc-400">
+    {children}
+    <span className="h-px flex-1 bg-zinc-100" />
+  </div>
+);
+
+export default function Player({ initialPresets = [] }: { initialPresets?: string[] }) {
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const folderInputRef = useRef<HTMLInputElement | null>(null);
+  // 트랙 로드 순번 — 늦게 시작한 요청이 먼저 끝나 이전 트랙이 적용되는 것을 막는다
+  const loadSeqRef = useRef(0);
+  const mediaRef = useRef<HTMLVideoElement | null>(null);
+  const objectUrlRef = useRef<string | null>(null);
+
+  const ws = usePlayerStore((s) => s.ws);
+
+  const mediaUrl = usePlayerStore((s) => s.mediaUrl);
+  const mediaKind = usePlayerStore((s) => s.mediaKind);
+  const showVideo = usePlayerStore((s) => s.showVideo);
+  const setShowVideo = usePlayerStore((s) => s.setShowVideo);
+  const showCaptions = usePlayerStore((s) => s.showCaptions);
+  const setShowCaptions = usePlayerStore((s) => s.setShowCaptions);
+  const fileName = usePlayerStore((s) => s.fileName);
+
+  const isReady = usePlayerStore((s) => s.isReady);
+  const isPlaying = usePlayerStore((s) => s.isPlaying);
+  const duration = usePlayerStore((s) => s.duration);
+  const currentTime = usePlayerStore((s) => s.currentTime);
+
+  const playbackRate = usePlayerStore((s) => s.playbackRate);
+  const volume = usePlayerStore((s) => s.volume);
+
+  // ✅ Zoom
+  const zoomPps = usePlayerStore((s) => s.zoomPps);
+  const setZoomPps = usePlayerStore((s) => s.setZoomPps);
+
+  const loopEnabled = usePlayerStore((s) => s.loopEnabled);
+  const loopA = usePlayerStore((s) => s.loopA);
+  const loopB = usePlayerStore((s) => s.loopB);
+  const repeatTarget = usePlayerStore((s) => s.repeatTarget);
+  const repeatCount = usePlayerStore((s) => s.repeatCount);
+
+  const subs = usePlayerStore((s) => s.subs);
+
+  const setSource = usePlayerStore((s) => s.setSource);
+  const setPlaybackRate = usePlayerStore((s) => s.setPlaybackRate);
+  const setVolume = usePlayerStore((s) => s.setVolume);
+
+  const playPause = usePlayerStore((s) => s.playPause);
+  const play = usePlayerStore((s) => s.play);
+  const stop = usePlayerStore((s) => s.stop);
+  const setTime = usePlayerStore((s) => s.setTime);
+  const seekBy = usePlayerStore((s) => s.seekBy);
+
+  const setLoopEnabled = usePlayerStore((s) => s.setLoopEnabled);
+  const setLoopA = usePlayerStore((s) => s.setLoopA);
+  const setLoopB = usePlayerStore((s) => s.setLoopB);
+  const setLoopRange = usePlayerStore((s) => s.setLoopRange);
+  const setRepeatTarget = usePlayerStore((s) => s.setRepeatTarget);
+  const resetRepeatCount = usePlayerStore((s) => s.resetRepeatCount);
+
+  const upsertRecent = usePlayerStore((s) => s.upsertRecent);
+  const updateRecentTime = usePlayerStore((s) => s.updateRecentTime);
+
+  const addSubs = usePlayerStore((s) => s.addSubs);
+
+  const playlist = usePlayerStore((s) => s.playlist);
+  const playlistIndex = usePlayerStore((s) => s.playlistIndex);
+  const setPlaylist = usePlayerStore((s) => s.setPlaylist);
+  const setPlaylistIndex = usePlayerStore((s) => s.setPlaylistIndex);
+  const clearPlaylist = usePlayerStore((s) => s.clearPlaylist);
+
+  const onPickFile = () => fileInputRef.current?.click();
+  const onPickFolder = () => folderInputRef.current?.click();
+
+  // ✅ 실제 로드(검증 통과한 파일만): 기존 흐름 유지
+  const acceptFile = (f: File) => {
+    // ✅ 이전 ObjectURL 정리(메모리 누수 방지)
+    if (objectUrlRef.current) {
+      URL.revokeObjectURL(objectUrlRef.current);
+      objectUrlRef.current = null;
+    }
+
+    const url = URL.createObjectURL(f);
+    objectUrlRef.current = url;
+    setMediaSize(f.size);
+
+    const kind = f.type?.startsWith("video/") ? "video" : "audio";
+
+    setSource({ mediaUrl: url, mediaKind: kind, fileName: f.name });
+    upsertRecent({ fileName: f.name, mediaUrl: url, mediaKind: kind, lastTime: 0 });
+
+    // ✅ iOS/Safari에서 metadata 로딩 트리거가 필요한 경우를 대비
+    if (mediaRef.current) {
+      try {
+        mediaRef.current.src = url;
+        mediaRef.current.load();
+      } catch {
+        // ignore
+      }
+    }
+  };
+
+  // ✅ 자막 파일 → SubTrack 파싱(실패한 파일은 토스트로 알리고 건너뜀)
+  const readSubtitleFiles = async (files: File[]): Promise<SubTrack[]> => {
+    const tracks: SubTrack[] = [];
+
+    for (const f of files) {
+      if (f.size > MAX_SUB_BYTES) {
+        toast.warning(`${f.name}: 자막 파일이 너무 큽니다(5MB 초과).`);
+        continue;
+      }
+      try {
+        const raw = await f.text();
+        // File.text()는 UTF-8 고정 → CP949/EUC-KR 자막은 U+FFFD로 깨진다
+        if (raw.includes("�")) {
+          toast.warning(`${f.name}: UTF-8이 아닌 것 같습니다. 글자가 깨져 보이면 UTF-8로 저장해 다시 불러오세요.`);
+        }
+        const cues = parseSubtitles(raw);
+        if (cues.length === 0) {
+          toast.warning(`${f.name}: 읽을 수 있는 자막이 없습니다.`);
+          continue;
+        }
+        const { label, lang } = labelFromFileName(f.name);
+        tracks.push({ id: uid(), label, lang, fileName: f.name, cues, enabled: true });
+      } catch {
+        toast.error(`${f.name}: 자막을 읽지 못했습니다.`);
+      }
+    }
+
+    return tracks;
+  };
+
+  // ✅ 미디어 1개 + 딸린 자막을 검증 후 로드. 단일 파일 선택과 재생목록 전환이 공유한다.
+  //    성공하면 true, 가드에 걸리면 false를 반환(재생목록 인덱스는 성공 시에만 옮기기 위함).
+  const loadTrack = (file: File, subFiles: File[]): Promise<boolean> => {
+    // ⚠️ 순번 가드: 프로브·자막 파싱이 비동기라 트랙을 빠르게 연속 클릭하면 늦게 시작한 요청이
+    //    먼저 끝날 수 있다. 최신 호출이 아니면 부수효과(setSource/addSubs)를 적용하지 않는다.
+    const seq = ++loadSeqRef.current;
+    const isStale = () => seq !== loadSeqRef.current;
+
+    // ⚠️ setSource가 subs를 비우므로 자막은 반드시 acceptFile "이후"에 붙인다
+    const acceptWithSubs = async () => {
+      if (isStale()) return false;
+      acceptFile(file);
+      const tracks = await readSubtitleFiles(subFiles);
+      // 자막을 읽는 동안 다른 트랙이 선택됐다면 그 트랙 자막을 덮어쓰면 안 된다
+      if (isStale()) return false;
+      if (tracks.length > 0) addSubs(tracks);
+
+      // ✅ 직접 만들던 자막 복원(같은 파일명일 때만). setSource가 subs를 비우므로 여기서만 붙일 수 있다.
+      const draft = loadDraft(file.name);
+      if (draft) {
+        addSubs([draft]);
+        toast.success(`직접 만든 자막 ${draft.cues.length}줄을 복원했습니다.`);
+      }
+      return true;
+    };
+
+    // ✅ 용량 차단(선택 즉시 판정 가능)
+    if (file.size > MAX_UPLOAD_BYTES) {
+      toast.warning("이 파일은 1GB를 초과해 업로드할 수 없습니다. 브라우저 메모리 보호를 위한 제한이에요.");
+      return Promise.resolve(false);
+    }
+
+    // ✅ 재생시간 차단: metadata만 가볍게 로드해 duration 확인(전체 디코드 아님 → OOM 위험 없음)
+    return new Promise<boolean>((resolve) => {
+      const probeUrl = URL.createObjectURL(file);
+      const probe = document.createElement("video");
+      probe.preload = "metadata";
+
+      const cleanupProbe = () => {
+        probe.onloadedmetadata = null;
+        probe.onerror = null;
+        URL.revokeObjectURL(probeUrl);
+      };
+
+      probe.onloadedmetadata = () => {
+        const dur = probe.duration;
+        cleanupProbe();
+        // Infinity/NaN(일부 포맷)은 판정 불가 → 통과시켜 기존 흐름에 위임
+        if (isFinite(dur) && dur > MAX_UPLOAD_SEC) {
+          // 이미 밀려난 요청이면 경고도 띄우지 않는다(버려진 파일에 대한 소음)
+          if (!isStale()) toast.warning("재생시간이 90분을 초과해 업로드할 수 없습니다. 브라우저 메모리 보호를 위한 제한이에요.");
+          resolve(false);
+          return;
+        }
+        acceptWithSubs().then(resolve);
+      };
+
+      probe.onerror = () => {
+        cleanupProbe();
+        // metadata를 못 읽어도 여기서 막지 않고 로드 → 기존 에러 처리에 위임
+        acceptWithSubs().then(resolve);
+      };
+
+      probe.src = probeUrl;
+    });
+  };
+
+  const onFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    if (picked.length === 0) return;
+
+    // 거부 시 같은 파일을 다시 선택할 수 있도록 input 값 초기화(비동기 콜백 대비 ref 사용)
+    const resetInput = () => {
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    };
+
+    // ✅ 분류는 확장자 기준 — .srt는 MIME이 비어 있거나 text/plain으로 들어온다
+    const subFiles = picked.filter((f) => SUB_EXT_RE.test(f.name));
+    const mediaFiles = picked.filter((f) => !SUB_EXT_RE.test(f.name));
+
+    if (mediaFiles.length > 1) {
+      toast.warning("미디어 파일은 한 번에 하나만 열 수 있습니다. 첫 번째 파일만 불러옵니다.");
+    }
+
+    const f = mediaFiles[0];
+    if (!f) {
+      // 자막만 고른 경우 = 재생 중 자막 추가 → 미디어는 건드리지 않는다
+      const tracks = await readSubtitleFiles(subFiles);
+      if (tracks.length > 0) {
+        addSubs(tracks);
+        toast.success(`자막 ${tracks.length}개를 불러왔습니다.`);
+      }
+      resetInput();
+      return;
+    }
+
+    // 단일 파일을 새로 열면 재생목록과 어긋나므로 목록을 비운다
+    clearPlaylist();
+    await loadTrack(f, subFiles);
+    resetInput();
+  };
+
+  // ✅ 폴더 불러오기 → 재생목록 구성. blob URL은 여기서 만들지 않는다(선택 시 acceptFile이 1개만 생성).
+  const onFolderChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const picked = Array.from(e.target.files ?? []);
+    const resetInput = () => {
+      if (folderInputRef.current) folderInputRef.current.value = "";
+    };
+    if (picked.length === 0) {
+      resetInput();
+      return;
+    }
+
+    const subFiles = picked.filter((f) => SUB_EXT_RE.test(f.name));
+    // 폴더엔 .DS_Store·이미지 등이 섞이므로 MIME 또는 확장자로 미디어만 추린다
+    const mediaFiles = picked.filter((f) => !SUB_EXT_RE.test(f.name) && (/^(audio|video)\//.test(f.type) || MEDIA_EXT_RE.test(f.name)));
+
+    const tooBig = mediaFiles.filter((f) => f.size > MAX_UPLOAD_BYTES).length;
+    const usable = mediaFiles.filter((f) => f.size <= MAX_UPLOAD_BYTES);
+
+    if (usable.length === 0) {
+      toast.warning("이 폴더에서 불러올 수 있는 미디어 파일을 찾지 못했습니다.");
+      resetInput();
+      return;
+    }
+
+    // 001, 002, 010 / 1, 2, 10 모두 올바른 순서가 되도록 자연 정렬
+    const collator = new Intl.Collator(undefined, { numeric: true });
+    usable.sort((a, b) => collator.compare(a.name, b.name));
+
+    const items = usable.map((file) => ({
+      id: uid(),
+      name: file.name,
+      file,
+      subFiles: matchSubFiles(file.name, subFiles),
+    }));
+
+    setPlaylist(items);
+    resetInput();
+
+    if (tooBig > 0) toast.warning(`1GB를 초과하는 파일 ${tooBig}개는 목록에서 제외했습니다.`);
+    toast.success(`재생목록 ${items.length}개를 불러왔습니다.`);
+
+    // 첫 트랙 자동 재생 준비
+    if (await loadTrack(items[0].file, items[0].subFiles)) setPlaylistIndex(0);
+  };
+
+  const selectTrack = async (index: number) => {
+    const item = playlist[index];
+    if (!item || index === playlistIndex) return;
+    // 인덱스는 가드를 통과했을 때만 옮긴다
+    if (await loadTrack(item.file, item.subFiles)) setPlaylistIndex(index);
+  };
+
+  // ✅ 재생목록 모달 — 선택 시 닫기를 먼저 호출한다.
+  //    selectTrack은 duration 프로브 때문에 비동기라, 나중에 닫으면 모달이 잠깐 멈춘 듯 보인다.
+  const [playlistOpen, setPlaylistOpen] = useState(false);
+  const selectTrackAndClose = (index: number) => {
+    setPlaylistOpen(false);
+    void selectTrack(index);
+  };
+
+  // ⚠️ blob URL은 언마운트(STT/TTS 라우트 전환)에서 revoke하지 않는다.
+  //    스토어(모듈 싱글턴)의 mediaUrl이 살아있어야 복귀 시 그대로 재생됨(Format error 방지).
+  //    revoke는 파일 교체(acceptFile)·변환(convertMedia) 시에만 수행 → 항상 1개만 존재하므로 누수 없음.
+
+  const loopLabel = useMemo(() => {
+    if (loopA == null && loopB == null) return "A/B 미설정";
+    if (loopA != null && loopB == null) return `A: ${fmtTime(loopA)} (B 미설정)`;
+    if (loopA == null && loopB != null) return `B: ${fmtTime(loopB)} (A 미설정)`;
+    const a = Math.min(loopA!, loopB!);
+    const b = Math.max(loopA!, loopB!);
+    return `${fmtTime(a)} → ${fmtTime(b)} (${fmtTime(b - a)})`;
+  }, [loopA, loopB]);
+
+  const canLoop = loopA != null && loopB != null && Math.abs(loopB - loopA) > MIN_LOOP_SEC;
+
+  // Sentence = 활성 자막 트랙의 큐. 여러 트랙이 있으면 하나만 쓴다(합치면 구간이 겹친다).
+  // parseSubtitles가 start 정렬을 보장하므로 재정렬하지 않는다.
+  // ⚠️ MIN_LOOP_SEC보다 짧은 큐는 버린다 — 유튜브 자동생성 자막(--write-auto-subs)은 roll-up 방식이라
+  //    같은 문장을 10ms짜리 "깜빡임" 큐 + 정상 길이 큐로 두 번 낸다(실측: 1079개 중 539개가 ≤0.05초).
+  //    이걸 문장으로 넘기면 A–B가 10ms가 되어 루프가 폭주한다. 어차피 들을 수 없는 길이다.
+  const sentences = useMemo(() => {
+    const track = subs.find((s) => s.enabled) ?? subs[0];
+    return track ? track.cues.filter((c) => c.end - c.start > MIN_LOOP_SEC) : [];
+  }, [subs]);
+
+  // ⚠️ 문장 이동은 A–B를 그 문장 큐로 덮어쓰되 loopEnabled는 절대 건드리지 않는다.
+  //    `setLoopEnabled(true)`를 되살리지 말 것 — one-shot(루프 OFF)으로 듣던 사용자가
+  //    문장만 넘기려다 무한 반복에 갇힌다(repeatTarget이 0이면 영원히).
+  //    ON이면 문장 반복, OFF면 Waveform의 one-shot 분기가 B에서 멈춰준다.
+  //    참고: 루프 ON에서 구간을 유지한 채 seek만 하는 "순수 이동"은 불가능하다 —
+  //    Waveform의 `t >= b` 판정에 걸려 즉시 A로 튕긴다.
+  const goPrevSentence = () => {
+    if (!sentences.length) return;
+    const t = currentTime;
+    const prev = [...sentences].reverse().find((p) => p.start < t - 0.05) ?? sentences[sentences.length - 1];
+    setLoopRange(prev.start, prev.end);
+    resetRepeatCount();
+    setTime(prev.start);
+  };
+
+  const goNextSentence = () => {
+    if (!sentences.length) return;
+    const t = currentTime;
+    const next = sentences.find((p) => p.start > t + 0.05) ?? sentences[0];
+    setLoopRange(next.start, next.end);
+    resetRepeatCount();
+    setTime(next.start);
+  };
+
+  const controlsDisabled = !mediaUrl || !ws;
+
+  // ✅ 선택 구간(A–B)을 MP3로 추출 (비트레이트 선택 가능)
+  const [extracting, setExtracting] = useState(false);
+  const [mp3Kbps, setMp3Kbps] = useState(128);
+  const extractRegion = useCallback(async () => {
+    if (!mediaUrl || !canLoop || extracting) return;
+    const a = Math.min(loopA!, loopB!);
+    const b = Math.max(loopA!, loopB!);
+    setExtracting(true);
+    try {
+      await extractRegionToMp3(mediaUrl, a, b, fileName, mp3Kbps);
+    } catch (e) {
+      console.error(e);
+      toast.error("구간 추출에 실패했습니다.");
+    } finally {
+      setExtracting(false);
+    }
+  }, [mediaUrl, canLoop, extracting, loopA, loopB, fileName, mp3Kbps]);
+
+  // ✅ 선택 구간을 myharu 문장으로 저장 — 클립 추출/업로드는 다이얼로그가 담당한다
+  const [saveOpen, setSaveOpen] = useState(false);
+
+  // ✅ ffmpeg.wasm으로 브라우저 내 재인코딩(H.264+AAC). 재생 실패 복구 + 해상도/화질 최적화 공용.
+  const [converting, setConverting] = useState(false);
+  const [convertProgress, setConvertProgress] = useState(0);
+  const [mediaSize, setMediaSize] = useState<number | null>(null);
+
+  const isLarge = mediaSize != null && mediaSize > LARGE_BYTES;
+
+  const runTranscode = useCallback(
+    async (opts: TranscodeOptions, download: boolean) => {
+      if (!mediaUrl || converting) return;
+
+      // 대용량은 브라우저 변환 불가 → 로컬 명령어 사용 유도(다이얼로그 없이 차단)
+      if (isLarge) return;
+
+      setConverting(true);
+      setConvertProgress(0);
+      try {
+        const { url, fileName: newName } = await transcodeVideo(mediaUrl, fileName, opts, (r) => setConvertProgress(r));
+
+        // 다운로드(최적화 결과 저장용)
+        if (download) {
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = newName;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        }
+
+        // 이전 원본 ObjectURL 정리 후 교체(변환본으로 재생/파형)
+        if (objectUrlRef.current && objectUrlRef.current !== url) {
+          URL.revokeObjectURL(objectUrlRef.current);
+        }
+        objectUrlRef.current = url;
+        setMediaSize(null); // 변환본 크기는 알 수 없음 → 이후 경고 생략
+
+        setSource({ mediaUrl: url, mediaKind: "video", fileName: newName });
+        upsertRecent({ fileName: newName, mediaUrl: url, mediaKind: "video", lastTime: 0 });
+
+        // iOS/Safari metadata 로딩 트리거(기존 패턴 유지)
+        if (mediaRef.current) {
+          try {
+            mediaRef.current.src = url;
+            mediaRef.current.load();
+          } catch {
+            // ignore
+          }
+        }
+      } catch (e) {
+        console.error(e);
+        toast.error("변환에 실패했습니다. 파일이 너무 크면 브라우저에서 처리하지 못할 수 있어요 — 로컬 도구를 사용해 주세요.");
+      } finally {
+        setConverting(false);
+      }
+    },
+    [mediaUrl, converting, isLarge, fileName, setSource, upsertRecent],
+  );
+
+  // 재생 실패 복구: 원본 해상도 유지, 기본 화질(다운로드 안 함)
+  const convertMedia = useCallback(() => runTranscode({}, false), [runTranscode]);
+
+  // ✅ A(-3s) 버튼 동작:
+  // 1) A/B 미설정이면: -3초 seek
+  // 2) A/B 설정이면: A 지점부터 재생(구간 유지)
+  const playFromA = useCallback(() => {
+    if (!canLoop) {
+      if (controlsDisabled) return;
+      seekBy(-3);
+      return;
+    }
+
+    const aRaw = Math.min(loopA!, loopB!);
+    const a = duration > 0 ? Math.min(aRaw, Math.max(0, duration - 0.01)) : aRaw;
+
+    setTime(a);
+    play();
+  }, [canLoop, controlsDisabled, seekBy, loopA, loopB, duration, setTime, play]);
+
+  // ✅ B(+3s) 버튼 동작:
+  // 1) A/B 미설정이면: +3초 seek
+  // 2) A/B 설정이면: (기존) 구간 해제 + B 지점부터 재생
+  const playFromBAndClearLoop = useCallback(() => {
+    if (!canLoop) {
+      if (controlsDisabled) return;
+      seekBy(3);
+      return;
+    }
+
+    const bRaw = Math.max(loopA!, loopB!);
+    const b = duration > 0 ? Math.min(bRaw, Math.max(0, duration - 0.01)) : bRaw;
+
+    // 중요: 먼저 A/B를 해제해야(스토어 기준) Waveform의 one-shot/loop 로직이 개입하지 않음
+    setLoopEnabled(false);
+    setLoopA(null);
+    setLoopB(null);
+    resetRepeatCount();
+
+    setTime(b);
+    play();
+  }, [canLoop, controlsDisabled, seekBy, loopA, loopB, duration, setLoopEnabled, setLoopA, setLoopB, resetRepeatCount, setTime, play]);
+
+  useEffect(() => {
+    if (!mediaUrl) return;
+    const id = window.setInterval(() => updateRecentTime(mediaUrl, currentTime), 5000);
+    return () => window.clearInterval(id);
+  }, [mediaUrl, currentTime, updateRecentTime]);
+
+  useEffect(() => {
+    const onKey = (ev: KeyboardEvent) => {
+      // 모달이 떠 있으면 전역 단축키는 넘긴다(목록 항목 위에서 Space가 재생 토글로 가로채이는 것 방지)
+      if (isModalOpen()) return;
+
+      const tag = (ev.target as any)?.tagName?.toLowerCase?.();
+      if (tag === "input" || tag === "textarea" || (ev.target as any)?.isContentEditable) return;
+
+      // Zoom shortcuts: Ctrl/⌘ + (+/-/0)
+      if ((ev.ctrlKey || ev.metaKey) && (ev.key === "+" || ev.key === "=")) {
+        ev.preventDefault();
+        setZoomPps(zoomPps + 20);
+        return;
+      }
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === "-") {
+        ev.preventDefault();
+        setZoomPps(zoomPps - 20);
+        return;
+      }
+      if ((ev.ctrlKey || ev.metaKey) && ev.key === "0") {
+        ev.preventDefault();
+        setZoomPps(80);
+        return;
+      }
+
+      if (ev.code === "Space") {
+        ev.preventDefault();
+        if (!mediaUrl) return;
+        playPause();
+        return;
+      }
+
+      // ✅ ← : playFromA 버튼과 동일 동작 (-3s / A부터 재생)
+      // ✅ Shift+← : -10s 유지
+      if (ev.code === "ArrowLeft") {
+        ev.preventDefault();
+        if (ev.shiftKey) {
+          seekBy(-10);
+          return;
+        }
+        playFromA();
+        return;
+      }
+
+      // ✅ → : playFromB 버튼과 동일 동작 (+3s / (AB 있으면) 구간해제 + B부터)
+      // ✅ Shift+→ : +10s 유지
+      if (ev.code === "ArrowRight") {
+        ev.preventDefault();
+        if (ev.shiftKey) {
+          seekBy(10);
+          return;
+        }
+        playFromBAndClearLoop();
+        return;
+      }
+
+      if (ev.code === "KeyA") {
+        setLoopA(currentTime);
+        resetRepeatCount();
+        return;
+      }
+      if (ev.code === "KeyB") {
+        setLoopB(currentTime);
+        resetRepeatCount();
+        setLoopEnabled(true);
+        return;
+      }
+
+      // ✅ Repeat toggle: r/R (기존 L은 유지하고 싶으면 아래 KeyL 블록도 남겨두면 됩니다)
+      if (ev.code === "KeyR") {
+        if (!canLoop) return;
+        ev.preventDefault();
+        setLoopEnabled(!loopEnabled);
+        resetRepeatCount();
+        return;
+      }
+
+      // (선택) 기존 L 단축키 유지
+      if (ev.code === "KeyL") {
+        if (!canLoop) return;
+        ev.preventDefault();
+        setLoopEnabled(!loopEnabled);
+        resetRepeatCount();
+        return;
+      }
+
+      if (ev.code === "ArrowUp") {
+        ev.preventDefault();
+        setPlaybackRate(clamp(Number((playbackRate + 0.05).toFixed(2)), 0.5, 2));
+        return;
+      }
+      if (ev.code === "ArrowDown") {
+        ev.preventDefault();
+        setPlaybackRate(clamp(Number((playbackRate - 0.05).toFixed(2)), 0.5, 2));
+        return;
+      }
+    };
+
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    mediaUrl,
+    canLoop,
+    currentTime,
+    loopEnabled,
+    playbackRate,
+    playPause,
+    seekBy,
+    setLoopA,
+    setLoopB,
+    setLoopEnabled,
+    resetRepeatCount,
+    setPlaybackRate,
+    zoomPps,
+    setZoomPps,
+    playFromA,
+    playFromBAndClearLoop,
+  ]);
+
+  return (
+    // ⚠️ player-root — globals.css의 range 슬라이더 규칙이 이 클래스로 스코프된다. 떼지 말 것.
+    <div className="player-root mx-auto w-full max-w-6xl px-4 py-10">
+      <header className="mb-8">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">반복 듣기</h1>
+          <p className="mt-2 text-sm text-zinc-600">Ctrl/⌘+휠 줌으로 긴 오디오도 정밀하게 A–B 구간을 설정할 수 있어요.</p>
+        </div>
+      </header>
+
+      <div className="rounded-3xl border border-zinc-200 bg-zinc-50 p-5 shadow-sm">
+        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="min-w-0">
+            <div className="text-sm text-zinc-500">현재 파일</div>
+            <div className="truncate text-base font-medium text-zinc-900">{fileName ?? "오디오 파일을 선택해 주세요"}</div>
+            <div className="mt-1 text-xs text-zinc-500">
+              {fmtTime(currentTime)} / {fmtTime(duration)} {mediaUrl && !isReady ? "(로딩 중…)" : ""}
+            </div>
+          </div>
+
+          {/* 상단: 파일 불러오기 */}
+          <div className="flex flex-wrap items-center gap-2">
+            {/* 미디어와 자막(.srt/.vtt)을 한 번에 고를 수 있다 — 분류는 onFileChange가 확장자로 처리 */}
+            <input ref={fileInputRef} type="file" multiple accept="audio/*,video/mp4,video/*,.srt,.vtt" className="hidden" onChange={onFileChange} />
+            <button
+              onClick={onPickFile}
+              className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+            >
+              <Upload className="h-4 w-4" />
+              미디어 불러오기
+            </button>
+            {/* 폴더 전체를 재생목록으로. webkitdirectory는 React 타입에 없어 스프레드로 넣는다 */}
+            <input ref={folderInputRef} type="file" {...({ webkitdirectory: "" } as any)} className="hidden" onChange={onFolderChange} />
+            <button
+              onClick={onPickFolder}
+              title="폴더 안의 미디어를 전부 재생목록으로 불러옵니다"
+              className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+            >
+              <FolderOpen className="h-4 w-4" />
+              폴더 불러오기
+            </button>
+            {/* 재생목록은 폴더를 불러왔을 때만 존재 → 그때만 모달 여는 버튼을 보인다 */}
+            {playlist.length > 0 ? (
+              <button
+                onClick={() => setPlaylistOpen(true)}
+                title="재생목록 열기"
+                className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
+              >
+                <ListMusic className="h-4 w-4" />
+                재생목록 {playlist.length}
+              </button>
+            ) : null}
+            {mediaKind === "video" ? (
+              <button
+                onClick={() => setShowVideo(!showVideo)}
+                className={clsx(
+                  "inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium shadow-sm",
+                  showVideo
+                    ? "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50"
+                    : "border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100",
+                )}
+              >
+                {showVideo ? "비디오 숨기기" : "비디오 보기"}
+              </button>
+            ) : null}
+            {/* 자막 가림 토글은 카드 밖(여기)에 있어야 한다 — 카드 안이면 가린 뒤 다시 켤 수 없다 */}
+            {subs.length > 0 ? (
+              <button
+                onClick={() => setShowCaptions(!showCaptions)}
+                className={clsx(
+                  "inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-medium shadow-sm",
+                  showCaptions
+                    ? "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50"
+                    : "border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100",
+                )}
+              >
+                {showCaptions ? "자막 가리기" : "자막 보기"}
+              </button>
+            ) : null}
+          </div>
+        </div>
+
+        {/* Waveform */}
+        <div className="mt-5">
+          <MediaView
+            ref={mediaRef}
+            mediaUrl={mediaUrl}
+            mediaKind={mediaKind}
+            showVideo={showVideo}
+            onToggle={playPause}
+            onRequestConvert={convertMedia}
+            converting={converting}
+            convertProgress={convertProgress}
+            largeFile={isLarge}
+          />
+          {/* ✅ 자막 — 영상 바로 아래(파형 위). 없으면 스스로 렌더하지 않음 */}
+          <CaptionPanel />
+          <Waveform mediaRef={mediaRef} />
+        </div>
+
+        {/* ✅ Transport */}
+        <div className="mt-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          {/* ── 재생 · 이동 ── */}
+          <GroupLabel>재생 · 이동</GroupLabel>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* Play / Pause */}
+            <button
+              onClick={playPause}
+              disabled={controlsDisabled}
+              className={clsx(
+                "inline-flex w-[90px] items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium shadow-sm",
+                controlsDisabled ? "cursor-not-allowed bg-zinc-900/50 text-white" : "bg-zinc-900 text-white hover:bg-zinc-800",
+              )}
+              title="재생/일시정지 (Space)"
+            >
+              {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+              {isPlaying ? "Pause" : "Play"}
+            </button>
+
+            {/* 처음으로 */}
+            <button
+              onClick={() => {
+                stop();
+                setTime(0);
+              }}
+              disabled={controlsDisabled}
+              className={btnBase}
+              title="정지 + 00:00.00 이동"
+            >
+              <RotateCcw className="h-4 w-4" />
+              처음으로
+            </button>
+
+            {/* 구분선은 뒤따르는 버튼과 한 덩어리로 감싼다 — 줄바꿈 시 구분선만 줄 끝에 남는 것을 막는다 */}
+            <div className={clusterBase}>
+              <Divider />
+
+              {/* ✅ A부터 재생 (구간 유지) / (A/B 없으면 -3초) */}
+              <button
+                onClick={playFromA}
+                disabled={controlsDisabled}
+                className={btnBase}
+                title={canLoop ? "현재 A/B 구간의 A 지점부터 다시 재생" : "-3초 이동 (←)"}
+              >
+                {canLoop ? <ArrowLeftToLine className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
+                {canLoop ? "A" : "-3s"}
+              </button>
+
+              {/* ✅ B부터 재생 (구간 해제) / (A/B 없으면 +3초) */}
+              <button
+                onClick={playFromBAndClearLoop}
+                disabled={controlsDisabled}
+                className={btnBase}
+                title={canLoop ? "A/B 구간을 해제하고 B 지점부터 재생" : "+3초 이동 (→)"}
+              >
+                {canLoop ? (
+                  <>
+                    B <ArrowRightFromLine className="h-4 w-4" />
+                  </>
+                ) : (
+                  <>
+                    +3s <ChevronRight className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Sentence nav — 자막이 없으면 아예 렌더하지 않는다(구분선도 함께) */}
+            {sentences.length > 0 ? (
+              <div className={clusterBase}>
+                <Divider />
+                <button onClick={goPrevSentence} disabled={controlsDisabled} title="이전 문장으로 이동 (구간을 그 문장으로 설정)" className={btnBase}>
+                  <ChevronLeft className="h-4 w-4" /> 이전 문장
+                </button>
+                <button onClick={goNextSentence} disabled={controlsDisabled} title="다음 문장으로 이동 (구간을 그 문장으로 설정)" className={btnBase}>
+                  다음 문장 <ChevronRight className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
+
+            {/* Track nav — 재생목록이 없으면 숨김. 목록 양끝에서는 순환하지 않고 비활성 */}
+            {playlist.length > 0 ? (
+              <div className={clusterBase}>
+                <Divider />
+                <button
+                  onClick={() => selectTrack(playlistIndex - 1)}
+                  disabled={playlistIndex <= 0 || controlsDisabled}
+                  title="이전 트랙"
+                  className={btnBase}
+                >
+                  <SkipBack className="h-4 w-4" /> 이전 트랙
+                </button>
+                <button
+                  onClick={() => selectTrack(playlistIndex + 1)}
+                  disabled={playlistIndex < 0 || playlistIndex >= playlist.length - 1 || controlsDisabled}
+                  title="다음 트랙"
+                  className={btnBase}
+                >
+                  다음 트랙 <SkipForward className="h-4 w-4" />
+                </button>
+              </div>
+            ) : null}
+
+            {/* Volume */}
+            <div className="ml-auto flex items-center gap-3">
+              <div className="flex items-center gap-2 text-xs text-zinc-600">
+                <Volume2 className="h-4 w-4" />
+                <span className="w-10 text-right">{Math.round(volume * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.01}
+                value={volume}
+                onChange={(e) => setVolume(Number(e.target.value))}
+                className="w-40"
+                disabled={!ws}
+              />
+            </div>
+          </div>
+
+          {/* ── A–B 구간 ── */}
+          <div className="mt-4 border-t border-zinc-100 pt-3">
+            <GroupLabel>A–B 구간</GroupLabel>
+            <div className="flex flex-wrap items-center gap-2">
+              {/* A */}
+              <button
+                onClick={() => {
+                  setLoopA(currentTime);
+                  resetRepeatCount();
+                }}
+                disabled={!mediaUrl}
+                className={btnBase}
+                title="A 지정 (KeyA)"
+              >
+                <Flag className="h-4 w-4" /> A
+              </button>
+
+              {/* B */}
+              <button
+                onClick={() => {
+                  setLoopB(currentTime);
+                  resetRepeatCount();
+                  setLoopEnabled(true);
+                }}
+                disabled={!mediaUrl}
+                className={btnBase}
+                title="B 지정 (KeyB)"
+              >
+                <Flag className="h-4 w-4" /> B
+              </button>
+
+              {/* Repeat Toggle */}
+              <button
+                onClick={() => {
+                  if (!canLoop) return;
+                  setLoopEnabled(!loopEnabled);
+                  resetRepeatCount();
+                }}
+                disabled={!canLoop}
+                className={clsx(
+                  "inline-flex items-center justify-center rounded-2xl px-3 py-2 text-sm font-medium shadow-sm",
+                  canLoop
+                    ? loopEnabled
+                      ? "bg-blue-600 text-white hover:bg-blue-700"
+                      : "border border-zinc-200 bg-amber-200 text-zinc-900 hover:bg-amber-100"
+                    : "cursor-not-allowed border border-zinc-200 bg-white text-zinc-400",
+                )}
+                title="반복 토글 (R)"
+              >
+                {canLoop ? loopEnabled ? <BsRepeat size={16} /> : <BsRepeat1 size={16} /> : <TbRepeatOff size={16} />}
+              </button>
+
+              {/* Reset loop */}
+              <button
+                onClick={() => {
+                  setLoopA(null);
+                  setLoopB(null);
+                  setLoopEnabled(false);
+                  resetRepeatCount();
+                }}
+                disabled={!mediaUrl}
+                className={btnBase}
+                title="구간 초기화 (Esc)"
+              >
+                <RotateCcw className="h-4 w-4" />
+                Reset
+              </button>
+
+              {/* ✅ 선택 구간 MP3 추출 (비트레이트 선택) */}
+              <div className="inline-flex items-center overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
+                <button
+                  onClick={extractRegion}
+                  disabled={!canLoop || controlsDisabled || extracting}
+                  className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  title="선택한 A/B 구간을 MP3 파일로 저장"
+                >
+                  {extracting ? (
+                    <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />
+                  ) : (
+                    <Download className="h-4 w-4" />
+                  )}
+                  {extracting ? "추출 중" : "구간 추출"}
+                </button>
+                <select
+                  value={mp3Kbps}
+                  onChange={(e) => setMp3Kbps(Number(e.target.value))}
+                  disabled={extracting}
+                  className="border-l border-zinc-200 bg-white py-2 pr-2 pl-2 text-sm text-zinc-700 outline-none hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  title="MP3 비트레이트 (높을수록 고음질·큰 용량)"
+                >
+                  {[128, 192, 320].map((k) => (
+                    <option key={k} value={k}>
+                      {k}k
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* ✅ 선택 구간을 문장으로 저장 (같은 비트레이트를 쓴다) */}
+              <button
+                onClick={() => setSaveOpen(true)}
+                disabled={!canLoop || controlsDisabled}
+                className={btnBase}
+                title="선택한 A/B 구간을 음원으로 삼아 문장을 등록"
+              >
+                <BookmarkPlus className="h-4 w-4" />
+                문장으로 저장
+              </button>
+            </div>
+          </div>
+
+          {/* 상태 텍스트 */}
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-zinc-500">
+            <span className="min-w-0 truncate">
+              {loopLabel} · 탐색은 <b>Overview</b> 또는 <b>파형 드래그(좌클릭)</b>. (Space: 재생/일시정지)
+            </span>
+            <span className="rounded-full bg-zinc-100 px-2 py-1 text-zinc-600">반복: {repeatCount}</span>
+          </div>
+        </div>
+
+        {/* ✅ 자막 만들기 — A–B 구간 버튼 바로 아래(구간 지정 → 입력 순서대로 읽힌다). 미디어가 없으면 스스로 렌더하지 않음 */}
+        <CaptionEditor />
+
+        {/* 내 발음 녹음 — 자막 만들기 아래(분리 배치) */}
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-3 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+          <div className="text-sm font-medium text-zinc-600">내 발음 녹음</div>
+          <Recorder />
+        </div>
+
+        <div className="mt-6 grid gap-4 sm:grid-cols-2">
+          {/* Repeat Limit */}
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <label className="block">
+              <div className="text-xs font-medium text-zinc-600">Repeat Limit</div>
+              <input
+                type="number"
+                min={0}
+                max={999}
+                value={repeatTarget}
+                onChange={(e) => setRepeatTarget(clamp(Number(e.target.value || 0), 0, 999))}
+                className="mt-2 w-full rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-blue-200"
+              />
+            </label>
+          </div>
+
+          {/* Speed */}
+          <div className="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-zinc-900">재생 속도</div>
+              <div className="flex items-center gap-2 text-xs text-zinc-600">
+                <Gauge className="h-4 w-4" />
+                <span className="font-medium text-zinc-900">{playbackRate.toFixed(2)}x</span>
+              </div>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-xs text-zinc-500">
+              <span>0.5x</span>
+              <span>2.0x</span>
+            </div>
+
+            <input
+              type="range"
+              min={0.5}
+              max={2}
+              step={0.05}
+              value={playbackRate}
+              onChange={(e) => setPlaybackRate(Number(e.target.value))}
+              className="mt-2 w-full"
+            />
+
+            <div className="mt-4 flex flex-wrap gap-2">
+              {[0.75, 0.9, 1, 1.1, 1.25, 1.5].map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setPlaybackRate(v)}
+                  className={clsx(
+                    "rounded-2xl border px-3 py-2 text-sm font-medium shadow-sm",
+                    Math.abs(playbackRate - v) < 0.001
+                      ? "border-blue-600 bg-blue-50 text-blue-700"
+                      : "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50",
+                  )}
+                >
+                  {v}x
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-6 rounded-2xl bg-zinc-50 p-3 text-xs text-zinc-600">
+              <div className="font-medium text-zinc-800">단축키</div>
+              <ul className="mt-2 list-disc pl-5">
+                <li>
+                  <b>좌클릭:</b> 탐색
+                </li>
+                <li>
+                  <b>Space</b>: 재생/일시정지
+                </li>
+                <li>
+                  <b>우클릭 드래그</b>: 구간 설정
+                </li>
+                <li>
+                  <b>ESC</b>: 구간 초기화
+                </li>
+                <li>
+                  <b>←</b>: A부터 재생 / -3초, <b>Shift+←</b>: -10초
+                </li>
+                <li>
+                  <b>→</b>: B부터 재생 / +3초, <b>Shift+→</b>: +10초
+                </li>
+                <li>
+                  <b>A</b>: A 지정, <b>B</b>: B 지정, <b>R</b>: 반복 토글 (L도 지원)
+                </li>
+                <li>
+                  <b>↑/↓</b>: 속도 ±0.05
+                </li>
+                <li>
+                  <b>Ctrl/⌘ + 휠</b>: 줌, <b>Ctrl/⌘ +/−/0</b>: 줌 조절/리셋
+                </li>
+                <li>
+                  <b>Loop OFF:</b> A→B 1회 재생 모드
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* 재생목록 모달 — showModal()은 top layer로 뜨므로 마크업 위치는 무관 */}
+      <PlaylistDialog open={playlistOpen} onClose={() => setPlaylistOpen(false)} onSelect={selectTrackAndClose} />
+
+      <SaveSentenceDialog open={saveOpen} onOpenChange={setSaveOpen} kbps={mp3Kbps} initialPresets={initialPresets} />
+    </div>
+  );
+}

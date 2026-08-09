@@ -151,8 +151,14 @@
     scroll-behavior: smooth;
   }
   button:not(:disabled),
+  select:not(:disabled),
+  label[for],
   [role="button"]:not([aria-disabled="true"]) {
     cursor: pointer;
+  }
+  button:disabled,
+  select:disabled {
+    cursor: not-allowed;
   }
   a {
     @apply transition-colors duration-200;
@@ -189,4 +195,48 @@
 }
 .animate-pulse-glow {
   animation: pulse-glow 1s ease-in-out;
+}
+
+/* 반복 듣기 플레이어(/learn/player) 전용 range 슬라이더.
+   ⚠️ next-repeater에서 가져온 규칙이라 색이 하드코딩된 라이트 전용이다.
+   레이어 밖 전역으로 두면 앞으로 추가될 다른 화면의 range까지 물들이므로
+   반드시 .player-root 스코프를 유지할 것(Player.tsx 최상위 컨테이너). */
+.player-root input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  border-radius: 9999px;
+  background: #e4e4e7;
+  outline: none;
+}
+.player-root input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.player-root input[type="range"]::-moz-range-thumb {
+  width: 16px;
+  height: 16px;
+  border-radius: 9999px;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+}
+.player-root input[type="range"]:disabled {
+  opacity: 0.4;
+}
+.player-root input[type="range"]:disabled::-webkit-slider-thumb {
+  background: #a1a1aa;
+  cursor: not-allowed;
+}
+.player-root input[type="range"]:disabled::-moz-range-thumb {
+  background: #a1a1aa;
+  cursor: not-allowed;
 }

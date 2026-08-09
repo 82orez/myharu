@@ -1,0 +1,1007 @@
+// src/components/Waveform.tsx
+"use client";
+
+import React, { useRef, useEffect, useMemo, useState, useCallback } from "react";
+import WaveSurfer from "wavesurfer.js";
+import Regions from "wavesurfer.js/dist/plugins/regions.esm.js";
+import Minimap from "wavesurfer.js/dist/plugins/minimap.esm.js";
+import { usePlayerStore } from "@/store/playerStore";
+import { fmtTimeCS, MIN_LOOP_SEC } from "@/lib/time";
+import { isModalOpen } from "@/lib/dom";
+import TimeReadout from "@/components/player/TimeReadout";
+
+const AB_REGION_ID = "ab_region";
+const MARK_A_ID = "mark_a";
+const MARK_B_ID = "mark_b";
+const RB_TMP_ID = "rb_tmp";
+
+// ✅ 스냅 간격(0.01초)
+const SNAP_SEC = 0.01;
+
+// ✅ 로딩 에러를 사용자 친화적 한국어 안내로 변환
+// - NotReadableError(파일 읽기 실패)는 코덱이 아니라 iCloud 미다운로드/파일 이동/대용량이 원인
+function friendlyLoadError(e: any): string {
+  const name = typeof e === "object" && e ? String(e?.name ?? "") : "";
+  const raw = typeof e === "string" ? e : e?.message ? String(e.message) : "";
+  const lower = raw.toLowerCase();
+
+  if (name === "NotReadableError" || lower.includes("could not be read") || lower.includes("permission")) {
+    return "파일을 읽을 수 없습니다. ① iCloud/클라우드 동기화 폴더(예: 바탕화면)면 로컬로 완전히 내려받았는지 ② 파일이 이동·삭제·변경되지 않았는지 확인해 주세요. ③ 매우 큰 영상은 브라우저가 통째로 읽지 못할 수 있어요.";
+  }
+  return raw || "미디어 로딩 중 오류가 발생했어요.";
+}
+
+export default function Waveform({ mediaRef }: { mediaRef: React.RefObject<HTMLVideoElement | null> }) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const minimapRef = useRef<HTMLDivElement | null>(null);
+
+  const wsRef = useRef<WaveSurfer | null>(null);
+  const regionsRef = useRef<ReturnType<typeof Regions.create> | null>(null);
+
+  const loopGuardRef = useRef(false);
+
+  // ✅ repeatCount가 +2 되는 문제 방지용: “루프 재시작이 완료될 때까지” guard 유지
+  const loopPendingRef = useRef<{ b: number } | null>(null);
+
+  // ✅ region-updated에서 우리가 setOptions로 다시 보정할 때 무한루프 방지
+  const snapApplyingRef = useRef(false);
+
+  // ✅ 라우트 복귀(리마운트) 시 직전 재생 위치 복원용 — 렌더 시점에 캡처(load 이펙트의 setCurrentTime(0)보다 먼저)
+  const resumeTimeRef = useRef<number>(usePlayerStore.getState().currentTime || 0);
+
+  // ✅ 우클릭 드래그 상태
+  const rbSelectingRef = useRef(false);
+  const rbStartTimeRef = useRef(0);
+  const rbLastTimeRef = useRef(0);
+  const rbTmpRegionRef = useRef<any | null>(null);
+  const rbPointerIdRef = useRef<number | null>(null);
+
+  // ✅ 로딩 인디케이터
+  const [isLoadingWave, setIsLoadingWave] = useState(false);
+  const [loadingPct, setLoadingPct] = useState<number | null>(null);
+  const [loadingStage, setLoadingStage] = useState<"idle" | "loading" | "analyzing">("idle");
+  const [loadingError, setLoadingError] = useState<string | null>(null);
+  const loadingStartRef = useRef<number | null>(null);
+  const [loadingElapsedSec, setLoadingElapsedSec] = useState(0);
+
+  // ✅ 로딩 실패 공통 처리(load catch / ws.on("error") / retry에서 재사용)
+  const handleLoadFail = useCallback((e: any) => {
+    setLoadingError(friendlyLoadError(e));
+    setIsLoadingWave(false);
+    setLoadingPct(null);
+    setLoadingStage("idle");
+    loadingStartRef.current = null;
+    setLoadingElapsedSec(0);
+  }, []);
+
+  // ✅ 다시 시도: 같은 소스를 재로딩(iCloud 파일이 그사이 내려받아졌으면 성공 가능)
+  const retryLoad = useCallback(() => {
+    const ws = wsRef.current;
+    const mediaUrl = usePlayerStore.getState().mediaUrl;
+    if (!ws || !mediaUrl) return;
+
+    setLoadingError(null);
+    setIsLoadingWave(true);
+    setLoadingStage("loading");
+    setLoadingPct(null);
+    loadingStartRef.current = performance.now();
+    setLoadingElapsedSec(0);
+
+    try {
+      const ret: any = ws.load(mediaUrl);
+      if (ret && typeof ret.catch === "function") ret.catch(handleLoadFail);
+    } catch (e) {
+      handleLoadFail(e);
+    }
+  }, [handleLoadFail]);
+
+  // ✅ 터치 기반 감지: (hover none) 또는 (pointer coarse)면 region drag/resize 비활성화
+  const [isTouchLike, setIsTouchLike] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const mql = window.matchMedia("(hover: none), (pointer: coarse)");
+    const onChange = () => setIsTouchLike(mql.matches);
+    onChange();
+
+    if (mql.addEventListener) mql.addEventListener("change", onChange);
+    else mql.addListener(onChange);
+
+    return () => {
+      if (mql.removeEventListener) mql.removeEventListener("change", onChange);
+      else mql.removeListener(onChange);
+    };
+  }, []);
+
+  // ✅ "Loop OFF + AB 존재" 상태에서 play 이벤트 시, 조건에 따라 A로 점프할지 말지 결정
+  const oneShotAdjustingRef = useRef(false);
+
+  const setWs = usePlayerStore((s) => s.setWs);
+  const setReady = usePlayerStore((s) => s.setReady);
+  const setPlaying = usePlayerStore((s) => s.setPlaying);
+  const setDuration = usePlayerStore((s) => s.setDuration);
+  const setCurrentTime = usePlayerStore((s) => s.setCurrentTime);
+
+  const setLoopA = usePlayerStore((s) => s.setLoopA);
+  const setLoopB = usePlayerStore((s) => s.setLoopB);
+  const setLoopRange = usePlayerStore((s) => s.setLoopRange);
+  const setLoopEnabled = usePlayerStore((s) => s.setLoopEnabled);
+  const resetRepeatCount = usePlayerStore((s) => s.resetRepeatCount);
+
+  const setTime = usePlayerStore((s) => s.setTime); // ✅ 칩 클릭 시 seek
+
+  const mediaUrl = usePlayerStore((s) => s.mediaUrl);
+  const mediaKind = usePlayerStore((s) => s.mediaKind);
+  const playbackRate = usePlayerStore((s) => s.playbackRate);
+  const volume = usePlayerStore((s) => s.volume);
+
+  const zoomPps = usePlayerStore((s) => s.zoomPps);
+  const setZoomPps = usePlayerStore((s) => s.setZoomPps);
+
+  const loopEnabled = usePlayerStore((s) => s.loopEnabled);
+  const loopA = usePlayerStore((s) => s.loopA);
+  const loopB = usePlayerStore((s) => s.loopB);
+
+  // ✅ A/B 텍스트 표시용 (정렬된 값)
+  const abText = useMemo(() => {
+    if (loopA == null && loopB == null) return { a: null as number | null, b: null as number | null, len: null as number | null };
+    if (loopA != null && loopB == null) return { a: loopA, b: null, len: null };
+    if (loopA == null && loopB != null) return { a: null, b: loopB, len: null };
+
+    const a = Math.min(loopA!, loopB!);
+    const b = Math.max(loopA!, loopB!);
+    const len = b > a ? b - a : null;
+    return { a, b, len };
+  }, [loopA, loopB]);
+
+  const clearAllRegions = () => {
+    const regions = regionsRef.current;
+    if (!regions) return;
+    Object.values(regions.getRegions()).forEach((r: any) => r.remove());
+  };
+
+  // ✅ 스냅 유틸
+  const snapTime = (t: number, dur: number) => {
+    const clamped = Math.min(dur, Math.max(0, t));
+    return Math.round(clamped / SNAP_SEC) * SNAP_SEC;
+  };
+
+  const setRegionTimes = (r: any, start: number, end: number) => {
+    if (typeof r?.setOptions === "function") r.setOptions({ start, end });
+    else if (typeof r?.update === "function") r.update({ start, end });
+    else {
+      r.start = start;
+      r.end = end;
+    }
+  };
+
+  // ✅ 터치 환경 전환 시 이미 존재하는 region drag/resize 즉시 반영
+  const syncRegionInteractivity = () => {
+    const regions = regionsRef.current;
+    if (!regions) return;
+
+    const list = regions.getRegions();
+    Object.values(list).forEach((r: any) => {
+      if (!r) return;
+
+      if (r.id === AB_REGION_ID) {
+        const next = { drag: !isTouchLike, resize: !isTouchLike };
+        if (typeof r?.setOptions === "function") r.setOptions(next);
+        else if (typeof r?.update === "function") r.update(next);
+        return;
+      }
+
+      if (r.id === MARK_A_ID || r.id === MARK_B_ID) {
+        const next = { drag: !isTouchLike, resize: false };
+        if (typeof r?.setOptions === "function") r.setOptions(next);
+        else if (typeof r?.update === "function") r.update(next);
+        return;
+      }
+    });
+  };
+
+  // ✅ ESC로 구간 초기화(스토어 + UI)
+  const resetLoopAll = () => {
+    rbSelectingRef.current = false;
+    rbPointerIdRef.current = null;
+
+    try {
+      rbTmpRegionRef.current?.remove?.();
+    } catch {}
+    rbTmpRegionRef.current = null;
+
+    clearAllRegions();
+
+    // ✅ 반복 가드 상태도 같이 초기화
+    loopPendingRef.current = null;
+    loopGuardRef.current = false;
+
+    setLoopEnabled(false);
+    setLoopA(null);
+    setLoopB(null);
+    resetRepeatCount();
+  };
+
+  // store 값으로 다시 그리기(우클릭 선택 취소 시 복구)
+  const redrawFromValues = (a0: number | null, b0: number | null, enabled: boolean) => {
+    const regions = regionsRef.current;
+    const ws = wsRef.current;
+    if (!regions || !ws) return;
+
+    clearAllRegions();
+
+    const dur = ws.getDuration() || 0;
+    const EPS = 0.08;
+
+    if (a0 != null && b0 != null) {
+      const a = Math.min(a0, b0);
+      const b = Math.max(a0, b0);
+      if (b > a) {
+        regions.addRegion({
+          id: AB_REGION_ID,
+          start: a,
+          end: b,
+          drag: !isTouchLike,
+          resize: !isTouchLike,
+          color: enabled ? "rgba(59, 130, 246, 0.18)" : "rgba(113, 113, 122, 0.14)",
+        });
+        return;
+      }
+    }
+
+    if (a0 != null && b0 == null) {
+      const start = dur > 0 ? Math.min(a0, Math.max(0, dur - EPS)) : a0;
+      regions.addRegion({
+        id: MARK_A_ID,
+        start,
+        end: start + EPS,
+        drag: !isTouchLike,
+        resize: false,
+        color: "rgba(245, 158, 11, 0.22)",
+      });
+      return;
+    }
+
+    if (a0 == null && b0 != null) {
+      const start = dur > 0 ? Math.min(b0, Math.max(0, dur - EPS)) : b0;
+      regions.addRegion({
+        id: MARK_B_ID,
+        start,
+        end: start + EPS,
+        drag: !isTouchLike,
+        resize: false,
+        color: "rgba(244, 63, 94, 0.22)",
+      });
+      return;
+    }
+  };
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    if (!mediaRef.current) return;
+
+    const regions = Regions.create();
+
+    const minimap =
+      minimapRef.current != null
+        ? Minimap.create({
+            container: minimapRef.current,
+            height: 44,
+            waveColor: "rgba(148, 163, 184, 0.55)",
+            progressColor: "rgba(59, 130, 246, 0.65)",
+            cursorColor: "rgba(15, 23, 42, 0.7)",
+          })
+        : null;
+
+    const ws = WaveSurfer.create({
+      container: containerRef.current,
+      media: mediaRef.current ?? undefined,
+      height: 150,
+      normalize: true,
+      cursorWidth: 1,
+      dragToSeek: true,
+      barWidth: 2,
+      barGap: 2,
+      plugins: minimap ? [regions, minimap] : [regions],
+    });
+
+    wsRef.current = ws;
+    regionsRef.current = regions;
+    setWs(ws);
+
+    ws.on("loading", (pct) => {
+      // ✅ 대용량 MP4는 (파일 읽기/다운로드) 이후 (디코드/파형 분석) 시간이 길 수 있음
+      setLoadingError(null);
+      setIsLoadingWave(true);
+      setLoadingStage((prev) => (prev === "idle" ? "loading" : prev));
+
+      const p = typeof pct === "number" ? pct : null;
+      setLoadingPct(p);
+      if (p != null && p >= 100) setLoadingStage("analyzing");
+    });
+
+    // wavesurfer v7: decode 이벤트가 존재하면 “파형 분석” 단계로 전환
+    // (빌드/번들 구성에 따라 없을 수 있으니 any로 안전 처리)
+    (ws as any).on?.("decode", () => {
+      if (!usePlayerStore.getState().mediaUrl) return;
+      setLoadingError(null);
+      setIsLoadingWave(true);
+      setLoadingStage("analyzing");
+    });
+
+    ws.on("ready", () => {
+      setReady(true);
+      setDuration(ws.getDuration());
+
+      // ✅ 라우트 복귀 시 직전 위치 복원(1회성). fresh 파일 로드 시엔 0으로 리셋되어 적용 안 됨.
+      const resume = resumeTimeRef.current;
+      resumeTimeRef.current = 0;
+      const dur = ws.getDuration();
+      if (resume > 0.05 && resume < dur - 0.05) {
+        ws.setTime(resume);
+        setCurrentTime(resume);
+      }
+
+      const st = usePlayerStore.getState();
+      ws.setPlaybackRate(st.playbackRate);
+      ws.setVolume(st.volume);
+      ws.zoom(st.zoomPps);
+
+      setIsLoadingWave(false);
+      setLoadingPct(null);
+      setLoadingStage("idle");
+      setLoadingError(null);
+      loadingStartRef.current = null;
+      setLoadingElapsedSec(0);
+
+      syncRegionInteractivity();
+    });
+
+    ws.on("error", (e: any) => {
+      // AbortError(소스 교체로 인한 중단)는 정상 흐름이므로 무시
+      if (e?.name === "AbortError") return;
+      handleLoadFail(e);
+    });
+
+    // ✅ Loop OFF + AB 존재일 때:
+    // - 현재 위치가 A~B 사이면 "그대로 재생"
+    // - 그 외( A 이전 / B 근처·이후 )면 "A부터 1회 재생"을 위해 A로 점프
+    ws.on("play", () => {
+      setPlaying(true);
+
+      const st = usePlayerStore.getState();
+      const a0 = st.loopA;
+      const b0 = st.loopB;
+
+      if (st.loopEnabled) return;
+      if (a0 == null || b0 == null) return;
+
+      const a = Math.min(a0, b0);
+      const b = Math.max(a0, b0);
+      if (b - a <= MIN_LOOP_SEC) return;
+
+      const now = typeof ws.getCurrentTime === "function" ? ws.getCurrentTime() : st.currentTime;
+
+      const EPS = 0.02;
+      const isInsideRemaining = now > a + EPS && now < b - EPS;
+
+      if (isInsideRemaining) return;
+
+      if (oneShotAdjustingRef.current) return;
+      oneShotAdjustingRef.current = true;
+
+      queueMicrotask(() => {
+        const ws2 = wsRef.current;
+        if (!ws2) {
+          oneShotAdjustingRef.current = false;
+          return;
+        }
+        (ws2 as any).play?.(a);
+
+        window.setTimeout(() => {
+          oneShotAdjustingRef.current = false;
+        }, 0);
+      });
+    });
+
+    ws.on("pause", () => setPlaying(false));
+    ws.on("finish", () => setPlaying(false));
+
+    ws.on("timeupdate", (t) => {
+      setCurrentTime(t);
+
+      const st = usePlayerStore.getState();
+      const a0 = st.loopA;
+      const b0 = st.loopB;
+
+      const isPlayingNow = typeof ws.isPlaying === "function" ? ws.isPlaying() : false;
+
+      // ✅ (1) Loop OFF + AB 설정됨 => "1회 재생 모드"
+      if (!st.loopEnabled && a0 != null && b0 != null) {
+        if (loopGuardRef.current || loopPendingRef.current) {
+          loopGuardRef.current = false;
+          loopPendingRef.current = null;
+        }
+
+        if (!isPlayingNow) return;
+
+        const a = Math.min(a0, b0);
+        const b = Math.max(a0, b0);
+        if (b - a <= MIN_LOOP_SEC) return;
+
+        const EPS_END = 0.01;
+        if (t >= b - EPS_END) {
+          // ✅ B에 도달하면 "정지 + 커서를 A로 되돌림)
+          ws.pause();
+          ws.setTime(a);
+          setCurrentTime(a);
+        }
+        return;
+      }
+
+      // ✅ (2) Loop ON일 때만 반복 로직 실행
+      if (!st.loopEnabled || a0 == null || b0 == null) return;
+
+      if (loopGuardRef.current && loopPendingRef.current) {
+        const bp = loopPendingRef.current.b;
+        const EPS_BACK = 0.01;
+
+        if (isPlayingNow && t < bp - EPS_BACK) {
+          loopPendingRef.current = null;
+          loopGuardRef.current = false;
+        } else {
+          return;
+        }
+      }
+
+      // ✅ seek(칩 클릭 등)로 timeupdate가 발생해도, "재생 중이 아닐 때"는 반복 로직을 실행하지 않음
+      if (!isPlayingNow) return;
+
+      const a = Math.min(a0, b0);
+      const b = Math.max(a0, b0);
+      // ⚠️ `b <= a`가 아니라 MIN_LOOP_SEC 기준 — Player의 canLoop과 같은 값이어야 한다.
+      //    더 느슨하면(예: b > a) 10ms짜리 구간에서 루프는 도는데 반복 토글은 비활성이라 빠져나올 수 없다.
+      if (b - a <= MIN_LOOP_SEC) return;
+      if (loopGuardRef.current) return;
+
+      if (t >= b) {
+        if (st.repeatTarget > 0 && st.repeatCount >= st.repeatTarget) {
+          ws.pause();
+          return;
+        }
+
+        // ✅ 여기서부터 루프 사이클 시작: guard + pending 세팅
+        loopGuardRef.current = true;
+        loopPendingRef.current = { b };
+        st.incRepeatCount();
+
+        // ✅ 핵심: setTime + play() 대신 play(start) 사용 (seek 레이스 감소)
+        (ws as any).play?.(a);
+        // ✅ loopGuardRef 해제는 timeupdate에서 “B 이전 복귀 확인” 후 수행
+      }
+    });
+
+    // region-created 방어 + 스냅
+    regions.on("region-created", (r: any) => {
+      if (r.id === AB_REGION_ID || r.id === MARK_A_ID || r.id === MARK_B_ID || r.id === RB_TMP_ID) return;
+
+      const dur = ws.getDuration() || 0;
+      const start0 = Math.max(0, r.start ?? 0);
+      const end0 = Math.max(0, r.end ?? 0);
+
+      try {
+        r.remove();
+      } catch {}
+
+      if (end0 <= start0) return;
+
+      const start = snapTime(start0, dur);
+      const end = snapTime(end0, dur);
+      if (end <= start) return;
+
+      setLoopRange(start, end);
+      setLoopEnabled(true);
+      resetRepeatCount();
+
+      clearAllRegions();
+    });
+
+    // AB/마커 업데이트 + 스냅(0.01s)
+    regions.on("region-updated", (r: any) => {
+      if (r.id === RB_TMP_ID) return;
+      if (snapApplyingRef.current) return;
+
+      const dur = ws.getDuration() || 0;
+      const EPS = 0.08;
+
+      if (r.id === MARK_A_ID || r.id === MARK_B_ID) {
+        const s0 = Math.max(0, r.start ?? 0);
+        const s = snapTime(s0, dur);
+        const e = Math.min(dur, s + EPS);
+
+        if (Math.abs(s - s0) > 1e-6) {
+          snapApplyingRef.current = true;
+          setRegionTimes(r, s, e);
+          requestAnimationFrame(() => {
+            snapApplyingRef.current = false;
+          });
+        }
+
+        if (r.id === MARK_A_ID) {
+          setLoopA(s);
+          resetRepeatCount();
+        } else {
+          setLoopB(s);
+          resetRepeatCount();
+        }
+        return;
+      }
+
+      if (r.id === AB_REGION_ID) {
+        const s0 = Math.max(0, r.start ?? 0);
+        const e0 = Math.max(0, r.end ?? 0);
+
+        const s = snapTime(s0, dur);
+        const e = snapTime(e0, dur);
+        if (e <= s) return;
+
+        if (Math.abs(s - s0) > 1e-6 || Math.abs(e - e0) > 1e-6) {
+          snapApplyingRef.current = true;
+          setRegionTimes(r, s, e);
+          requestAnimationFrame(() => {
+            snapApplyingRef.current = false;
+          });
+        }
+
+        setLoopRange(s, e);
+        setLoopEnabled(true);
+        resetRepeatCount();
+      }
+    });
+
+    // 우클릭 드래그(A–B 선택)
+    const wrapperEl: HTMLElement = ((ws as any).getWrapper?.() as HTMLElement) || containerRef.current!;
+
+    const xToTime = (clientX: number) => {
+      const rect = wrapperEl.getBoundingClientRect();
+      const ratio = (clientX - rect.left) / Math.max(1, rect.width);
+      const dur = ws.getDuration() || 0;
+      const clamped = Math.min(1, Math.max(0, ratio));
+      return clamped * dur;
+    };
+
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.button !== 2) return;
+
+      const dur = ws.getDuration() || 0;
+      if (dur <= 0) return;
+
+      e.preventDefault();
+
+      rbSelectingRef.current = true;
+      rbPointerIdRef.current = e.pointerId;
+
+      try {
+        wrapperEl.setPointerCapture(e.pointerId);
+      } catch {}
+
+      const t0 = xToTime(e.clientX);
+      rbStartTimeRef.current = t0;
+      rbLastTimeRef.current = t0;
+
+      clearAllRegions();
+
+      const t1 = Math.min(dur, t0 + 0.01);
+      const tmp = regions.addRegion({
+        id: RB_TMP_ID,
+        start: t0,
+        end: t1,
+        drag: false,
+        resize: false,
+        color: "rgba(168, 85, 247, 0.18)",
+      });
+      rbTmpRegionRef.current = tmp;
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!rbSelectingRef.current) return;
+      if (rbPointerIdRef.current !== e.pointerId) return;
+
+      e.preventDefault();
+
+      const dur = ws.getDuration() || 0;
+      if (dur <= 0) return;
+
+      const t = xToTime(e.clientX);
+      rbLastTimeRef.current = t;
+
+      const a = Math.min(rbStartTimeRef.current, t);
+      const b = Math.max(rbStartTimeRef.current, t);
+
+      const tmp = rbTmpRegionRef.current;
+      if (!tmp) return;
+
+      setRegionTimes(tmp, a, b);
+    };
+
+    const finishRightDrag = (e: PointerEvent) => {
+      if (!rbSelectingRef.current) return;
+      if (rbPointerIdRef.current !== e.pointerId) return;
+
+      e.preventDefault();
+
+      rbSelectingRef.current = false;
+      rbPointerIdRef.current = null;
+
+      try {
+        wrapperEl.releasePointerCapture(e.pointerId);
+      } catch {}
+
+      const dur = ws.getDuration() || 0;
+
+      const a0 = Math.min(rbStartTimeRef.current, rbLastTimeRef.current);
+      const b0 = Math.max(rbStartTimeRef.current, rbLastTimeRef.current);
+
+      try {
+        rbTmpRegionRef.current?.remove?.();
+      } catch {}
+      rbTmpRegionRef.current = null;
+
+      if (b0 - a0 < MIN_LOOP_SEC) {
+        const st = usePlayerStore.getState();
+        redrawFromValues(st.loopA, st.loopB, st.loopEnabled);
+        return;
+      }
+
+      const a = snapTime(a0, dur);
+      const b = snapTime(b0, dur);
+      if (b <= a) return;
+
+      setLoopRange(a, b);
+      setLoopEnabled(true);
+      resetRepeatCount();
+
+      usePlayerStore.getState().setTime(a);
+    };
+
+    // Ctrl/⌘ + Wheel Zoom
+    const onWheel = (e: WheelEvent) => {
+      if (!e.ctrlKey && !e.metaKey) return;
+
+      const st = usePlayerStore.getState();
+      if (!st.ws) return;
+
+      e.preventDefault();
+
+      const dir = e.deltaY > 0 ? -1 : 1;
+      const step = Math.max(10, Math.round(st.zoomPps * 0.08)); // 8%
+      st.setZoomPps(st.zoomPps + dir * step);
+    };
+
+    // ✅ ESC 키로 구간 초기화
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+
+      // 모달이 떠 있으면 Esc는 모달 몫이다(여기서 preventDefault하면 모달이 닫히지 않는다)
+      if (isModalOpen()) return;
+
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName?.toLowerCase();
+      const isTypingTarget = tag === "input" || tag === "textarea" || tag === "select" || (target as any)?.isContentEditable;
+
+      if (isTypingTarget) return;
+
+      const st = usePlayerStore.getState();
+      const hasLoop = st.loopA != null || st.loopB != null || st.loopEnabled;
+
+      if (!hasLoop && !rbSelectingRef.current) return;
+
+      e.preventDefault();
+      resetLoopAll();
+    };
+
+    wrapperEl.addEventListener("contextmenu", onContextMenu);
+    wrapperEl.addEventListener("pointerdown", onPointerDown);
+    wrapperEl.addEventListener("pointermove", onPointerMove);
+    wrapperEl.addEventListener("pointerup", finishRightDrag);
+    wrapperEl.addEventListener("pointercancel", finishRightDrag);
+    wrapperEl.addEventListener("wheel", onWheel, { passive: false });
+    window.addEventListener("keydown", onKeyDown);
+
+    return () => {
+      wrapperEl.removeEventListener("contextmenu", onContextMenu);
+      wrapperEl.removeEventListener("pointerdown", onPointerDown);
+      wrapperEl.removeEventListener("pointermove", onPointerMove);
+      wrapperEl.removeEventListener("pointerup", finishRightDrag);
+      wrapperEl.removeEventListener("pointercancel", finishRightDrag);
+      wrapperEl.removeEventListener("wheel", onWheel as any);
+      window.removeEventListener("keydown", onKeyDown);
+
+      ws.destroy();
+      wsRef.current = null;
+      regionsRef.current = null;
+      setWs(null);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTouchLike]);
+
+  useEffect(() => {
+    syncRegionInteractivity();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTouchLike]);
+
+  // load audio
+  useEffect(() => {
+    const ws = wsRef.current;
+    if (!ws) return;
+
+    // ✅ 오디오 변경 시 guard 상태도 초기화
+    loopPendingRef.current = null;
+    loopGuardRef.current = false;
+    oneShotAdjustingRef.current = false;
+
+    setReady(false);
+    setPlaying(false);
+    setDuration(0);
+    setCurrentTime(0);
+
+    clearAllRegions();
+
+    if (mediaUrl) {
+      setIsLoadingWave(true);
+      setLoadingStage("loading");
+      setLoadingError(null);
+      loadingStartRef.current = performance.now();
+      setLoadingElapsedSec(0);
+      setLoadingPct(null);
+      // ✅ load()의 Promise 거부(NotReadableError 등)를 잡아 앱 크래시(런타임 오버레이) 방지
+      try {
+        const ret: any = ws.load(mediaUrl);
+        if (ret && typeof ret.catch === "function") {
+          ret.catch((e: any) => {
+            if (e?.name === "AbortError") return; // 소스 교체 중단은 무시
+            handleLoadFail(e);
+          });
+        }
+      } catch (e) {
+        handleLoadFail(e);
+      }
+    } else {
+      setIsLoadingWave(false);
+      setLoadingPct(null);
+      setLoadingStage("idle");
+      setLoadingError(null);
+      loadingStartRef.current = null;
+      setLoadingElapsedSec(0);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaUrl]);
+
+  // ✅ 대용량 미디어: 로딩/분석 시간 경과 표시
+  useEffect(() => {
+    if (!isLoadingWave) return;
+    if (loadingStartRef.current == null) loadingStartRef.current = performance.now();
+
+    const t = window.setInterval(() => {
+      const st = loadingStartRef.current;
+      if (st == null) return;
+      const sec = Math.floor((performance.now() - st) / 1000);
+      setLoadingElapsedSec(sec);
+    }, 250);
+
+    return () => window.clearInterval(t);
+  }, [isLoadingWave]);
+
+  useEffect(() => {
+    wsRef.current?.setPlaybackRate(playbackRate);
+  }, [playbackRate]);
+
+  useEffect(() => {
+    wsRef.current?.setVolume(volume);
+  }, [volume]);
+
+  // ✅ region 1개 유지(A마커/B마커/AB구간)
+  useEffect(() => {
+    const regions = regionsRef.current;
+    const ws = wsRef.current;
+    if (!regions || !ws) return;
+
+    if (rbSelectingRef.current) return;
+
+    clearAllRegions();
+
+    const a0 = loopA;
+    const b0 = loopB;
+
+    const dur = ws.getDuration() || 0;
+    const EPS = 0.08;
+
+    if (a0 != null && b0 != null) {
+      const a = Math.min(a0, b0);
+      const b = Math.max(a0, b0);
+      if (b > a) {
+        regions.addRegion({
+          id: AB_REGION_ID,
+          start: a,
+          end: b,
+          drag: !isTouchLike,
+          resize: !isTouchLike,
+          color: loopEnabled ? "rgba(59, 130, 246, 0.18)" : "rgba(113, 113, 122, 0.14)",
+        });
+        return;
+      }
+    }
+
+    if (a0 != null && b0 == null) {
+      const start = dur > 0 ? Math.min(a0, Math.max(0, dur - EPS)) : a0;
+      regions.addRegion({
+        id: MARK_A_ID,
+        start,
+        end: start + EPS,
+        drag: !isTouchLike,
+        resize: false,
+        color: "rgba(245, 158, 11, 0.22)",
+      });
+      return;
+    }
+
+    if (a0 == null && b0 != null) {
+      const start = dur > 0 ? Math.min(b0, Math.max(0, dur - EPS)) : b0;
+      regions.addRegion({
+        id: MARK_B_ID,
+        start,
+        end: start + EPS,
+        drag: !isTouchLike,
+        resize: false,
+        color: "rgba(244, 63, 94, 0.22)",
+      });
+      return;
+    }
+  }, [loopA, loopB, loopEnabled, isTouchLike]);
+
+  // ✅ 칩 클릭 시 seek 위치 결정(AB일 때는 min/max 사용)
+  const seekToA = () => {
+    if (abText.a == null) return;
+    setTime(abText.a);
+  };
+  const seekToB = () => {
+    if (abText.b == null) return;
+    setTime(abText.b);
+  };
+
+  return (
+    <div className="relative w-full rounded-2xl border border-zinc-200 bg-white p-3 shadow-sm">
+      {/* ✅ 로딩 오버레이 (파형/미니맵 위에) */}
+      {isLoadingWave && (
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-2xl bg-white/70 backdrop-blur-sm">
+          <div className="flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-sm">
+            <div className="h-5 w-5 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />
+            <div className="flex flex-col">
+              <div className="text-sm font-semibold text-zinc-800">{loadingStage === "analyzing" ? "Analyzing waveform…" : "Loading media…"}</div>
+              <div className="text-xs text-zinc-500">
+                {loadingStage === "loading" && loadingPct != null
+                  ? `${Math.max(0, Math.min(100, Math.round(loadingPct)))}% · ${mediaKind.toUpperCase()}`
+                  : `${loadingElapsedSec}s · ${mediaKind.toUpperCase()}`}
+              </div>
+
+              {loadingPct != null && loadingStage === "loading" && (
+                <div className="mt-2 h-2 w-56 overflow-hidden rounded-full bg-zinc-100">
+                  <div className="h-full rounded-full bg-zinc-900/80" style={{ width: `${Math.max(0, Math.min(100, loadingPct))}%` }} />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ✅ 로딩 오류(대용량/코덱/브라우저 제한 등) */}
+      {!isLoadingWave && loadingError && (
+        <div className="mb-3 rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          <div className="font-semibold">미디어 로딩 실패</div>
+          <div className="mt-1 text-xs text-rose-700/90">{loadingError}</div>
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={retryLoad}
+              className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 shadow-sm hover:bg-rose-100"
+            >
+              다시 시도
+            </button>
+            <span className="text-[11px] text-rose-700/80">팁: iOS Safari에서는 재생 버튼을 한 번 눌러야 로딩/분석이 시작될 수 있어요.</span>
+          </div>
+        </div>
+      )}
+
+      {/* Main waveform */}
+      <div key="main-wave" ref={containerRef} className="w-full" />
+
+      {/* Overview / Minimap + Zoom */}
+      <div key="overview" className="mt-3 rounded-xl border border-zinc-200 bg-zinc-50 p-2">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <div className="text-xs font-medium text-zinc-700">Overview</div>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setZoomPps(Math.max(20, zoomPps - 20))}
+              disabled={!mediaUrl || isLoadingWave}
+              className="rounded-lg border border-zinc-200 bg-white px-1.5 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+              title="축소 (Ctrl/⌘ + −)"
+            >
+              −
+            </button>
+
+            <input
+              type="range"
+              min={20}
+              max={800}
+              step={10}
+              value={zoomPps}
+              onChange={(e) => setZoomPps(Number(e.target.value))}
+              disabled={!mediaUrl || isLoadingWave}
+              className="ml-1 hidden w-20 sm:block"
+              title={`줌: ${zoomPps} pps`}
+            />
+
+            <span className="hidden min-w-11 text-center text-[11px] text-zinc-600 tabular-nums">{zoomPps}</span>
+
+            <button
+              onClick={() => setZoomPps(Math.min(800, zoomPps + 20))}
+              disabled={!mediaUrl || isLoadingWave}
+              className="rounded-lg border border-zinc-200 bg-white px-1.5 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
+              title="확대 (Ctrl/⌘ + +)"
+            >
+              +
+            </button>
+            <button
+              onClick={() => setZoomPps(80)}
+              disabled={!mediaUrl || isLoadingWave}
+              className="ml-1 rounded-lg border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-zinc-100 disabled:opacity-40"
+              title="초기화 (Ctrl/⌘ + 0)"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+        <div ref={minimapRef} className="w-full" />
+      </div>
+
+      {/* A/B 텍스트 + 클릭하면 seek */}
+      <div className="mt-3 rounded-xl border border-zinc-200 bg-white px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          {/* 현재 재생 위치 / 전체 길이 */}
+          <div className="mb-1 flex w-full items-center justify-center">
+            <TimeReadout />
+          </div>
+
+          <div className="flex w-full flex-wrap items-center justify-center gap-6 text-zinc-700">
+            <button
+              type="button"
+              onClick={seekToA}
+              disabled={abText.a == null || isLoadingWave}
+              className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 font-semibold text-amber-700 hover:bg-amber-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              title={abText.a != null ? "A로 이동" : "A가 설정되지 않았습니다"}
+            >
+              A {abText.a != null ? fmtTimeCS(abText.a) : "--:--.--"}
+            </button>
+
+            <button
+              type="button"
+              onClick={seekToB}
+              disabled={abText.b == null || isLoadingWave}
+              className="inline-flex items-center rounded-full bg-rose-50 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
+              title={abText.b != null ? "B로 이동" : "B가 설정되지 않았습니다"}
+            >
+              B {abText.b != null ? fmtTimeCS(abText.b) : "--:--.--"}
+            </button>
+
+            {abText.len != null && (
+              <span className="hidden rounded-full bg-blue-50 px-2 py-1 font-semibold text-blue-700 md:block">LEN {fmtTimeCS(abText.len)}</span>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

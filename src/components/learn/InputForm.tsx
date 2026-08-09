@@ -15,7 +15,8 @@ import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { useSelectedSpeed } from "@/hooks/use-selected-speed";
 import { speedLabel, voiceLabel, type TtsVoiceId } from "@/lib/tts-voices";
 import { measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
-import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
+import { prepareAudioBuffer } from "@/lib/audio-upload";
+import { ALLOWED_AUDIO, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -135,9 +136,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
 
     try {
       const buffer = await file.arrayBuffer();
-      // base64 인코딩을 먼저 끝낸다 — measureAudioBytes 내부의 decodeAudioData가 버퍼를 detach 시킬 수 있다
-      const base64 = arrayBufferToBase64(buffer);
-      const stats = await measureAudioBytes(buffer);
+      const { base64, stats } = await prepareAudioBuffer(buffer);
       if (audioUrl) URL.revokeObjectURL(audioUrl);
       setAudioBase64(base64);
       setAudioUrl(URL.createObjectURL(file));

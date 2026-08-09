@@ -68,7 +68,8 @@ import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { useSelectedSpeed } from "@/hooks/use-selected-speed";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { computeGain, measureAudioBytes, type AudioStats } from "@/lib/audio-loudness";
-import { ALLOWED_AUDIO, arrayBufferToBase64, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
+import { prepareAudioBuffer } from "@/lib/audio-upload";
+import { ALLOWED_AUDIO, AUDIO_FORMAT_ERROR, AUDIO_SIZE_ERROR, MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import { installFeedbackSoundUnlock, playFeedbackSound, primeFeedbackSounds } from "@/lib/feedback-sound";
 import { toast } from "sonner";
 
@@ -494,9 +495,7 @@ export default function ReviewClient({
 
     try {
       const buffer = await file.arrayBuffer();
-      // base64 인코딩을 먼저 끝낸다 — measureAudioBytes 내부의 decodeAudioData가 버퍼를 detach 시킬 수 있다
-      const base64 = arrayBufferToBase64(buffer);
-      const stats = await measureAudioBytes(buffer);
+      const { base64, stats } = await prepareAudioBuffer(buffer);
       stageAudio({ base64, mime: file.type, ext, stats, source: "upload" }, URL.createObjectURL(file));
     } catch {
       toast.error("파일을 읽는 중 오류가 발생했습니다. 다시 시도해 주세요.");
