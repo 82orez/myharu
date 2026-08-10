@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { PenLine, Mic, CalendarDays, Star, Flame, Trophy, Target, Volume2 } from "lucide-react";
+import { PenLine, Mic, CalendarDays, Star, Sparkles, Repeat, Trophy, Target, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
@@ -28,7 +28,7 @@ const steps = [
     icon: Trophy,
     step: "3",
     title: "성장 확인",
-    description: "정답마다 XP를 획득하고, 일일·장기 목표 진도를 채우며 실력을 키워 보세요.",
+    description: "정답마다 연습 횟수가 쌓이고, 오늘의 목표 진도와 학습 달력으로 꾸준함을 확인할 수 있습니다.",
   },
 ];
 
@@ -36,17 +36,22 @@ const highlights = [
   {
     icon: Volume2,
     title: "AI 원어민 발음",
-    description: "OpenAI TTS로 생성된 자연스러운 원어민 발음을 언제든 들을 수 있습니다.",
+    description: "OpenAI TTS로 생성된 자연스러운 원어민 발음을 언제든 들을 수 있습니다. 음색과 말하기 속도도 직접 고를 수 있어요.",
   },
   {
     icon: Star,
-    title: "XP & 레벨",
-    description: "정답 10 XP, 도전 2 XP. 쌓인 경험치로 나의 학습 성과를 한눈에 확인하세요.",
+    title: "문장별 연습 횟수",
+    description: "말하기·쓰기로 정답을 맞힐 때마다 문장별 횟수가 올라갑니다. 어떤 문장을 얼마나 반복했는지 한눈에 보여요.",
   },
   {
     icon: Target,
-    title: "일일·장기 목표",
-    description: "총 암기 목표와 기간을 정하면 하루 목표가 계산되고, 달성률을 원형 프로그레스로 확인할 수 있습니다.",
+    title: "하루 목표 & 학습 달력",
+    description: "하루에 몇 번 연습할지 직접 정하면 오늘 진도가 원형 프로그레스로, 지난 학습은 월간 달력으로 채워집니다.",
+  },
+  {
+    icon: Repeat,
+    title: "반복 듣기 플레이어",
+    description: "영상·음원의 A–B 구간을 반복해 들으며 받아쓰고, 마음에 드는 구간은 그대로 내 문장으로 저장할 수 있습니다.",
   },
 ];
 
@@ -155,8 +160,8 @@ export default async function Home() {
         <div className="from-brand/5 absolute inset-0 -z-10 bg-gradient-to-b via-transparent to-transparent" />
         <div className="mx-auto max-w-3xl">
           <div className="bg-brand/10 text-brand mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium">
-            <Flame size={16} />
-            말하기·쓰기 · XP · 학습 목표
+            <Sparkles size={16} />
+            말하기·쓰기 · 하루 목표 · 반복 듣기
           </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
             영어 한 문장으로 시작하는
@@ -164,8 +169,8 @@ export default async function Home() {
             <span className="text-brand">나의 하루</span>
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. XP를 모으고 목표를 향해 매일 성장하는 학습 습관을
-            만들어 보세요.
+            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. 연습 횟수를 쌓고 하루 목표를 채우며 매일 성장하는
+            학습 습관을 만들어 보세요.
           </p>
           <div className="mt-10">
             <Button nativeButton={false} render={<Link href="/signup" />} variant="brand" className="h-12 px-8 text-base font-semibold">
@@ -206,7 +211,7 @@ export default async function Home() {
       <section className="bg-muted/30 px-6 py-20">
         <div className="mx-auto max-w-5xl">
           <h2 className="mb-4 text-center text-2xl font-bold tracking-tight">재미있게 꾸준히</h2>
-          <p className="text-muted-foreground mb-12 text-center">게임처럼 즐기면서 영어 실력을 키워 보세요</p>
+          <p className="text-muted-foreground mb-12 text-center">숫자로 쌓이는 기록과 목표가 학습 습관을 만들어 줍니다</p>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {highlights.map((item, i) => (
               <div
