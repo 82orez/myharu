@@ -1,2 +1,7 @@
-# Supabase 생성 타입 — `npm run gen:types` 산출물이라 직접 포맷/편집하지 않는다
+# Supabase 생성 타입 — `npm run db:types` 산출물이라 직접 포맷/편집하지 않는다
 src/types/database.types.ts
+
+# 손으로 쓰는 메모/지침 문서 — 줄바꿈·공백을 그대로 유지한다
+# (CLAUDE.md는 Edit의 정확 문자열 매칭이 깨지는 것도 방지)
+CLAUDE.md
+comment.md
