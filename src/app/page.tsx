@@ -50,7 +50,7 @@ const highlights = [
   },
   {
     icon: Repeat,
-    title: "반복 듣기 플레이어",
+    title: "Player",
     description: "영상·음원의 A–B 구간을 반복해 들으며 받아쓰고, 마음에 드는 구간은 그대로 내 문장으로 저장할 수 있습니다.",
   },
 ];
@@ -161,7 +161,7 @@ export default async function Home() {
         <div className="mx-auto max-w-3xl">
           <div className="bg-brand/10 text-brand mb-6 inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm font-medium">
             <Sparkles size={16} />
-            말하기·쓰기 · 하루 목표 · 반복 듣기
+            말하기·쓰기 · 하루 목표 · Player
           </div>
           <h1 className="text-4xl font-bold tracking-tight sm:text-5xl">
             영어 한 문장으로 시작하는

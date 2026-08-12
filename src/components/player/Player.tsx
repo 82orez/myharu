@@ -672,7 +672,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
     <div className="player-root mx-auto w-full max-w-6xl px-4 py-10">
       <header className="mb-8">
         <div>
-          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">반복 듣기</h1>
+          <h1 className="text-2xl font-semibold tracking-tight text-zinc-900">Player</h1>
           <p className="mt-2 text-sm text-zinc-600">Ctrl/⌘+휠 줌으로 긴 오디오도 정밀하게 A–B 구간을 설정할 수 있어요.</p>
         </div>
       </header>

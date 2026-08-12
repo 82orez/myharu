@@ -3,7 +3,7 @@ import Player from "@/components/player/Player";
 import { getTagPresets } from "../tag-actions";
 
 export const metadata: Metadata = {
-  title: "반복 듣기",
+  title: "Player",
   robots: { index: false },
 };
 
