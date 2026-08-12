@@ -174,7 +174,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
               <li className="border-b border-border py-4">
                 <Link href="/learn/player" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
                   <Repeat size={18} className="text-brand" />
-                  Player
+                  Repeater
                 </Link>
               </li>
               <li className="border-b border-border py-4">

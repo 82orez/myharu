@@ -22,7 +22,7 @@ export default function Footer() {
             연습하기
           </Link>
           <Link href="/learn/player" className="text-muted-foreground hover:text-foreground text-xs">
-            Player
+            Repeater
           </Link>
         </nav>
       </div>

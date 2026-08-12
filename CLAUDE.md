@@ -149,7 +149,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - **신규 저장분**은 브라우저에서 `measureAudioBytes`(decodeAudioData → 모노 다운믹스)로 측정 후 `saveSentence(..., audioStats)`/`updateSentence(..., audioStats)`에 전달, 서버가 `sanitizeAudioStats`로 검증. ⚠️ `decodeAudioData`는 ArrayBuffer를 **detach** 시키므로 base64 인코딩을 먼저 끝낼 것 — 이 순서는 `lib/audio-upload.ts`의 **`prepareAudioBuffer(buffer)`** 하나에 가둬 뒀다(`InputForm`·`ReviewClient`·`SaveSentenceDialog` 3곳 공용). 호출부에서 base64/측정을 다시 풀어쓰지 말 것. 측정 실패는 null로 저장하고 저장 자체는 막지 않는다.
 - **기존 파일 백필**: `npm run audio:measure`(`--dry-run`으로 분포 확인, `--force`로 전체 재측정). ffmpeg는 **디코딩에만** 쓰고(`-f f32le -ac 1`) 측정은 공유 모듈에 맡긴다 — `volumedetect`/`ebur128` 파싱 금지(브라우저와 알고리즘 불일치). 되돌리기는 두 컬럼을 NULL로.
 
-### Player — A–B 반복 듣기 (`/learn/player`)
+### Repeater — A–B 반복 듣기 (`/learn/player`)
 
 `next-repeater`(별도 리포, 독립 유지)에서 **파일 복사로 이식**한 A–B 구간 반복 플레이어. 목적은 "구간 추출 → 다운로드 → 재업로드 → 타이핑" 왕복을 없애는 것. 세부 동작·gotcha는 **원본 리포의 CLAUDE.md가 정본** — 여기엔 myharu 통합분만 적는다.
 
@@ -214,7 +214,7 @@ src/
 │   ├── player/                # next-repeater 이식분: Player/Waveform/MediaView/CaptionEditor/CaptionPanel/PlaylistDialog/Recorder/ConfirmDialog/TimeReadout + SaveSentenceDialog(myharu 이음매)
 │   ├── ui/                    # shadcn
 │   ├── settings/              # SpeechStrictField(즉시 저장)/DailyGoalField(입력+저장)/FeedbackSoundField(localStorage)/TagManagerCard/DeleteAllSentences
-│   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=문장 입력/연습하기/Player/설정 메뉴
+│   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=문장 입력/연습하기/Repeater/설정 메뉴
 │   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/입력/연습/프로필), md:hidden
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block

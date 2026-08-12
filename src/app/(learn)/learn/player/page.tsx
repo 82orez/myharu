@@ -3,7 +3,7 @@ import Player from "@/components/player/Player";
 import { getTagPresets } from "../tag-actions";
 
 export const metadata: Metadata = {
-  title: "Player",
+  title: "Repeater",
   robots: { index: false },
 };
 
