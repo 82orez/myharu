@@ -29,7 +29,7 @@ import {
 } from "lucide-react";
 import { deleteSentence, toggleFavorite, updateSentence, type Sentence } from "@/app/(learn)/learn/review/actions";
 import { generateAudio } from "@/app/(learn)/learn/input/actions";
-import { recordPracticeResult } from "@/app/(learn)/learn/review/gamification-actions";
+import { recordPracticeResult, incrementPracticeCount } from "@/app/(learn)/learn/review/gamification-actions";
 import {
   getSpeechAvailability,
   unavailableKind,
@@ -79,7 +79,7 @@ type SortMode = "latest" | "oldest" | "alpha" | "practice-desc" | "practice-asc"
 const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
 
 // 문장의 총 정답 연습 횟수(스피킹 + 쓰기). 0이면 "미연습"
-const practiceTotal = (s: Sentence) => s.speech_count + s.text_count;
+const practiceTotal = (s: Sentence) => s.speech_count + s.text_count + s.listen_count;
 
 // 페이지당 문장 카드 수 (클라이언트 사이드 페이지네이션)
 const PAGE_SIZE = 20;
@@ -236,6 +236,9 @@ export default function ReviewClient({
         setListeningId(null);
       }
       setPlayingId(sentence.id);
+      // 듣기도 연습으로 인정 — 재생할 때마다 +1(중복 제한 없음). 기록 실패가 재생을 막지 않도록 fire-and-forget.
+      void incrementPracticeCount(sentence.id, "listen");
+      setSentences((prev) => prev.map((s) => (s.id === sentence.id ? { ...s, listen_count: s.listen_count + 1 } : s)));
       void play(sentence.audio_url, computeGain(sentence.loudness_db, sentence.peak_db), {
         onEnded: () => setPlayingId(null),
         onError: () => setPlayingId(null),
@@ -1022,8 +1025,12 @@ export default function ReviewClient({
                         <Keyboard className="h-3.5 w-3.5" />
                         {sentence.text_count}회
                       </span>
-                      <span className="text-foreground/70 flex items-center gap-1 font-medium" title="총 정답 횟수">
-                        합계 {sentence.speech_count + sentence.text_count}회
+                      <span className="flex items-center gap-1" title="듣기 횟수">
+                        <Volume2 className="h-3.5 w-3.5" />
+                        {sentence.listen_count}회
+                      </span>
+                      <span className="text-foreground/70 flex items-center gap-1 font-medium" title="총 연습 횟수">
+                        합계 {practiceTotal(sentence)}회
                       </span>
                     </div>
 

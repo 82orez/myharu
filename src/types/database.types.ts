@@ -57,6 +57,7 @@ export type Database = {
           id: string
           is_favorite: boolean
           korean_text: string
+          listen_count: number
           loudness_db: number | null
           note: string
           peak_db: number | null
@@ -72,6 +73,7 @@ export type Database = {
           id?: string
           is_favorite?: boolean
           korean_text: string
+          listen_count?: number
           loudness_db?: number | null
           note?: string
           peak_db?: number | null
@@ -87,6 +89,7 @@ export type Database = {
           id?: string
           is_favorite?: boolean
           korean_text?: string
+          listen_count?: number
           loudness_db?: number | null
           note?: string
           peak_db?: number | null

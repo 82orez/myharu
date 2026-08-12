@@ -24,7 +24,9 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
 
   const { data, error } = await supabase
     .from("sentences")
-    .select("id, english_text, korean_text, audio_path, created_at, is_favorite, tags, note, speech_count, text_count, loudness_db, peak_db")
+    .select(
+      "id, english_text, korean_text, audio_path, created_at, is_favorite, tags, note, speech_count, text_count, listen_count, loudness_db, peak_db",
+    )
     .eq("user_id", user.id)
     .order("created_at", { ascending: false });
 
@@ -48,6 +50,7 @@ export async function getSentences(): Promise<{ sentences?: Sentence[]; error?: 
         note: row.note ?? "",
         speech_count: row.speech_count ?? 0,
         text_count: row.text_count ?? 0,
+        listen_count: row.listen_count ?? 0,
         // 미측정(null)이면 재생 시 computeGain이 게인 1.0으로 처리한다
         loudness_db: row.loudness_db,
         peak_db: row.peak_db,

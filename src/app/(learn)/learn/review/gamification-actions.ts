@@ -3,7 +3,7 @@
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { fetchUserStats, recordPractice } from "@/lib/gamification";
-import type { UserStats, QuizMode } from "@/types/gamification";
+import type { UserStats, QuizMode, PracticeMode } from "@/types/gamification";
 
 export async function getUserStats(): Promise<{ stats?: UserStats; error?: string }> {
   const supabase = createClient(await cookies());
@@ -31,9 +31,9 @@ export async function recordPracticeResult(sentenceId: string, isCorrect: boolea
   return {};
 }
 
-// 퀴즈 정답 전용. 오늘의 목표·학습 달력 집계에 포함되도록 practice_results에 정답 기록을 남기고,
-// 문장별 모드 카운터도 함께 증가시킨다.
-export async function incrementPracticeCount(sentenceId: string, mode: QuizMode): Promise<{ error?: string }> {
+// 퀴즈 정답 + 문장 목록의 듣기 재생용. 오늘의 목표·학습 달력 집계에 포함되도록 practice_results에 기록을 남기고,
+// 문장별 모드 카운터(speech/text/listen)도 함께 증가시킨다.
+export async function incrementPracticeCount(sentenceId: string, mode: PracticeMode): Promise<{ error?: string }> {
   const supabase = createClient(await cookies());
   const {
     data: { user },

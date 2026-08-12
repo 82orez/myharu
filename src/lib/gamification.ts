@@ -70,12 +70,12 @@ export async function recordPractice(
   }
 }
 
-/** 모든 문장의 정답 횟수(스피킹 + 쓰기) 합계 */
+/** 모든 문장의 연습 횟수(스피킹·쓰기 정답 + 듣기 재생) 합계 */
 export async function fetchPracticeCountTotal(supabase: DbClient, userId: string): Promise<number> {
-  const { data } = await supabase.from("sentences").select("speech_count, text_count").eq("user_id", userId);
+  const { data } = await supabase.from("sentences").select("speech_count, text_count, listen_count").eq("user_id", userId);
 
   if (!data) return 0;
-  return data.reduce((sum, row) => sum + (row.speech_count ?? 0) + (row.text_count ?? 0), 0);
+  return data.reduce((sum, row) => sum + (row.speech_count ?? 0) + (row.text_count ?? 0) + (row.listen_count ?? 0), 0);
 }
 
 /** 날짜(KST YYYY-MM-DD)별 정답 연습 횟수. 학습 달력 히트맵용. */
