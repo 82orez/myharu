@@ -37,6 +37,8 @@ import {
 } from "@/lib/speech-recognition";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import SessionSummary from "@/components/learn/SessionSummary";
+import QuizFilterPanel from "@/components/learn/QuizFilterPanel";
+import { EMPTY_FILTER, filterSentences, orderSentences, parseNumberRanges, type QuizOrder, type SentenceFilter } from "@/lib/sentence-filter";
 import { incrementPracticeCount } from "@/app/(learn)/learn/review/gamification-actions";
 import type { Sentence } from "@/app/(learn)/learn/review/actions";
 import type { UserStats, SessionSummary as SessionSummaryType, QuizMode } from "@/types/gamification";
@@ -93,6 +95,9 @@ function reducer(state: State, action: Action): State {
   }
 }
 
+// 마지막 출제 조건(기기별 설정 — DB에 저장하지 않는다)
+const QUIZ_FILTER_KEY = "myharu:quiz-filter";
+
 const initialState: State = {
   phase: "ready",
   currentIndex: 0,
@@ -116,6 +121,13 @@ export default function QuizView({
   const [speechAvailability, setSpeechAvailability] = useState<SpeechAvailability | null>(null);
   const speechSupported = speechAvailability === "available";
   const [quizType, setQuizType] = useState<"translate" | "listening">("translate");
+  // 출제 범위(시작 화면 필터). 세션에 쓰이는 문장은 START에서 sessionSentences로 스냅샷한다.
+  const [filter, setFilter] = useState<SentenceFilter>(EMPTY_FILTER);
+  const [numberInput, setNumberInput] = useState(""); // 순번 원문("1-20, 35")
+  const [order, setOrder] = useState<QuizOrder>("number");
+  const [limit, setLimit] = useState(0); // 0 = 전체
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [sessionSentences, setSessionSentences] = useState<Sentence[]>(sentences);
   const [mode, setMode] = useState<QuizMode>("speech");
   const [writingActive, setWritingActive] = useState(false);
   const [textInput, setTextInput] = useState("");
@@ -123,6 +135,8 @@ export default function QuizView({
   const [isPending, startTransition] = useTransition();
   const recognitionRef = useRef<any>(null);
   const startWatchdogRef = useRef<NodeJS.Timeout | null>(null);
+  // localStorage 복원이 끝났는지 — 끝나기 전에 저장 이펙트가 기본값을 덮어쓰지 않도록
+  const restoredRef = useRef(false);
   const { play, stop: stopAudio } = useAudioPlayer();
   const textInputRef = useRef<HTMLInputElement>(null);
 
@@ -162,10 +176,63 @@ export default function QuizView({
     }
   }, [writingActive, state.phase, state.currentIndex]);
 
-  const currentSentence = sentences[state.currentIndex];
+  const currentSentence = sessionSentences[state.currentIndex];
+  // 번호는 필터와 무관하게 전체 목록 기준 — 학습 모드와 같은 #N을 보여야 한다(출제 범위로 다시 매기지 말 것)
   const sentenceNumbers = useMemo(() => buildSentenceNumbers(sentences), [sentences]);
-  const progressPercent = sentences.length > 0 ? Math.round(((state.currentIndex + 1) / sentences.length) * 100) : 0;
+  const progressPercent = sessionSentences.length > 0 ? Math.round(((state.currentIndex + 1) / sessionSentences.length) * 100) : 0;
   const speechThreshold = initialStats?.speech_strict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
+
+  // 시작 화면에서 조건에 맞는 문장(정렬·문제 수 제한 전)
+  const pool = useMemo(() => filterSentences(sentences, filter, sentenceNumbers), [sentences, filter, sentenceNumbers]);
+  const plannedCount = limit > 0 ? Math.min(limit, pool.length) : pool.length;
+
+  // 마지막 출제 조건 기억 (기기별 설정이라 localStorage). SSR-safe: 기본값으로 첫 렌더 후 복원.
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(QUIZ_FILTER_KEY);
+      if (!raw) return;
+      const saved = JSON.parse(raw);
+      const tags: string[] = Array.isArray(saved.filter?.tags) ? saved.filter.tags : [];
+      const known = new Set(sentences.flatMap((s) => s.tags));
+      setFilter({ ...EMPTY_FILTER, ...saved.filter, tags: tags.filter((t) => known.has(t)), numbers: null });
+      setNumberInput(typeof saved.numberInput === "string" ? saved.numberInput : "");
+      if (typeof saved.order === "string") setOrder(saved.order);
+      if (typeof saved.limit === "number") setLimit(saved.limit);
+    } catch {
+      // 손상된 값은 무시하고 기본 조건으로 시작
+    } finally {
+      restoredRef.current = true;
+    }
+    // 최초 1회만 복원 — 이후 조건 변경은 아래 저장 이펙트가 담당
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // 순번 원문 → filter.numbers 반영 (Set은 직렬화할 수 없어 원문만 저장한다)
+  useEffect(() => {
+    const { numbers } = parseNumberRanges(numberInput);
+    setFilter((prev) => (prev.numbers === numbers ? prev : { ...prev, numbers }));
+  }, [numberInput]);
+
+  useEffect(() => {
+    // 복원 전(첫 커밋)에 저장하면 방금 읽은 값을 기본값으로 덮어쓴다
+    if (!restoredRef.current) return;
+    try {
+      localStorage.setItem(QUIZ_FILTER_KEY, JSON.stringify({ filter: { ...filter, numbers: null }, numberInput, order, limit }));
+    } catch {
+      // 저장 실패(사파리 프라이빗 등)는 무시 — 조건은 이번 세션에만 유지된다
+    }
+  }, [filter, numberInput, order, limit]);
+
+  // 조건에 맞는 문장으로 세션을 시작. 여기서 스냅샷해 세션 중 필터·무작위 순서가 흔들리지 않게 한다.
+  const startQuiz = useCallback(() => {
+    if (pool.length === 0) {
+      toast.error("조건에 해당하는 문장이 없습니다. 출제 범위를 조정해 주세요.");
+      return;
+    }
+    const ordered = orderSentences(pool, order, sentenceNumbers);
+    setSessionSentences(limit > 0 ? ordered.slice(0, limit) : ordered);
+    dispatch({ type: "START" });
+  }, [pool, order, limit, sentenceNumbers]);
 
   // 볼륨 균일화: 저장된 측정값으로 계산한 게인을 적용해 재생한다(미측정 문장은 게인 1.0).
   const playAudio = useCallback(
@@ -296,12 +363,12 @@ export default function QuizView({
   }, [handleResult]);
 
   const handleNext = useCallback(() => {
-    if (state.currentIndex + 1 >= sentences.length) {
+    if (state.currentIndex + 1 >= sessionSentences.length) {
       dispatch({ type: "FINISH" });
     } else {
       dispatch({ type: "NEXT" });
     }
-  }, [state.currentIndex, sentences.length]);
+  }, [state.currentIndex, sessionSentences.length]);
 
   // 빈 상태
   if (sentences.length === 0 && !initialError) {
@@ -330,7 +397,26 @@ export default function QuizView({
     return (
       <div className="flex flex-col items-center gap-6 py-12 text-center">
         <h1 className="text-3xl font-bold">퀴즈</h1>
-        <p className="text-muted-foreground">총 {sentences.length}문장을 연습합니다.</p>
+        <p className="text-muted-foreground">
+          {plannedCount === sentences.length
+            ? `총 ${sentences.length}문장을 연습합니다.`
+            : `총 ${sentences.length}문장 중 ${plannedCount}문장을 연습합니다.`}
+        </p>
+
+        <QuizFilterPanel
+          sentences={sentences}
+          filter={filter}
+          onFilterChange={setFilter}
+          numberInput={numberInput}
+          onNumberInputChange={setNumberInput}
+          order={order}
+          onOrderChange={setOrder}
+          limit={limit}
+          onLimitChange={setLimit}
+          matchedCount={pool.length}
+          open={filterOpen}
+          onOpenChange={setFilterOpen}
+        />
 
         <div className="flex w-full max-w-md flex-col gap-3">
           <Button
@@ -357,7 +443,7 @@ export default function QuizView({
           <p className="text-muted-foreground max-w-md text-sm">{speechUnavailableMessage(speechAvailability)}</p>
         )}
 
-        <Button variant="brand" onClick={() => dispatch({ type: "START" })} className="mt-2 h-14 px-10 text-lg font-bold">
+        <Button variant="brand" onClick={startQuiz} className="mt-2 h-14 px-10 text-lg font-bold">
           시작하기
         </Button>
       </div>
@@ -367,11 +453,12 @@ export default function QuizView({
   // 세션 요약
   if (state.phase === "summary") {
     const correctCount = state.answers.filter((a) => a.isCorrect).length;
+    const total = sessionSentences.length;
     const summary: SessionSummaryType = {
-      totalQuestions: sentences.length,
+      totalQuestions: total,
       correctCount,
-      incorrectCount: sentences.length - correctCount,
-      accuracy: sentences.length > 0 ? Math.round((correctCount / sentences.length) * 100) : 0,
+      incorrectCount: total - correctCount,
+      accuracy: total > 0 ? Math.round((correctCount / total) * 100) : 0,
     };
     return <SessionSummary summary={summary} onRestart={() => dispatch({ type: "RESTART" })} />;
   }
@@ -399,7 +486,7 @@ export default function QuizView({
 
         <Progress value={progressPercent} className="h-3 flex-1 items-center [&_[data-slot=progress-track]]:h-3" />
         <span className="text-muted-foreground text-sm font-medium">
-          {state.currentIndex + 1}/{sentences.length}
+          {state.currentIndex + 1}/{sessionSentences.length}
         </span>
       </div>
 

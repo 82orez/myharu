@@ -63,7 +63,9 @@ import VoicePicker from "@/components/learn/VoicePicker";
 import SpeedPicker from "@/components/learn/SpeedPicker";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { tagColorClass, tagChipClass } from "@/lib/tag-color";
-import { buildSentenceNumbers, parseSentenceNumberQuery } from "@/lib/sentence-number";
+import { buildSentenceNumbers } from "@/lib/sentence-number";
+// 필터 로직은 퀴즈와 공유 — 여기서 다시 구현하지 말 것
+import { DAY_RANGES, filterSentences, practiceTotal, type DayRange } from "@/lib/sentence-filter";
 import { useSelectedVoice } from "@/hooks/use-selected-voice";
 import { useSelectedSpeed } from "@/hooks/use-selected-speed";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
@@ -74,12 +76,6 @@ import { installFeedbackSoundUnlock, playFeedbackSound, primeFeedbackSounds } fr
 import { toast } from "sonner";
 
 type SortMode = "latest" | "oldest" | "alpha" | "practice-desc" | "practice-asc";
-
-// created_at(ISO) → KST 날짜 문자열(YYYY-MM-DD)
-const kstDate = (iso: string) => new Date(iso).toLocaleDateString("sv-SE", { timeZone: "Asia/Seoul" });
-
-// 문장의 총 정답 연습 횟수(스피킹 + 쓰기). 0이면 "미연습"
-const practiceTotal = (s: Sentence) => s.speech_count + s.text_count + s.listen_count;
 
 // 페이지당 문장 카드 수 (클라이언트 사이드 페이지네이션)
 const PAGE_SIZE = 20;
@@ -99,24 +95,6 @@ const getPageWindow = (current: number, total: number): (number | "…")[] => {
   }
   return out;
 };
-
-// 입력일(KST) 기간 프리셋. days는 오늘을 포함한 일수, all은 제한 없음
-const DAY_RANGES = [
-  { value: "all", label: "전체 일자", days: 0 },
-  { value: "today", label: "오늘", days: 1 },
-  { value: "3d", label: "최근 3일", days: 3 },
-  { value: "7d", label: "최근 일주일", days: 7 },
-  { value: "30d", label: "최근 한달", days: 30 },
-] as const;
-
-type DayRange = (typeof DAY_RANGES)[number]["value"];
-
-// 프리셋의 시작 경계 날짜(YYYY-MM-DD). all이면 null
-function rangeCutoff(range: DayRange): string | null {
-  const days = DAY_RANGES.find((r) => r.value === range)?.days ?? 0;
-  if (days <= 0) return null;
-  return kstDate(new Date(Date.now() - (days - 1) * 86400000).toISOString());
-}
 
 // 편집 중 교체 대기 상태인 새 음성. 저장을 눌러야 실제로 반영된다(취소하면 폐기).
 type StagedAudio = {
@@ -567,24 +545,12 @@ export default function ReviewClient({
   // 문장 번호: 필터·페이지네이션 이전의 전체 목록 기준이라 조회 조건을 바꿔도 같은 문장은 같은 번호
   const sentenceNumbers = useMemo(() => buildSentenceNumbers(sentences), [sentences]);
 
-  // 필터 결합: 입력일 → 즐겨찾기 → 태그(다중 AND) → 검색(문장·뜻, "#12"면 번호)
-  const cutoff = rangeCutoff(dayFilter);
-  const byDay = cutoff ? sentences.filter((s) => kstDate(s.created_at) >= cutoff) : sentences;
-  const q = search.trim().toLowerCase();
-  const numQuery = parseSentenceNumberQuery(search);
-  const pool = byDay.filter((s) => {
-    if (favoriteOnly && !s.is_favorite) return false;
-    if (noTagOnly) {
-      if (s.tags.length > 0) return false;
-    } else if (tagFilters.length > 0) {
-      const hit = tagMode === "or" ? tagFilters.some((t) => s.tags.includes(t)) : tagFilters.every((t) => s.tags.includes(t));
-      if (!hit) return false;
-    }
-    if (numQuery !== null) {
-      if (sentenceNumbers.get(s.id) !== numQuery) return false;
-    } else if (q && !`${s.english_text} ${s.korean_text}`.toLowerCase().includes(q)) return false;
-    return true;
-  });
+  // 필터 결합: 입력일 → 즐겨찾기 → 태그(다중 AND) → 검색(문장·뜻, "#12"면 번호). 판정은 lib/sentence-filter 공용.
+  const pool = filterSentences(
+    sentences,
+    { dayRange: dayFilter, favoriteOnly, tags: tagFilters, tagMode, noTagOnly, search, numbers: null, unpracticedOnly: false },
+    sentenceNumbers,
+  );
   const visibleSentences = pool.slice().sort((a, b) => {
     if (sort === "alpha") return a.english_text.localeCompare(b.english_text, "en");
     if (sort === "practice-desc" || sort === "practice-asc") {
