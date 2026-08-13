@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Mic, Target, ListChecks, Tag, AlertTriangle, Mail, Volume2 } from "lucide-react";
+import { Mic, Target, ListChecks, Tag, AlertTriangle, Mail, Volume2, RotateCcw, CalendarDays } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
-import { fetchUserStats } from "@/lib/gamification";
+import { fetchUserStats, fetchPracticeCountTotal } from "@/lib/gamification";
 import { getTagPresets } from "@/app/(learn)/learn/tag-actions";
 import { logout } from "@/app/(auth)/logout/actions";
 import { MAX_DAILY_GOAL, MIN_DAILY_GOAL, resolveDailyGoal } from "@/lib/settings-config";
@@ -14,6 +14,7 @@ import DailyGoalField from "@/components/settings/DailyGoalField";
 import FeedbackSoundField from "@/components/settings/FeedbackSoundField";
 import TagManagerCard from "@/components/settings/TagManagerCard";
 import DeleteAllSentences from "@/components/settings/DeleteAllSentences";
+import ResetDataButton from "@/components/settings/ResetDataButton";
 
 export const metadata: Metadata = {
   title: "설정",
@@ -44,11 +45,13 @@ export default async function SettingsPage() {
 
   if (!user) redirect("/login");
 
-  const [stats, { count }, presets, { data: tagRows }] = await Promise.all([
+  const [stats, { count }, presets, { data: tagRows }, practiceTotal, { count: historyCount }] = await Promise.all([
     fetchUserStats(supabase, user.id),
     supabase.from("sentences").select("*", { count: "exact", head: true }),
     getTagPresets(),
     supabase.from("sentences").select("tags").eq("user_id", user.id),
+    fetchPracticeCountTotal(supabase, user.id),
+    supabase.from("practice_results").select("*", { count: "exact", head: true }).eq("user_id", user.id),
   ]);
   const sentenceCount = count ?? 0;
 
@@ -131,6 +134,20 @@ export default async function SettingsPage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="pt-0">
+          <Row
+            icon={<RotateCcw size={16} />}
+            label="연습 횟수 초기화"
+            description="문장 카드의 스피킹·쓰기·듣기 횟수를 0으로 되돌립니다. (학습 달력은 유지)"
+          >
+            <ResetDataButton kind="counts" count={practiceTotal} />
+          </Row>
+          <Row
+            icon={<CalendarDays size={16} />}
+            label="학습 기록 초기화"
+            description="오늘의 목표 진도와 학습 달력 기록을 지웁니다. (문장별 연습 횟수는 유지)"
+          >
+            <ResetDataButton kind="history" count={historyCount ?? 0} />
+          </Row>
           <Row
             icon={<AlertTriangle size={16} className="text-destructive" />}
             label="등록된 문장 전체 삭제"

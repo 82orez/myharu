@@ -77,6 +77,54 @@ export async function setPersonalMessage(message: string): Promise<SettingsActio
   return { success: true };
 }
 
+// 문장별 연습 횟수 카운터만 0으로. ⚠️ 문장·음성·practice_results는 건드리지 않는다(달력·오늘 진도 유지).
+export async function resetPracticeCounts(): Promise<SettingsActionResult> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  const { error } = await supabase.from("sentences").update({ speech_count: 0, text_count: 0, listen_count: 0 }).eq("user_id", user.id);
+
+  if (error) {
+    console.error("[resetPracticeCounts] 초기화 실패:", error);
+    return { error: "연습 횟수를 초기화하는 중 오류가 발생했습니다." };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/learn/review");
+  revalidatePath("/settings");
+  return { success: true };
+}
+
+// 연습 기록(practice_results) 전체 삭제 → 오늘의 목표 진도·학습 달력 초기화.
+// ⚠️ 문장별 카운터(speech/text/listen_count)는 그대로 남는다.
+export async function resetPracticeHistory(): Promise<{ deleted?: number; error?: string }> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  // 토스트에 쓸 건수는 삭제 전에 센다(delete는 삭제된 행 수를 돌려주지 않는다)
+  const { count } = await supabase.from("practice_results").select("*", { count: "exact", head: true }).eq("user_id", user.id);
+
+  const { error } = await supabase.from("practice_results").delete().eq("user_id", user.id);
+
+  if (error) {
+    console.error("[resetPracticeHistory] 삭제 실패:", error);
+    return { error: "학습 기록을 초기화하는 중 오류가 발생했습니다." };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/learn/review");
+  revalidatePath("/settings");
+  return { deleted: count ?? 0 };
+}
+
 // 등록된 모든 문장 삭제. practice_results가 FK cascade라 연습 기록도 함께 사라진다.
 export async function deleteAllSentences(): Promise<{ deleted?: number; error?: string }> {
   const supabase = createClient(await cookies());
