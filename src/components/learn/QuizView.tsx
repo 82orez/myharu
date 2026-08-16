@@ -286,10 +286,10 @@ export default function QuizView({
     [play, cancelAutoPlay],
   );
 
-  // 리스닝 세션은 "다음"으로 넘어온 문제의 음원을 한 번 자동 재생한다(첫 문제는 카드 클릭으로 시작).
+  // 리스닝 세션은 문제가 바뀔 때마다(첫 문제 포함) 음원을 한 번 자동 재생한다.
   // 문제 전환 시 오디오를 정리하는 위쪽 이펙트보다 나중에 선언해야 정리 → 재생 순서가 지켜진다.
   useEffect(() => {
-    if (quizType !== "listening" || state.phase !== "question" || state.currentIndex === 0) return;
+    if (quizType !== "listening" || state.phase !== "question") return;
     // 다시 시도 등으로 question에 재진입해도 같은 문제를 다시 재생하지 않는다
     if (autoPlayedIndexRef.current === state.currentIndex) return;
     autoPlayedIndexRef.current = state.currentIndex;
