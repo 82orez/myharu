@@ -19,6 +19,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { computeGain } from "@/lib/audio-loudness";
@@ -367,10 +368,6 @@ export default function QuizView({
     }, SPEECH_START_TIMEOUT_MS);
   }, [speechSupported, currentSentence, handleResult, speechThreshold, clearStartWatchdog, handleSpeechStarted]);
 
-  const handleRevealAnswer = useCallback(() => {
-    handleResult(false, "");
-  }, [handleResult]);
-
   const handleNext = useCallback(() => {
     if (state.currentIndex + 1 >= sessionSentences.length) {
       dispatch({ type: "FINISH" });
@@ -657,11 +654,25 @@ export default function QuizView({
           </div>
         )}
 
-        {state.phase === "question" && (
-          <Button variant="ghost" disabled={isPlaying} onClick={handleRevealAnswer} className="text-muted-foreground h-10 text-sm">
-            <Eye className="mr-1 h-4 w-4" />
-            정답 보기
-          </Button>
+        {/* 정답 보기는 채점하지 않는다 — 모달로 정답만 확인하고 문제 화면을 그대로 유지 */}
+        {state.phase === "question" && currentSentence && (
+          <Dialog>
+            <DialogTrigger render={<Button type="button" variant="ghost" disabled={isPlaying} className="text-muted-foreground h-10 text-sm" />}>
+              <Eye className="mr-1 h-4 w-4" />
+              정답 보기
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>정답</DialogTitle>
+              </DialogHeader>
+              <p className="bg-success/10 text-success rounded-lg px-4 py-3 text-center text-base font-semibold">{currentSentence.english_text}</p>
+              {/* 리스닝 세션은 카드에 한국어도 숨겨져 있으므로 뜻을 함께 보여준다 */}
+              {quizType === "listening" && <p className="text-muted-foreground text-center text-sm">{currentSentence.korean_text}</p>}
+              <DialogFooter>
+                <DialogClose render={<Button variant="outline" />}>닫기</DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
         )}
 
         {state.phase === "listening" && (
