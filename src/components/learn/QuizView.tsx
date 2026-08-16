@@ -3,7 +3,7 @@
 import { useReducer, useCallback, useRef, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Volume2, Mic, MicOff, Eye, X as XIcon, Loader2, Keyboard, Star } from "lucide-react";
+import { Volume2, Mic, MicOff, Eye, EyeOff, X as XIcon, Loader2, Keyboard, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { Dialog, DialogClose, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@/lib/normalize-text";
 import { computeGain } from "@/lib/audio-loudness";
@@ -142,6 +141,8 @@ export default function QuizView({
   const [sessionSentences, setSessionSentences] = useState<Sentence[]>(sentences);
   const [mode, setMode] = useState<QuizMode>("speech");
   const [writingActive, setWritingActive] = useState(false);
+  // 카드 안에 정답을 띄운 상태(정답을 보며 말하기 위함) — 문제가 바뀌면 자동 해제
+  const [answerShown, setAnswerShown] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
   // 리스닝 자동 재생까지 남은 초(null = 대기 중 아님)
@@ -191,6 +192,7 @@ export default function QuizView({
   useEffect(() => {
     setTextInput("");
     setWritingActive(false);
+    setAnswerShown(false);
     stopAudio();
     setIsPlaying(false);
   }, [state.currentIndex, stopAudio]);
@@ -578,8 +580,8 @@ export default function QuizView({
       {currentSentence &&
         (() => {
           const listenClickable = quizType === "listening" && !!currentSentence.audio_url && state.phase !== "listening" && !isPlaying;
-          // 리스닝 세션은 문장을 통째로 숨기므로, 번호로 목록을 찾아보는 걸 막기 위해 결과 공개 후에만 노출
-          const showNumber = quizType !== "listening" || state.resultStatus !== null;
+          // 리스닝 세션은 문장을 통째로 숨기므로, 번호로 목록을 찾아보는 걸 막기 위해 정답 공개 후에만 노출
+          const showNumber = quizType !== "listening" || state.resultStatus !== null || answerShown;
           return (
             <Card
               key={state.currentIndex}
@@ -640,6 +642,14 @@ export default function QuizView({
                     <p className="text-muted-foreground text-sm font-medium">이 문장을 영어로 말하거나 입력하세요</p>
                     <p className="text-2xl leading-relaxed font-bold">{currentSentence.korean_text}</p>
                   </>
+                )}
+
+                {/* 인라인 정답 — 채점 전이라 정답/오답 색을 쓰지 않는다. 수음 중에도 남아 있어 읽으며 말할 수 있다. */}
+                {answerShown && state.resultStatus === null && (
+                  <div className="animate-in fade-in flex flex-col gap-1">
+                    <p className="text-xl leading-relaxed font-bold">{currentSentence.english_text}</p>
+                    {quizType === "listening" && <p className="text-muted-foreground text-sm">{currentSentence.korean_text}</p>}
+                  </div>
                 )}
 
                 {/* 정답 피드백 */}
@@ -753,25 +763,18 @@ export default function QuizView({
           </div>
         )}
 
-        {/* 정답 보기는 채점하지 않는다 — 모달로 정답만 확인하고 문제 화면을 그대로 유지 */}
+        {/* 정답 보기는 채점하지 않는다 — 카드 안에 정답을 띄워 두고 그대로 말할 수 있게 하는 토글 */}
         {state.phase === "question" && currentSentence && (
-          <Dialog>
-            <DialogTrigger render={<Button type="button" variant="ghost" disabled={isPlaying} className="text-muted-foreground h-10 text-sm" />}>
-              <Eye className="mr-1 h-4 w-4" />
-              정답 보기
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>정답</DialogTitle>
-              </DialogHeader>
-              <p className="bg-success/10 text-success rounded-lg px-4 py-3 text-center text-base font-semibold">{currentSentence.english_text}</p>
-              {/* 리스닝 세션은 카드에 한국어도 숨겨져 있으므로 뜻을 함께 보여준다 */}
-              {quizType === "listening" && <p className="text-muted-foreground text-center text-sm">{currentSentence.korean_text}</p>}
-              <DialogFooter>
-                <DialogClose render={<Button variant="outline" />}>닫기</DialogClose>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPlaying}
+            onClick={() => setAnswerShown((v) => !v)}
+            className={`h-10 text-sm ${answerShown ? "text-brand" : "text-muted-foreground"}`}
+          >
+            {answerShown ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
+            {answerShown ? "정답 숨기기" : "정답 보기"}
+          </Button>
         )}
 
         {state.phase === "listening" && (
