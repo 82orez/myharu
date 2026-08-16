@@ -15,6 +15,7 @@ import { prepareAudioBuffer } from "@/lib/audio-upload";
 import { MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import { findCueText, type SubTrack } from "@/lib/subtitles";
 import { fmtTime } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 // Vercel 서버리스 요청 본문 한계는 4.5MB로, next.config.ts의 bodySizeLimit으로는 넘을 수 없다.
 // base64는 원본보다 ~33% 크므로 안전선을 그 아래로 잡고 경고만 띄운다(로컬에서는 통과하므로 막지 않는다).
@@ -196,19 +197,23 @@ export default function SaveSentenceDialog({
 
         {/* 추출된 클립 미리듣기 — 폼 로컬 <audio>다. 플레이어의 WaveSurfer와 섞지 말 것. */}
         <div className="border-border bg-muted/40 rounded-lg border p-3">
-          {preparing ? (
-            <div className="text-muted-foreground flex items-center gap-2 text-sm">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              구간을 오디오로 변환하는 중…
-            </div>
-          ) : clipError ? (
+          {clipError ? (
             <p className="text-destructive text-sm">{clipError}</p>
-          ) : clip ? (
+          ) : preparing || clip ? (
             <>
-              <audio controls src={clip.url} className="w-full" />
-              <p className="text-muted-foreground mt-2 text-xs">
-                MP3 {kbps}k · {(clip.bytes / 1024).toFixed(0)}KB
-              </p>
+              {/* 변환 중에도 <audio>를 src 없이 마운트해 둔다 — 컨트롤 바 높이가 그대로라 변환 전후 섹션 높이가 구조적으로 같아진다.
+                  min-h-[54px] 같은 매직 넘버로 되돌리지 말 것(네이티브 audio 높이는 브라우저·OS마다 다르다). */}
+              <div className="relative">
+                <audio controls src={clip?.url} className={cn("w-full", !clip && "invisible")} />
+                {!clip && (
+                  <div className="text-muted-foreground absolute inset-0 flex items-center gap-2 text-sm">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    구간을 오디오로 변환하는 중…
+                  </div>
+                )}
+              </div>
+              {/* 변환 중엔 &nbsp;로 같은 한 줄을 유지한다 */}
+              <p className="text-muted-foreground mt-2 text-xs">{clip ? `MP3 ${kbps}k · ${(clip.bytes / 1024).toFixed(0)}KB` : " "}</p>
               {oversize && <p className="text-destructive mt-1 text-xs">클립이 10MB를 넘습니다. 구간을 줄이거나 비트레이트를 낮춰 주세요.</p>}
               {risky && (
                 <p className="text-accent-orange mt-1 text-xs">

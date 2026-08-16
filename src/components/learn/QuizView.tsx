@@ -59,6 +59,7 @@ type Action =
   | { type: "LISTEN" }
   | { type: "SHOW_RESULT"; sentenceId: string; isCorrect: boolean; recognizedText: string }
   | { type: "NEXT" }
+  | { type: "ACCEPT" }
   | { type: "RETRY" }
   | { type: "FINISH" }
   | { type: "RESTART" };
@@ -84,6 +85,14 @@ function reducer(state: State, action: Action): State {
     case "NEXT":
       const nextIndex = state.currentIndex + 1;
       return { ...state, phase: "question", currentIndex: nextIndex, resultStatus: null, recognizedText: "" };
+    case "ACCEPT": {
+      // 음성 인식 오탐 등을 고려해, 오답 결과에서 넘어갈 때 그 문제를 정답으로 인정한다.
+      const answers = [...state.answers];
+      const prev = answers[state.currentIndex];
+      if (!prev) return state;
+      answers[state.currentIndex] = { ...prev, isCorrect: true };
+      return { ...state, answers };
+    }
     case "RETRY":
       return { ...state, phase: "question", resultStatus: null, recognizedText: "" };
     case "FINISH":
@@ -369,6 +378,13 @@ export default function QuizView({
       dispatch({ type: "NEXT" });
     }
   }, [state.currentIndex, sessionSentences.length]);
+
+  // 오답 결과의 "다음" — 음성 인식이 잘못 받아쓴 경우가 있어 오답으로 남기지 않고 정답으로 인정하고 넘어간다.
+  const handleSkipAsCorrect = useCallback(() => {
+    if (currentSentence) void incrementPracticeCount(currentSentence.id, mode);
+    dispatch({ type: "ACCEPT" });
+    handleNext();
+  }, [currentSentence, mode, handleNext]);
 
   // 빈 상태
   if (sentences.length === 0 && !initialError) {
@@ -689,11 +705,11 @@ export default function QuizView({
               <AlertDialogContent>
                 <AlertDialogHeader>
                   <AlertDialogTitle>다음 문제로 이동</AlertDialogTitle>
-                  <AlertDialogDescription>정말로 다음으로 넘어가시겠습니까? 다음으로 넘어가면 오답 처리됩니다.</AlertDialogDescription>
+                  <AlertDialogDescription>정말로 다음으로 넘어가시겠습니까?</AlertDialogDescription>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                   <AlertDialogCancel>취소</AlertDialogCancel>
-                  <AlertDialogAction onClick={handleNext}>다음</AlertDialogAction>
+                  <AlertDialogAction onClick={handleSkipAsCorrect}>다음</AlertDialogAction>
                 </AlertDialogFooter>
               </AlertDialogContent>
             </AlertDialog>
