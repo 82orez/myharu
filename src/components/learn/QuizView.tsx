@@ -108,6 +108,9 @@ function reducer(state: State, action: Action): State {
 // 마지막 출제 조건(기기별 설정 — DB에 저장하지 않는다)
 const QUIZ_FILTER_KEY = "myharu:quiz-filter";
 
+// 리스닝 자동 재생 지연 — 화면이 바뀌자마자 소리가 나면 들을 준비를 할 틈이 없다
+const AUTO_PLAY_DELAY_MS = 1000;
+
 const initialState: State = {
   phase: "ready",
   currentIndex: 0,
@@ -272,7 +275,10 @@ export default function QuizView({
     // 다시 시도 등으로 question에 재진입해도 같은 문제를 다시 재생하지 않는다
     if (autoPlayedIndexRef.current === state.currentIndex) return;
     autoPlayedIndexRef.current = state.currentIndex;
-    if (currentSentence?.audio_url) playAudio(currentSentence);
+    if (!currentSentence?.audio_url) return;
+    // 지연 중 말하기를 누르면(phase 변경) cleanup이 타이머를 취소해 수음과 겹치지 않는다
+    const timer = setTimeout(() => playAudio(currentSentence), AUTO_PLAY_DELAY_MS);
+    return () => clearTimeout(timer);
   }, [quizType, state.phase, state.currentIndex, currentSentence, playAudio]);
 
   const handleResult = useCallback(
