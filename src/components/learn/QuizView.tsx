@@ -756,20 +756,6 @@ export default function QuizView({
           </div>
         )}
 
-        {/* 정답 보기는 채점하지 않는다 — 카드 안에 정답을 띄워 두고 그대로 말할 수 있게 하는 토글.
-            수음 중(다시 시도 포함)에도 필요하므로 결과가 나오기 전이면 계속 노출한다. */}
-        {(state.phase === "question" || state.phase === "listening") && currentSentence && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={isPlaying || autoPlayCountdown !== null}
-            onClick={() => setAnswerShown((v) => !v)}
-            className={`h-10 text-sm ${answerShown ? "text-brand" : "text-muted-foreground"}`}>
-            {answerShown ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
-            {answerShown ? "정답 숨기기" : "정답 보기"}
-          </Button>
-        )}
-
         {state.phase === "listening" && (
           <Button
             variant="destructive"
@@ -786,6 +772,20 @@ export default function QuizView({
             <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
             듣는 중...
           </p>
+        )}
+
+        {/* 정답 보기는 채점하지 않는다 — 카드 안에 정답을 띄워 두고 그대로 말할 수 있게 하는 토글.
+            수음 중(다시 시도 포함)에도 필요하므로 결과가 나오기 전이면 계속 노출한다(수음 화면에선 "듣는 중..." 아래). */}
+        {(state.phase === "question" || state.phase === "listening") && currentSentence && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPlaying || autoPlayCountdown !== null}
+            onClick={() => setAnswerShown((v) => !v)}
+            className={`h-10 text-sm ${answerShown ? "text-brand" : "text-muted-foreground"}`}>
+            {answerShown ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
+            {answerShown ? "정답 숨기기" : "정답 보기"}
+          </Button>
         )}
 
         {state.resultStatus === "incorrect" && (
