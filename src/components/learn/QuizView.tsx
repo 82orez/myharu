@@ -3,7 +3,7 @@
 import { useReducer, useCallback, useRef, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Volume2, Mic, MicOff, Eye, X as XIcon, Loader2, Keyboard } from "lucide-react";
+import { Volume2, Mic, MicOff, Eye, X as XIcon, Loader2, Keyboard, Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,7 +42,7 @@ import SessionSummary from "@/components/learn/SessionSummary";
 import QuizFilterPanel from "@/components/learn/QuizFilterPanel";
 import { EMPTY_FILTER, filterSentences, orderSentences, parseNumberRanges, type QuizOrder, type SentenceFilter } from "@/lib/sentence-filter";
 import { incrementPracticeCount } from "@/app/(learn)/learn/review/gamification-actions";
-import type { Sentence } from "@/app/(learn)/learn/review/actions";
+import { toggleFavorite, type Sentence } from "@/app/(learn)/learn/review/actions";
 import type { UserStats, SessionSummary as SessionSummaryType, QuizMode } from "@/types/gamification";
 
 type Phase = "ready" | "question" | "listening" | "result" | "summary";
@@ -131,7 +131,8 @@ export default function QuizView({
   // null = 아직 판정 전(SSR/첫 렌더) — 안내 문구가 깜빡이지 않도록 구분한다.
   const [speechAvailability, setSpeechAvailability] = useState<SpeechAvailability | null>(null);
   const speechSupported = speechAvailability === "available";
-  const [quizType, setQuizType] = useState<"translate" | "listening">("translate");
+  // 기본은 리스닝 — 음성 인식 불가 판정이 나면 아래 이펙트가 일반 모드로 되돌린다
+  const [quizType, setQuizType] = useState<"translate" | "listening">("listening");
   // 출제 범위(시작 화면 필터). 세션에 쓰이는 문장은 START에서 sessionSentences로 스냅샷한다.
   const [filter, setFilter] = useState<SentenceFilter>(EMPTY_FILTER);
   const [numberInput, setNumberInput] = useState(""); // 순번 원문("1-20, 35")
@@ -179,6 +180,13 @@ export default function QuizView({
 
   // iOS: 첫 사용자 입력에서 알림음 엘리먼트 잠금 해제 (제스처 밖에서 울리는 채점음 대비)
   useEffect(() => installFeedbackSoundUnlock(), []);
+
+  // 리스닝은 말하기 전용이라 인식 불가 환경에선 선택 버튼이 비활성 — 기본값을 일반 모드로 되돌린다(시작 화면에서만).
+  useEffect(() => {
+    if (state.phase === "ready" && speechAvailability !== null && speechAvailability !== "available") {
+      setQuizType("translate");
+    }
+  }, [state.phase, speechAvailability]);
 
   useEffect(() => {
     setTextInput("");
@@ -412,6 +420,25 @@ export default function QuizView({
     }, SPEECH_START_TIMEOUT_MS);
   }, [speechSupported, currentSentence, handleResult, speechThreshold, clearStartWatchdog, handleSpeechStarted]);
 
+  // 즐겨찾기 토글 — 학습 모드와 같은 toggleFavorite 액션 재사용.
+  // ⚠️ startTransition으로 감싸지 말 것: isPending이 쓰기 입력창·확인 버튼을 비활성화하는 데 묶여 있다.
+  const handleToggleFavorite = useCallback(() => {
+    if (!currentSentence) return;
+    const { id } = currentSentence;
+    const next = !currentSentence.is_favorite;
+    // 카드가 읽는 건 세션 스냅샷이라 여기만 낙관적으로 갱신한다
+    setSessionSentences((prev) => prev.map((s) => (s.id === id ? { ...s, is_favorite: next } : s)));
+    void toggleFavorite(id, next).then((result) => {
+      if (result?.error) {
+        setSessionSentences((prev) => prev.map((s) => (s.id === id ? { ...s, is_favorite: !next } : s)));
+        toast.error(result.error);
+        return;
+      }
+      // ready 화면의 즐겨찾기 필터·학습 모드가 최신 값을 보도록(세션 스냅샷은 그대로 유지된다)
+      router.refresh();
+    });
+  }, [currentSentence, router]);
+
   const handleNext = useCallback(() => {
     if (state.currentIndex + 1 >= sessionSentences.length) {
       dispatch({ type: "FINISH" });
@@ -476,15 +503,7 @@ export default function QuizView({
         />
 
         <div className="flex w-full max-w-md flex-col gap-3">
-          <Button
-            variant={quizType === "translate" ? "brand" : "outline"}
-            onClick={() => setQuizType("translate")}
-            className="h-auto flex-col items-start gap-1 px-5 py-4 text-left"
-          >
-            <span className="text-base font-bold">일반 (한국어 → 영어)</span>
-            <span className="text-sm font-normal opacity-80">한국어 뜻을 보고 영어로 말하거나 써요.</span>
-          </Button>
-          {/* 리스닝은 말하기 전용이라 음성 인식이 안 되는 환경(iOS 비-Safari 등)에서는 선택할 수 없다 */}
+          {/* 리스닝이 기본값 — 말하기 전용이라 음성 인식이 안 되는 환경(iOS 비-Safari 등)에서는 선택할 수 없다 */}
           <Button
             variant={quizType === "listening" ? "brand" : "outline"}
             disabled={speechAvailability !== null && !speechSupported}
@@ -493,6 +512,14 @@ export default function QuizView({
           >
             <span className="text-base font-bold">리스닝 (듣고 따라 말하기)</span>
             <span className="text-sm font-normal opacity-80">오디오를 듣고 영어 문장을 따라 말해요.</span>
+          </Button>
+          <Button
+            variant={quizType === "translate" ? "brand" : "outline"}
+            onClick={() => setQuizType("translate")}
+            className="h-auto flex-col items-start gap-1 px-5 py-4 text-left"
+          >
+            <span className="text-base font-bold">일반 (한국어 → 영어)</span>
+            <span className="text-sm font-normal opacity-80">한국어 뜻을 보고 영어로 말하거나 써요.</span>
           </Button>
         </div>
 
@@ -575,6 +602,22 @@ export default function QuizView({
                     #{sentenceNumbers.get(currentSentence.id)}
                   </span>
                 )}
+
+                {/* 즐겨찾기 — 별은 문장 내용을 드러내지 않으므로 리스닝 세션에서도 노출한다 */}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={currentSentence.is_favorite ? "즐겨찾기 해제" : "즐겨찾기"}
+                  onClick={(e) => {
+                    e.stopPropagation(); // 리스닝 세션은 카드 클릭이 오디오 재생이라 필수
+                    handleToggleFavorite();
+                  }}
+                  className={`absolute top-2 right-2 ${
+                    currentSentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"
+                  }`}
+                >
+                  <Star className={`h-4 w-4 ${currentSentence.is_favorite ? "fill-current" : ""}`} />
+                </Button>
 
                 {quizType === "listening" ? (
                   <>
