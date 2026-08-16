@@ -3,7 +3,7 @@
 import { useReducer, useCallback, useRef, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Volume2, Mic, MicOff, Eye, EyeOff, X as XIcon, Loader2, Keyboard, Star } from "lucide-react";
+import { Volume2, Mic, MicOff, Eye, EyeOff, X as XIcon, Loader2, Keyboard, Star, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -546,13 +546,14 @@ export default function QuizView({
 
   // 세션 요약
   if (state.phase === "summary") {
-    const correctCount = state.answers.filter((a) => a.isCorrect).length;
-    const total = sessionSentences.length;
+    // 건너뛴 문제는 answers에 기록이 없다(배열 구멍) — 분모를 시도한 문제로 잡아야 오답으로 잡히지 않는다
+    const attempted = state.answers.filter(Boolean).length;
+    const correctCount = state.answers.filter((a) => a?.isCorrect).length;
     const summary: SessionSummaryType = {
-      totalQuestions: total,
+      totalQuestions: attempted,
       correctCount,
-      incorrectCount: total - correctCount,
-      accuracy: total > 0 ? Math.round((correctCount / total) * 100) : 0,
+      incorrectCount: attempted - correctCount,
+      accuracy: attempted > 0 ? Math.round((correctCount / attempted) * 100) : 0,
     };
     return <SessionSummary summary={summary} onRestart={() => dispatch({ type: "RESTART" })} />;
   }
@@ -799,6 +800,19 @@ export default function QuizView({
             className={`h-10 text-sm ${answerShown ? "text-brand" : "text-muted-foreground"}`}>
             {answerShown ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
             {answerShown ? "정답 숨기기" : "정답 보기"}
+          </Button>
+        )}
+
+        {/* 이미 충분히 연습한 문장은 그냥 넘긴다 — answers에 기록하지 않아 요약·연습 횟수·오늘 진도 어디에도 반영되지 않는다 */}
+        {state.phase === "question" && currentSentence && (
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPlaying || autoPlayCountdown !== null}
+            onClick={handleNext}
+            className="text-muted-foreground h-10 text-sm">
+            <SkipForward className="mr-1 h-4 w-4" />
+            건너뛰기
           </Button>
         )}
 
