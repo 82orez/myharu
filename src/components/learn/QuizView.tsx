@@ -25,6 +25,7 @@ import { textsMatch, SIMILARITY_THRESHOLD, STRICT_SIMILARITY_THRESHOLD } from "@
 import { computeGain } from "@/lib/audio-loudness";
 import { buildSentenceNumbers } from "@/lib/sentence-number";
 import { installFeedbackSoundUnlock, playFeedbackSound, primeFeedbackSounds } from "@/lib/feedback-sound";
+import { getAutoPlayDelay } from "@/lib/quiz-autoplay";
 import {
   getSpeechAvailability,
   unavailableKind,
@@ -107,9 +108,6 @@ function reducer(state: State, action: Action): State {
 
 // 마지막 출제 조건(기기별 설정 — DB에 저장하지 않는다)
 const QUIZ_FILTER_KEY = "myharu:quiz-filter";
-
-// 리스닝 자동 재생 지연 — 화면이 바뀌자마자 소리가 나면 들을 준비를 할 틈이 없다
-const AUTO_PLAY_DELAY_MS = 1000;
 
 const initialState: State = {
   phase: "ready",
@@ -294,11 +292,17 @@ export default function QuizView({
     if (autoPlayedIndexRef.current === state.currentIndex) return;
     autoPlayedIndexRef.current = state.currentIndex;
     if (!currentSentence?.audio_url) return;
+    // 지연은 /settings에서 고른 값(기기별). 예약 시점에 읽어 다른 탭의 변경도 다음 문제부터 반영된다.
+    const delay = getAutoPlayDelay();
+    if (delay <= 0) {
+      playAudio(currentSentence); // 0초 = 카운트다운 없이 즉시 재생
+      return;
+    }
     // 남은 시간을 초 단위로 카드에 보여 준다(1초마다 감소)
-    setAutoPlayCountdown(Math.ceil(AUTO_PLAY_DELAY_MS / 1000));
+    setAutoPlayCountdown(delay);
     autoPlayTickRef.current = setInterval(() => setAutoPlayCountdown((n) => (n && n > 1 ? n - 1 : n)), 1000);
     // 지연 중 말하기를 누르면(phase 변경) cleanup이 타이머를 취소해 수음과 겹치지 않는다
-    autoPlayTimerRef.current = setTimeout(() => playAudio(currentSentence), AUTO_PLAY_DELAY_MS);
+    autoPlayTimerRef.current = setTimeout(() => playAudio(currentSentence), delay * 1000);
     return cancelAutoPlay;
   }, [quizType, state.phase, state.currentIndex, currentSentence, playAudio, cancelAutoPlay]);
 
