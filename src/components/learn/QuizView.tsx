@@ -145,6 +145,8 @@ export default function QuizView({
   const [writingActive, setWritingActive] = useState(false);
   const [textInput, setTextInput] = useState("");
   const [isPlaying, setIsPlaying] = useState(false);
+  // 리스닝 자동 재생까지 남은 초(null = 대기 중 아님)
+  const [autoPlayCountdown, setAutoPlayCountdown] = useState<number | null>(null);
   const [isPending, startTransition] = useTransition();
   const recognitionRef = useRef<any>(null);
   const startWatchdogRef = useRef<NodeJS.Timeout | null>(null);
@@ -152,6 +154,8 @@ export default function QuizView({
   const restoredRef = useRef(false);
   // 리스닝 자동 재생을 이미 실행한 문제 인덱스(문제당 1회 보장)
   const autoPlayedIndexRef = useRef(-1);
+  const autoPlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const autoPlayTickRef = useRef<NodeJS.Timeout | null>(null);
   const { play, stop: stopAudio } = useAudioPlayer();
   const textInputRef = useRef<HTMLInputElement>(null);
 
@@ -250,9 +254,23 @@ export default function QuizView({
     dispatch({ type: "START" });
   }, [pool, order, limit, sentenceNumbers]);
 
+  // 대기 중인 자동 재생(카운트다운 포함)을 취소한다 — 카드 클릭·말하기 등으로 먼저 움직이면 중복 재생이 되므로
+  const cancelAutoPlay = useCallback(() => {
+    if (autoPlayTimerRef.current) {
+      clearTimeout(autoPlayTimerRef.current);
+      autoPlayTimerRef.current = null;
+    }
+    if (autoPlayTickRef.current) {
+      clearInterval(autoPlayTickRef.current);
+      autoPlayTickRef.current = null;
+    }
+    setAutoPlayCountdown(null);
+  }, []);
+
   // 볼륨 균일화: 저장된 측정값으로 계산한 게인을 적용해 재생한다(미측정 문장은 게인 1.0).
   const playAudio = useCallback(
     (sentence: Sentence) => {
+      cancelAutoPlay();
       // iOS는 음성 인식이 마이크를 잡고 있으면 오디오 세션이 녹음 상태라 재생이 무음이 된다.
       // onend가 이미 지나갔더라도 남아 있는 인식 객체를 확실히 끊고 재생한다.
       if (recognitionRef.current) {
@@ -265,7 +283,7 @@ export default function QuizView({
         onError: () => setIsPlaying(false),
       });
     },
-    [play],
+    [play, cancelAutoPlay],
   );
 
   // 리스닝 세션은 "다음"으로 넘어온 문제의 음원을 한 번 자동 재생한다(첫 문제는 카드 클릭으로 시작).
@@ -276,10 +294,13 @@ export default function QuizView({
     if (autoPlayedIndexRef.current === state.currentIndex) return;
     autoPlayedIndexRef.current = state.currentIndex;
     if (!currentSentence?.audio_url) return;
+    // 남은 시간을 초 단위로 카드에 보여 준다(1초마다 감소)
+    setAutoPlayCountdown(Math.ceil(AUTO_PLAY_DELAY_MS / 1000));
+    autoPlayTickRef.current = setInterval(() => setAutoPlayCountdown((n) => (n && n > 1 ? n - 1 : n)), 1000);
     // 지연 중 말하기를 누르면(phase 변경) cleanup이 타이머를 취소해 수음과 겹치지 않는다
-    const timer = setTimeout(() => playAudio(currentSentence), AUTO_PLAY_DELAY_MS);
-    return () => clearTimeout(timer);
-  }, [quizType, state.phase, state.currentIndex, currentSentence, playAudio]);
+    autoPlayTimerRef.current = setTimeout(() => playAudio(currentSentence), AUTO_PLAY_DELAY_MS);
+    return cancelAutoPlay;
+  }, [quizType, state.phase, state.currentIndex, currentSentence, playAudio, cancelAutoPlay]);
 
   const handleResult = useCallback(
     (isCorrect: boolean, recognizedText: string) => {
@@ -553,8 +574,18 @@ export default function QuizView({
 
                 {quizType === "listening" ? (
                   <>
-                    <p className="text-muted-foreground text-sm font-medium">{isPlaying ? "재생 중..." : "카드를 눌러 듣고 따라 말해 보세요"}</p>
-                    {isPlaying ? <Loader2 className="text-brand h-12 w-12 animate-spin" /> : <Volume2 className="text-brand h-12 w-12" />}
+                    <p className="text-muted-foreground text-sm font-medium">
+                      {isPlaying ? "재생 중..." : autoPlayCountdown !== null ? "잠시 후 자동 재생됩니다" : "카드를 눌러 듣고 따라 말해 보세요"}
+                    </p>
+                    {isPlaying ? (
+                      <Loader2 className="text-brand h-12 w-12 animate-spin" />
+                    ) : autoPlayCountdown !== null ? (
+                      <span className="text-brand h-12 animate-pulse text-4xl font-bold tabular-nums" aria-live="polite">
+                        {autoPlayCountdown}
+                      </span>
+                    ) : (
+                      <Volume2 className="text-brand h-12 w-12" />
+                    )}
                   </>
                 ) : (
                   <>
