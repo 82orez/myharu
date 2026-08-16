@@ -690,7 +690,8 @@ export default function QuizView({
             <div className="flex gap-3">
               <Button
                 variant="outline"
-                disabled={!speechSupported || isPlaying}
+                // 자동 재생 대기(카운트다운)~재생이 끝날 때까지는 수음을 막는다 — 음원과 마이크가 겹치지 않게
+                disabled={!speechSupported || isPlaying || autoPlayCountdown !== null}
                 onClick={() => {
                   setWritingActive(false);
                   setMode("speech");
@@ -704,7 +705,7 @@ export default function QuizView({
               {quizType === "translate" && (
                 <Button
                   variant={writingActive ? "destructive" : "outline"}
-                  disabled={isPlaying}
+                  disabled={isPlaying || autoPlayCountdown !== null}
                   onClick={() => {
                     if (writingActive) {
                       setWritingActive(false);
@@ -768,7 +769,7 @@ export default function QuizView({
           <Button
             type="button"
             variant="ghost"
-            disabled={isPlaying}
+            disabled={isPlaying || autoPlayCountdown !== null}
             onClick={() => setAnswerShown((v) => !v)}
             className={`h-10 text-sm ${answerShown ? "text-brand" : "text-muted-foreground"}`}
           >
