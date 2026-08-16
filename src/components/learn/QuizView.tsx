@@ -805,15 +805,30 @@ export default function QuizView({
 
         {/* 이미 충분히 연습한 문장은 그냥 넘긴다 — answers에 기록하지 않아 요약·연습 횟수·오늘 진도 어디에도 반영되지 않는다 */}
         {state.phase === "question" && currentSentence && (
-          <Button
-            type="button"
-            variant="ghost"
-            disabled={isPlaying || autoPlayCountdown !== null}
-            onClick={handleNext}
-            className="text-muted-foreground h-10 text-sm">
-            <SkipForward className="mr-1 h-4 w-4" />
-            건너뛰기
-          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={isPlaying || autoPlayCountdown !== null}
+                  className="text-muted-foreground h-10 text-sm"
+                />
+              }>
+              <SkipForward className="mr-1 h-4 w-4" />
+              skip
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>문제 건너뛰기</AlertDialogTitle>
+                <AlertDialogDescription>이 문제를 건너뛸까요? 연습 횟수·오늘 진도와 세션 요약 어디에도 기록되지 않습니다.</AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={handleNext}>건너뛰기</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
 
         {state.resultStatus === "incorrect" && (

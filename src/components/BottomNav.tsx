@@ -2,15 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, PenLine, BookOpen, User } from "lucide-react";
+import { Home, List, BookOpen, Settings } from "lucide-react";
 
 type BottomNavUser = { email?: string | null } | null;
 
 const tabs = [
   { href: "/", icon: Home, label: "홈" },
-  { href: "/learn/input", icon: PenLine, label: "입력" },
-  { href: "/learn/review", icon: BookOpen, label: "연습" },
-  { href: "/", icon: User, label: "프로필" },
+  { href: "/learn/review", icon: List, label: "연습" },
+  { href: "/learn/quiz", icon: BookOpen, label: "퀴즈" },
+  { href: "/settings", icon: Settings, label: "설정" },
 ];
 
 export default function BottomNav({ user }: { user: BottomNavUser }) {

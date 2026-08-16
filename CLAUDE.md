@@ -215,7 +215,7 @@ src/
 │   ├── ui/                    # shadcn
 │   ├── settings/              # SpeechStrictField(즉시 저장)/DailyGoalField(입력+저장)/FeedbackSoundField·AutoPlayDelayField(localStorage)/TagManagerCard/ResetDataButton/DeleteAllSentences
 │   ├── Navbar.tsx             # "use client", 데스크톱 인라인=이메일+로그아웃, 사이드바=문장 입력/연습하기/Repeater/설정 메뉴
-│   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/입력/연습/프로필), md:hidden
+│   ├── BottomNav.tsx          # "use client", 모바일 하단 4탭(홈/연습/퀴즈/설정), md:hidden
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
