@@ -169,7 +169,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - **자막 프리필**: 구간 중앙 시각에 `findCueText`. 언어는 `SubTrack.lang`(`labelFromFileName`이 파일명에서 추출) 우선, 없으면 첫 트랙=영어·두 번째=한국어. 추측이 빗나가도 폼에서 고칠 수 있으므로 **자동 저장하지 않는다**.
 - ⚠️ 클립 미리듣기는 **다이얼로그 로컬 `<audio>`**다. 플레이어의 WaveSurfer/`mediaUrl`이나 `useAudioPlayer` 싱글턴과 섞지 말 것.
 - `lib/audioExport.ts`는 **Blob 반환(`extractRegionToMp3Blob`/`extractRegionToWavBlob`)과 다운로드(`extractRegionToMp3`/`...Wav`)가 분리**돼 있다. 다운로드 쪽은 Blob 쪽을 호출할 뿐이니 기존 "구간 추출" 동작은 그대로다. ⚠️ 분리 후에도 `decodeRegion`은 **구간 길이와 무관하게 파일 전체를 풀 샘플레이트로 디코드**한다(65분 → 피크 ~2GB).
-- **STT**(`/api/stt`, 라우트 핸들러): 원본 복사본에 `getUser()` 가드 추가 + `lib/openai.ts` 싱글턴 재사용. 다이얼로그는 `whisper-1`/`format=text`만 쓴다.
+- **STT**(`/api/stt`, 라우트 핸들러): 원본 복사본에 `getUser()` 가드 추가 + `lib/openai.ts` 싱글턴 재사용. 다이얼로그는 `format=text` 고정 + **모델 3종 선택**(`lib/stt-models.ts`의 `STT_MODELS` — whisper-1/gpt-4o-mini-transcribe/gpt-4o-transcribe, 기본 `whisper-1`, localStorage `myharu:stt-model`에 기기별 기억). **허용 모델·자막 전용 모델은 이 모듈 하나에서만 정의**하고 라우트가 import한다(선택지와 서버 검증이 갈라지지 않게).
 
 #### 업로드 페이로드 한계 (⚠️ 두 층이 다름)
 
@@ -221,7 +221,7 @@ src/
 ├── types/gamification.ts
 ├── hooks/{use-caps-lock,use-selected-voice,use-selected-speed,use-audio-player}.ts
 ├── store/playerStore.ts       # Zustand + persist, 플레이어 전용 (myharu의 유일한 전역 스토어)
-├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,audio-upload,feedback-sound,speech-recognition,sentence-number,sentence-filter,quiz-autoplay}.ts
+├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,audio-upload,feedback-sound,speech-recognition,sentence-number,sentence-filter,quiz-autoplay,stt-models}.ts
 ├── lib/{audioExport,subtitles,subtitleDraft,videoTranscode,time,id,dom}.ts   # next-repeater 이식분(camelCase 파일명은 원본 유지)
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
 import { getOpenAIClient } from "@/lib/openai";
+import { STT_MODELS, SUBTITLE_STT_MODEL } from "@/lib/stt-models";
 
 // next-repeater에서 가져온 라우트. 원본 대비 달라진 점:
 //  ① 로그인 사용자만 허용(myharu의 모든 서버 진입점 규칙)
@@ -9,14 +10,15 @@ import { getOpenAIClient } from "@/lib/openai";
 // 라우트 핸들러라 서버 액션의 bodySizeLimit과 무관하다. 단 Vercel 서버리스 요청 본문 4.5MB 벽은 남으므로
 // 실제 호출은 A–B 구간 클립(보통 수백 KB)에만 쓴다.
 
-const MODELS = ["gpt-4o-transcribe", "gpt-4o-mini-transcribe", "whisper-1"] as const;
+// 허용 모델은 lib/stt-models.ts 하나에서만 정의한다(다이얼로그의 선택지와 어긋나지 않게)
+const MODELS: readonly string[] = STT_MODELS.map((m) => m.id);
 const MAX_BYTES = 25 * 1024 * 1024; // OpenAI 오디오 업로드 제한 25MB
 
 // ⚠️ srt/vtt/verbose_json은 whisper-1 전용 — gpt-4o-transcribe 계열은 json만 지원한다(OpenAI SDK 문서).
 //    all = verbose_json으로 한 번 호출해 텍스트와 구간을 함께 받는다(호출·비용은 srt 하나와 동일).
 const FORMATS = ["text", "srt", "vtt", "all"] as const;
 const SUBTITLE_FORMATS = new Set(["srt", "vtt", "all"]);
-const SUBTITLE_MODEL = "whisper-1";
+const SUBTITLE_MODEL = SUBTITLE_STT_MODEL;
 
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
@@ -49,7 +51,7 @@ export async function POST(request: Request) {
   if (file.size > MAX_BYTES) {
     return jsonError("파일이 25MB를 초과합니다. 더 작은 파일로 시도해 주세요.", 413);
   }
-  if (typeof model !== "string" || !MODELS.includes(model as any)) {
+  if (typeof model !== "string" || !MODELS.includes(model)) {
     return jsonError("잘못된 모델입니다.", 400);
   }
   if (typeof format !== "string" || !FORMATS.includes(format as any)) {

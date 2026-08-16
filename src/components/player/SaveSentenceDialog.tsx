@@ -14,6 +14,7 @@ import { extractRegionToMp3Blob } from "@/lib/audioExport";
 import { prepareAudioBuffer } from "@/lib/audio-upload";
 import { MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import { findCueText, type SubTrack } from "@/lib/subtitles";
+import { DEFAULT_STT_MODEL, STT_MODELS, getSttModel, setSttModel, type SttModelId } from "@/lib/stt-models";
 import { fmtTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -74,12 +75,18 @@ export default function SaveSentenceDialog({
   const [preparing, setPreparing] = useState(false);
   const [clipError, setClipError] = useState<string | null>(null);
   const [sttPending, setSttPending] = useState(false);
+  // 인식 모델은 기기별 설정 — SSR 안전하게 기본값으로 시작해 mount 후 저장값으로 보정한다
+  const [sttModel, setSttModelState] = useState<SttModelId>(DEFAULT_STT_MODEL);
   const [saving, startSaving] = useTransition();
 
   // 스테이징된 blob URL은 항상 1개만 살아 있게 한다(교체·닫기·언마운트에서 revoke)
   const clipUrlRef = useRef<string | null>(null);
   // 준비가 비동기라, 닫았다 다른 구간으로 다시 연 경우 늦게 끝난 요청이 덮어쓰는 걸 막는다
   const prepareSeqRef = useRef(0);
+
+  useEffect(() => {
+    setSttModelState(getSttModel());
+  }, []);
 
   const revokeClip = useCallback(() => {
     if (clipUrlRef.current) {
@@ -143,7 +150,7 @@ export default function SaveSentenceDialog({
     try {
       const form = new FormData();
       form.append("file", new File([clip.blob], "clip.mp3", { type: "audio/mpeg" }));
-      form.append("model", "whisper-1");
+      form.append("model", sttModel);
       form.append("format", "text");
 
       const res = await fetch("/api/stt", { method: "POST", body: form });
@@ -227,12 +234,32 @@ export default function SaveSentenceDialog({
         </div>
 
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <Label htmlFor="save-english">영어 문장</Label>
-            <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={!clip || sttPending} onClick={handleTranscribe}>
-              {sttPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              영어 자동 채우기
-            </Button>
+            <div className="flex items-center gap-1.5">
+              {/* 인식 모델 — 선택 즉시 localStorage에 기억(기기별) */}
+              <select
+                value={sttModel}
+                onChange={(e) => {
+                  const id = e.target.value as SttModelId;
+                  setSttModelState(id);
+                  setSttModel(id);
+                }}
+                disabled={sttPending}
+                aria-label="인식 모델"
+                className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/20 h-7 rounded-md border px-1.5 text-xs outline-none focus-visible:ring-[3px]"
+              >
+                {STT_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </select>
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={!clip || sttPending} onClick={handleTranscribe}>
+                {sttPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                영어 자동 채우기
+              </Button>
+            </div>
           </div>
           <Input id="save-english" value={english} onChange={(e) => setEnglish(e.target.value)} placeholder="영어 문장" maxLength={500} />
         </div>
