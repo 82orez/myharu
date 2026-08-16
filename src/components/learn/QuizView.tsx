@@ -647,6 +647,7 @@ export default function QuizView({
                     <p className="text-success text-lg font-semibold">정확합니다!</p>
                     <p className="text-muted-foreground mt-1 text-sm">{currentSentence.english_text}</p>
                     {quizType === "listening" && <p className="text-muted-foreground text-sm font-medium">{currentSentence.korean_text}</p>}
+                    {state.recognizedText && <p className="text-muted-foreground mt-1 text-xs">인식된 문장: &quot;{state.recognizedText}&quot;</p>}
                   </div>
                 )}
 
