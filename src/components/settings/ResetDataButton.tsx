@@ -60,8 +60,7 @@ export default function ResetDataButton({ kind, count }: { kind: ResetKind; coun
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) setConfirmText("");
-      }}
-    >
+      }}>
       <AlertDialogTrigger render={<Button variant="outline" size="sm" disabled={empty || resetting} className="shrink-0" />}>
         {resetting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-1 h-4 w-4" />}
         {empty ? "초기화할 기록 없음" : "초기화"}

@@ -51,7 +51,7 @@ export default async function RootLayout({
 
   return (
     <html lang="ko" className={pretendard.variable}>
-      <body className="bg-background pb-16 font-sans text-foreground antialiased md:pb-0">
+      <body className="bg-background text-foreground pb-16 font-sans antialiased md:pb-0">
         <ScrollToTop />
         <Navbar user={user ? { email: user.email } : null} />
         <AuthHashHandler />

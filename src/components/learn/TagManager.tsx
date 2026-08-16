@@ -115,8 +115,7 @@ export default function TagManager({
           onClick={() => {
             addPreset(draft);
             setDraft("");
-          }}
-        >
+          }}>
           추가
         </Button>
       </div>
@@ -164,8 +163,7 @@ export default function TagManager({
                     setRenameDraft(tag);
                   }}
                   className="hover:bg-muted text-muted-foreground hover:text-brand rounded-md p-1.5"
-                  aria-label={`${tag} 이름 변경`}
-                >
+                  aria-label={`${tag} 이름 변경`}>
                   <Pencil size={14} />
                 </button>
                 <button
@@ -173,8 +171,7 @@ export default function TagManager({
                   disabled={disabled || pending}
                   onClick={() => setConfirmTag(tag)}
                   className="hover:bg-destructive/15 text-muted-foreground hover:text-destructive rounded-md p-1.5"
-                  aria-label={`${tag} 삭제`}
-                >
+                  aria-label={`${tag} 삭제`}>
                   <X size={14} />
                 </button>
               </>
@@ -200,8 +197,7 @@ export default function TagManager({
             <AlertDialogAction
               disabled={pending}
               onClick={() => confirmTag && removePreset(confirmTag)}
-              className="bg-destructive hover:bg-destructive/90 text-white"
-            >
+              className="bg-destructive hover:bg-destructive/90 text-white">
               {pending ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
               삭제
             </AlertDialogAction>

@@ -906,8 +906,7 @@ export default function Waveform({ mediaRef }: { mediaRef: React.RefObject<HTMLV
           <div className="mt-2 flex items-center gap-2">
             <button
               onClick={retryLoad}
-              className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 shadow-sm hover:bg-rose-100"
-            >
+              className="rounded-lg border border-rose-300 bg-white px-2.5 py-1 text-xs font-medium text-rose-700 shadow-sm hover:bg-rose-100">
               다시 시도
             </button>
             <span className="text-[11px] text-rose-700/80">팁: iOS Safari에서는 재생 버튼을 한 번 눌러야 로딩/분석이 시작될 수 있어요.</span>
@@ -927,8 +926,7 @@ export default function Waveform({ mediaRef }: { mediaRef: React.RefObject<HTMLV
               onClick={() => setZoomPps(Math.max(20, zoomPps - 20))}
               disabled={!mediaUrl || isLoadingWave}
               className="rounded-lg border border-zinc-200 bg-white px-1.5 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
-              title="축소 (Ctrl/⌘ + −)"
-            >
+              title="축소 (Ctrl/⌘ + −)">
               −
             </button>
 
@@ -950,16 +948,14 @@ export default function Waveform({ mediaRef }: { mediaRef: React.RefObject<HTMLV
               onClick={() => setZoomPps(Math.min(800, zoomPps + 20))}
               disabled={!mediaUrl || isLoadingWave}
               className="rounded-lg border border-zinc-200 bg-white px-1.5 py-0.5 text-xs font-medium text-zinc-700 hover:bg-zinc-100 disabled:opacity-40"
-              title="확대 (Ctrl/⌘ + +)"
-            >
+              title="확대 (Ctrl/⌘ + +)">
               +
             </button>
             <button
               onClick={() => setZoomPps(80)}
               disabled={!mediaUrl || isLoadingWave}
               className="ml-1 rounded-lg border border-zinc-200 bg-white px-1.5 py-0.5 text-[11px] text-zinc-500 hover:bg-zinc-100 disabled:opacity-40"
-              title="초기화 (Ctrl/⌘ + 0)"
-            >
+              title="초기화 (Ctrl/⌘ + 0)">
               Reset
             </button>
           </div>
@@ -981,8 +977,7 @@ export default function Waveform({ mediaRef }: { mediaRef: React.RefObject<HTMLV
               onClick={seekToA}
               disabled={abText.a == null || isLoadingWave}
               className="inline-flex items-center rounded-full bg-amber-50 px-2 py-1 font-semibold text-amber-700 hover:bg-amber-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-              title={abText.a != null ? "A로 이동" : "A가 설정되지 않았습니다"}
-            >
+              title={abText.a != null ? "A로 이동" : "A가 설정되지 않았습니다"}>
               A {abText.a != null ? fmtTimeCS(abText.a) : "--:--.--"}
             </button>
 
@@ -991,8 +986,7 @@ export default function Waveform({ mediaRef }: { mediaRef: React.RefObject<HTMLV
               onClick={seekToB}
               disabled={abText.b == null || isLoadingWave}
               className="inline-flex items-center rounded-full bg-rose-50 px-2 py-1 font-semibold text-rose-700 hover:bg-rose-100 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60"
-              title={abText.b != null ? "B로 이동" : "B가 설정되지 않았습니다"}
-            >
+              title={abText.b != null ? "B로 이동" : "B가 설정되지 않았습니다"}>
               B {abText.b != null ? fmtTimeCS(abText.b) : "--:--.--"}
             </button>
 

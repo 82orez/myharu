@@ -341,8 +341,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                   onClick={handleGenerateClick}
                   disabled={pending}
                   variant="brand"
-                  className="h-12 min-w-[12rem] flex-1 rounded-xl text-lg font-bold"
-                >
+                  className="h-12 min-w-[12rem] flex-1 rounded-xl text-lg font-bold">
                   {generating && <Loader2 className="animate-spin" />}
                   {generating ? "음성 생성 중" : "AI 음성 생성"}
                 </Button>
@@ -379,8 +378,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                     onClick={() => setRegenConfirmOpen(true)}
                     disabled={pending}
                     variant="outline"
-                    className="h-12 flex-1 rounded-xl font-bold"
-                  >
+                    className="h-12 flex-1 rounded-xl font-bold">
                     {generating && <Loader2 className="animate-spin" />}
                     {generating ? (
                       "생성 중"
@@ -396,8 +394,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                     onClick={() => fileInputRef.current?.click()}
                     disabled={pending}
                     variant="outline"
-                    className="h-12 flex-1 rounded-xl font-bold"
-                  >
+                    className="h-12 flex-1 rounded-xl font-bold">
                     <Upload size={16} /> 다른 파일 선택
                   </Button>
                 )}
@@ -427,8 +424,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                   onClick={() => {
                     setGenConfirmOpen(false);
                     handleGenerate();
-                  }}
-                >
+                  }}>
                   확인
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -450,8 +446,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
                   onClick={() => {
                     setRegenConfirmOpen(false);
                     handleRegenerate();
-                  }}
-                >
+                  }}>
                   다시 생성
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -463,8 +458,7 @@ export default function InputForm({ initialPresets = [] }: { initialPresets?: st
               type="button"
               onClick={handleReset}
               disabled={pending}
-              className="text-muted-foreground text-sm underline-offset-4 hover:underline"
-            >
+              className="text-muted-foreground text-sm underline-offset-4 hover:underline">
               처음부터 다시 입력
             </button>
           )}

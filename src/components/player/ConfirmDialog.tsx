@@ -38,8 +38,7 @@ export default function ConfirmDialog({ open, title, description, confirmLabel =
       onClick={(e) => {
         if (e.target === ref.current) onCancel();
       }}
-      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-zinc-200 bg-white p-0 shadow-xl backdrop:bg-zinc-900/40"
-    >
+      className="m-auto w-[min(28rem,calc(100vw-2rem))] rounded-2xl border border-zinc-200 bg-white p-0 shadow-xl backdrop:bg-zinc-900/40">
       <div className="p-5">
         <h2 className="text-base font-semibold text-zinc-900">{title}</h2>
         {/* ReactNode를 받으므로 <p>가 아니라 <div> — 내부에 블록 요소가 와도 유효한 마크업이 된다 */}
@@ -48,8 +47,7 @@ export default function ConfirmDialog({ open, title, description, confirmLabel =
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onCancel}
-            className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
-          >
+            className="rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-700 hover:bg-zinc-50">
             {cancelLabel}
           </button>
           <button onClick={onConfirm} className="rounded-xl bg-zinc-900 px-4 py-2 text-sm font-medium text-white hover:bg-zinc-800">

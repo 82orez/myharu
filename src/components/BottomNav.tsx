@@ -19,12 +19,17 @@ export default function BottomNav({ user }: { user: BottomNavUser }) {
   if (!user) return null;
 
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-[100] border-t border-border bg-background/95 backdrop-blur-sm md:hidden" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
+    <nav
+      className="border-border bg-background/95 fixed inset-x-0 bottom-0 z-[100] border-t backdrop-blur-sm md:hidden"
+      style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
       <div className="flex h-16 items-center justify-around">
         {tabs.map((tab) => {
           const isActive = tab.href === "/" ? pathname === "/" : pathname.startsWith(tab.href);
           return (
-            <Link key={tab.label} href={tab.href} className={`flex flex-col items-center gap-1 rounded-lg px-3 py-1.5 transition-colors ${isActive ? "bg-brand/10 text-brand" : "text-muted-foreground"}`}>
+            <Link
+              key={tab.label}
+              href={tab.href}
+              className={`flex flex-col items-center gap-1 rounded-lg px-3 py-1.5 transition-colors ${isActive ? "bg-brand/10 text-brand" : "text-muted-foreground"}`}>
               <tab.icon size={20} />
               <span className="text-[10px] font-medium">{tab.label}</span>
             </Link>

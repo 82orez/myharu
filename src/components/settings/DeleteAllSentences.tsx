@@ -51,8 +51,7 @@ export default function DeleteAllSentences({ sentenceCount }: { sentenceCount: n
       onOpenChange={(next) => {
         setOpen(next);
         if (!next) setConfirmText("");
-      }}
-    >
+      }}>
       <AlertDialogTrigger render={<Button variant="destructive" size="sm" disabled={empty || deleting} className="shrink-0" />}>
         {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
         {empty ? "삭제할 문장 없음" : "전체 삭제"}

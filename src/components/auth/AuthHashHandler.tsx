@@ -49,10 +49,10 @@ export default function AuthHashHandler() {
   if (!processing) return null;
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-background/90 backdrop-blur-sm" role="status" aria-live="polite">
+    <div className="bg-background/90 fixed inset-0 z-[9999] flex items-center justify-center backdrop-blur-sm" role="status" aria-live="polite">
       <div className="flex flex-col items-center gap-4">
-        <div className="h-12 w-12 animate-spin rounded-full border-4 border-primary/20 border-t-primary" aria-hidden="true" />
-        <p className="text-sm font-medium text-foreground">인증 정보를 처리하고 있습니다...</p>
+        <div className="border-primary/20 border-t-primary h-12 w-12 animate-spin rounded-full border-4" aria-hidden="true" />
+        <p className="text-foreground text-sm font-medium">인증 정보를 처리하고 있습니다...</p>
       </div>
     </div>
   );

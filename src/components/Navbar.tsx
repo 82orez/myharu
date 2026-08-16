@@ -75,9 +75,9 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
   return (
     <>
       {/* 상단 네비 */}
-      <nav className="sticky top-0 z-[100] flex items-center border-b border-border bg-background/80 px-6 py-4 backdrop-blur-sm">
+      <nav className="border-border bg-background/80 sticky top-0 z-[100] flex items-center border-b px-6 py-4 backdrop-blur-sm">
         <div className="flex flex-1 items-center justify-start">
-          <Link href="/" className="text-xl font-bold text-brand">
+          <Link href="/" className="text-brand text-xl font-bold">
             {SITE_NAME}
           </Link>
         </div>
@@ -87,13 +87,13 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
           <div className="hidden items-center gap-3 md:flex">
             {user ? (
               <>
-                <span className="max-w-[180px] truncate text-sm text-muted-foreground" title={user.email ?? undefined}>
+                <span className="text-muted-foreground max-w-[180px] truncate text-sm" title={user.email ?? undefined}>
                   {user.email}
                 </span>
                 <form action={logout}>
                   <button
                     type="submit"
-                    className="rounded-full border border-border px-3 py-1.5 text-sm font-medium text-foreground transition-colors hover:border-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+                    className="border-border text-foreground hover:border-foreground focus-visible:ring-ring/50 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
                     로그아웃
                   </button>
                 </form>
@@ -102,12 +102,12 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
               <>
                 <Link
                   href="/login"
-                  className="rounded text-sm font-medium text-foreground transition-colors hover:text-primary focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+                  className="text-foreground hover:text-primary focus-visible:ring-ring/50 rounded text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
                   로그인
                 </Link>
                 <Link
                   href="/signup"
-                  className="rounded-full bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring/50 rounded-full px-4 py-2 text-sm font-semibold transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
                   회원가입
                 </Link>
               </>
@@ -122,7 +122,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
             aria-label={menuOpen ? "메뉴 닫기" : "메뉴 열기"}
             aria-expanded={menuOpen}
             aria-controls="side-menu"
-            className="flex h-10 w-10 items-center justify-center rounded-full bg-brand text-brand-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+            className="bg-brand text-brand-foreground focus-visible:ring-ring/50 flex h-10 w-10 items-center justify-center rounded-full focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
             <Menu size={20} />
           </button>
         </div>
@@ -145,7 +145,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
         aria-label="사이드 메뉴"
         aria-hidden={!menuOpen}
         inert={!menuOpen}
-        className={`fixed top-0 z-[200] h-screen w-[280px] border-l border-border bg-background pt-8 transition-[right] duration-300 ease-in-out ${
+        className={`border-border bg-background fixed top-0 z-[200] h-screen w-[280px] border-l pt-8 transition-[right] duration-300 ease-in-out ${
           menuOpen ? "right-0" : "-right-[300px]"
         }`}>
         <button
@@ -153,38 +153,38 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
           type="button"
           onClick={closeMenu}
           aria-label="메뉴 닫기"
-          className="absolute top-4 right-6 rounded border-none bg-transparent text-muted-foreground transition-colors hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 absolute top-4 right-6 rounded border-none bg-transparent transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
           <X size={24} />
         </button>
         <ul className="list-none px-6">
           {user && (
             <>
-              <li className="border-b border-border py-4">
-                <Link href="/learn/input" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+              <li className="border-border border-b py-4">
+                <Link href="/learn/input" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
                   <PenLine size={18} className="text-brand" />
                   문장 입력
                 </Link>
               </li>
-              <li className="border-b border-border py-4">
-                <Link href="/learn/review" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+              <li className="border-border border-b py-4">
+                <Link href="/learn/review" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
                   <List size={18} className="text-brand" />
                   연습하기
                 </Link>
               </li>
-              <li className="border-b border-border py-4">
-                <Link href="/learn/quiz" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+              <li className="border-border border-b py-4">
+                <Link href="/learn/quiz" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
                   <BookOpen size={18} className="text-brand" />
                   퀴즈 풀기
                 </Link>
               </li>
-              <li className="border-b border-border py-4">
-                <Link href="/learn/player" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+              <li className="border-border border-b py-4">
+                <Link href="/learn/player" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
                   <Repeat size={18} className="text-brand" />
                   Repeater
                 </Link>
               </li>
-              <li className="border-b border-border py-4">
-                <Link href="/settings" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+              <li className="border-border border-b py-4">
+                <Link href="/settings" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
                   <Settings size={18} className="text-brand" />
                   설정
                 </Link>
@@ -194,8 +194,8 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
 
           {user ? (
             <>
-              <li className="border-b border-border py-4">
-                <span className="block truncate text-[13px] text-muted-foreground" title={user.email ?? undefined}>
+              <li className="border-border border-b py-4">
+                <span className="text-muted-foreground block truncate text-[13px]" title={user.email ?? undefined}>
                   {user.email}
                 </span>
               </li>
@@ -203,7 +203,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
                 <form action={logout}>
                   <button
                     type="submit"
-                    className="flex w-full items-center justify-center gap-2 rounded-md border border-border px-4 py-2.5 text-[15px] font-medium text-foreground transition-colors hover:border-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+                    className="border-border text-foreground hover:border-foreground focus-visible:ring-ring/50 flex w-full items-center justify-center gap-2 rounded-md border px-4 py-2.5 text-[15px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
                     <LogOut size={16} />
                     로그아웃
                   </button>
@@ -212,11 +212,11 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
             </>
           ) : (
             <>
-              <li className="border-b border-border py-4">
+              <li className="border-border border-b py-4">
                 <Link
                   href="/login"
                   onClick={closeMenu}
-                  className="rounded text-[15px] font-medium text-foreground no-underline focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+                  className="text-foreground focus-visible:ring-ring/50 rounded text-[15px] font-medium no-underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
                   로그인
                 </Link>
               </li>
@@ -224,7 +224,7 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
                 <Link
                   href="/signup"
                   onClick={closeMenu}
-                  className="block w-full rounded-md bg-primary px-4 py-2.5 text-center text-[15px] font-semibold text-primary-foreground no-underline transition-colors hover:bg-primary/90 focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-2 focus-visible:outline-none">
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 focus-visible:ring-ring/50 block w-full rounded-md px-4 py-2.5 text-center text-[15px] font-semibold no-underline transition-colors focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none">
                   회원가입
                 </Link>
               </li>

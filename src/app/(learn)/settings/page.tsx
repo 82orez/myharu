@@ -103,8 +103,7 @@ export default async function SettingsPage() {
           <Row
             icon={<Target size={16} />}
             label="하루 목표"
-            description={`홈 진도·학습 달력 기준 (${MIN_DAILY_GOAL}~${MAX_DAILY_GOAL.toLocaleString()}회)`}
-          >
+            description={`홈 진도·학습 달력 기준 (${MIN_DAILY_GOAL}~${MAX_DAILY_GOAL.toLocaleString()}회)`}>
             <DailyGoalField initialGoal={resolveDailyGoal(stats?.daily_goal)} />
           </Row>
           <Row icon={<ListChecks size={16} />} label="등록된 문장" description="지금까지 저장한 문장 수">
@@ -141,22 +140,19 @@ export default async function SettingsPage() {
           <Row
             icon={<RotateCcw size={16} />}
             label="연습 횟수 초기화"
-            description="문장 카드의 스피킹·쓰기·듣기 횟수를 0으로 되돌립니다. (학습 달력은 유지)"
-          >
+            description="문장 카드의 스피킹·쓰기·듣기 횟수를 0으로 되돌립니다. (학습 달력은 유지)">
             <ResetDataButton kind="counts" count={practiceTotal} />
           </Row>
           <Row
             icon={<CalendarDays size={16} />}
             label="학습 기록 초기화"
-            description="오늘의 목표 진도와 학습 달력 기록을 지웁니다. (문장별 연습 횟수는 유지)"
-          >
+            description="오늘의 목표 진도와 학습 달력 기록을 지웁니다. (문장별 연습 횟수는 유지)">
             <ResetDataButton kind="history" count={historyCount ?? 0} />
           </Row>
           <Row
             icon={<AlertTriangle size={16} className="text-destructive" />}
             label="등록된 문장 전체 삭제"
-            description="문장·음성 파일과 연습 기록이 모두 삭제되며 되돌릴 수 없습니다."
-          >
+            description="문장·음성 파일과 연습 기록이 모두 삭제되며 되돌릴 수 없습니다.">
             <DeleteAllSentences sentenceCount={sentenceCount} />
           </Row>
         </CardContent>

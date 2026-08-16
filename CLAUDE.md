@@ -237,5 +237,5 @@ src/
 - **경로 alias**: `@/*` → `./src/*`.
 - **TypeScript**: 의도적으로 `strict: false`, `noImplicitAny: false`. 임의로 strict 켜지 말 것.
 - **Supabase 타입**: 세 클라이언트(`client`/`server`/`admin`) 모두 `createClient<Database>`로 생성 타입(`src/types/database.types.ts`, `supabase gen types`로 자동 생성 — 직접 편집 금지)을 적용 → `.from().select/insert/update`가 스키마 기반으로 검증됨. **마이그레이션 후 반드시 `npm run db:types` 실행**해 동기화. 도메인 타입은 생성 타입에서 **파생**: `UserStats = Tables<"user_stats">`, `PracticeResult = Omit<Tables<"practice_results">, "mode"> & { mode: PracticeMode }`(`types/gamification.ts`), `Sentence = Omit<Tables<"sentences">, "audio_path"|"user_id"> & { audio_url }`(변환형, `review/actions.ts`). `QuizMode`·`SessionSummary`는 DB와 무관한 앱 전용 타입이라 직접 정의 유지. lib 헬퍼는 `SupabaseClient<Database>`(`gamification.ts`의 `DbClient`)를 받아 `as` 단언 없이 추론. 새 코드도 `as` 대신 추론 사용.
-- **Prettier**: `printWidth: 150`, `endOfLine: "crlf"`, 큰따옴표, `trailingComma: "all"`. Tailwind 클래스 수동 재정렬 금지(플러그인 자동).
+- **Prettier**: `printWidth: 150`, `endOfLine: "lf"`(git `core.autocrlf=input`과 맞춤 — crlf로 되돌리지 말 것), `bracketSameLine: true`(여러 줄 JSX의 닫는 `>`를 마지막 속성 줄에 붙임. Prettier 3에서 제거된 `jsxBracketSameLine`을 대체 — 옛 이름은 무시돼 사실상 꺼져 있었다), 큰따옴표, `trailingComma: "all"`. Tailwind 클래스 수동 재정렬 금지(플러그인 자동). shadcn으로 새 컴포넌트를 추가하면 생성 직후 파일이 프로젝트 포맷과 다르므로 `npx prettier --write` 대상에 포함할 것.
 - **에러 메시지/UI 문구**: 모두 한국어.

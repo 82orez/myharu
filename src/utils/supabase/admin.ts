@@ -26,10 +26,7 @@ export async function emailExists(email: string): Promise<boolean | null> {
   try {
     admin = createAdminClient();
   } catch (err) {
-    console.error(
-      "[Supabase admin] admin client 생성 실패. SUPABASE_SERVICE_ROLE_KEY 환경 변수가 설정되어 있는지 확인하세요.",
-      err,
-    );
+    console.error("[Supabase admin] admin client 생성 실패. SUPABASE_SERVICE_ROLE_KEY 환경 변수가 설정되어 있는지 확인하세요.", err);
     return null;
   }
   const target = email.toLowerCase();
@@ -49,9 +46,7 @@ export async function emailExists(email: string): Promise<boolean | null> {
   return false;
 }
 
-export type UserIdentitySummary =
-  | { found: false }
-  | { found: true; confirmed: boolean; hasPassword: boolean; oauthProviders: string[] };
+export type UserIdentitySummary = { found: false } | { found: true; confirmed: boolean; hasPassword: boolean; oauthProviders: string[] };
 
 /**
  * 이메일에 연결된 사용자의 인증 수단 요약.
@@ -72,10 +67,7 @@ export async function getUserIdentitySummary(email: string): Promise<UserIdentit
   try {
     admin = createAdminClient();
   } catch (err) {
-    console.error(
-      "[Supabase admin] admin client 생성 실패. SUPABASE_SERVICE_ROLE_KEY 환경 변수가 설정되어 있는지 확인하세요.",
-      err,
-    );
+    console.error("[Supabase admin] admin client 생성 실패. SUPABASE_SERVICE_ROLE_KEY 환경 변수가 설정되어 있는지 확인하세요.", err);
     return null;
   }
   const target = email.toLowerCase();

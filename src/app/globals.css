@@ -164,7 +164,9 @@
     @apply transition-colors duration-200;
   }
   [data-slot="card"] {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
   }
   [data-slot="card"]:hover {
     transform: translateY(-2px);
@@ -173,25 +175,50 @@
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
-  20%, 40%, 60%, 80% { transform: translateX(4px); }
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  10%,
+  30%,
+  50%,
+  70%,
+  90% {
+    transform: translateX(-4px);
+  }
+  20%,
+  40%,
+  60%,
+  80% {
+    transform: translateX(4px);
+  }
 }
 .animate-shake {
   animation: shake 0.5s ease-in-out;
 }
 
 @keyframes float-up {
-  0% { opacity: 1; transform: translateY(0) scale(1); }
-  100% { opacity: 0; transform: translateY(-60px) scale(1.2); }
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-60px) scale(1.2);
+  }
 }
 .animate-float-up {
   animation: float-up 1.2s ease-out forwards;
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 0 0 oklch(0.55 0.17 145 / 0); }
-  50% { box-shadow: 0 0 20px 4px oklch(0.55 0.17 145 / 0.3); }
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 oklch(0.55 0.17 145 / 0);
+  }
+  50% {
+    box-shadow: 0 0 20px 4px oklch(0.55 0.17 145 / 0.3);
+  }
 }
 .animate-pulse-glow {
   animation: pulse-glow 1s ease-in-out;

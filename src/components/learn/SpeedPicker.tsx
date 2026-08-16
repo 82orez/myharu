@@ -48,8 +48,7 @@ export default function SpeedPicker({
                 className={cn(
                   "relative flex flex-col gap-1 rounded-xl border p-3 text-left transition-colors",
                   selected ? "border-brand bg-brand/5" : "border-border hover:border-brand/40 hover:bg-muted/40",
-                )}
-              >
+                )}>
                 {selected && <Check size={16} className="text-brand absolute top-3 right-3" />}
                 <span className={cn("text-base font-bold tabular-nums", selected ? "text-brand" : "text-foreground")}>{s.label}</span>
                 {s.desc && <span className={cn("text-sm", selected ? "text-brand/80" : "text-muted-foreground")}>{s.desc}</span>}

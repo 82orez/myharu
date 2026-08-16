@@ -510,16 +510,14 @@ export default function QuizView({
             variant={quizType === "listening" ? "brand" : "outline"}
             disabled={speechAvailability !== null && !speechSupported}
             onClick={() => setQuizType("listening")}
-            className="h-auto flex-col items-start gap-1 px-5 py-4 text-left"
-          >
+            className="h-auto flex-col items-start gap-1 px-5 py-4 text-left">
             <span className="text-base font-bold">리스닝 (듣고 따라 말하기)</span>
             <span className="text-sm font-normal opacity-80">오디오를 듣고 영어 문장을 따라 말해요.</span>
           </Button>
           <Button
             variant={quizType === "translate" ? "brand" : "outline"}
             onClick={() => setQuizType("translate")}
-            className="h-auto flex-col items-start gap-1 px-5 py-4 text-left"
-          >
+            className="h-auto flex-col items-start gap-1 px-5 py-4 text-left">
             <span className="text-base font-bold">일반 (한국어 → 영어)</span>
             <span className="text-sm font-normal opacity-80">한국어 뜻을 보고 영어로 말하거나 써요.</span>
           </Button>
@@ -596,8 +594,7 @@ export default function QuizView({
                   : state.resultStatus === "incorrect"
                     ? "animate-shake ring-destructive ring-2"
                     : ""
-              }`}
-            >
+              }`}>
               <CardContent className="flex min-h-[240px] flex-col items-center justify-center gap-6 py-10 text-center">
                 {showNumber && (
                   <span className="text-muted-foreground/70 absolute top-3 left-4 text-xs font-semibold tabular-nums">
@@ -617,8 +614,7 @@ export default function QuizView({
                   }}
                   className={`absolute top-2 right-2 ${
                     currentSentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"
-                  }`}
-                >
+                  }`}>
                   <Star className={`h-4 w-4 ${currentSentence.is_favorite ? "fill-current" : ""}`} />
                 </Button>
 
@@ -697,8 +693,7 @@ export default function QuizView({
                   setMode("speech");
                   startRecognition();
                 }}
-                className="h-12 flex-1 text-base font-semibold"
-              >
+                className="h-12 flex-1 text-base font-semibold">
                 <Mic className="mr-2 h-5 w-5" />
                 말하기
               </Button>
@@ -715,8 +710,7 @@ export default function QuizView({
                       setWritingActive(true);
                     }
                   }}
-                  className="h-12 flex-1 text-base font-semibold"
-                >
+                  className="h-12 flex-1 text-base font-semibold">
                   <Keyboard className="mr-2 h-5 w-5" />
                   {writingActive ? "닫기" : "쓰기"}
                 </Button>
@@ -736,8 +730,7 @@ export default function QuizView({
                   e.preventDefault();
                   handleTextSubmit();
                 }}
-                className="flex gap-2"
-              >
+                className="flex gap-2">
                 <Input
                   ref={textInputRef}
                   type="text"
@@ -755,8 +748,7 @@ export default function QuizView({
                   type="submit"
                   variant="brand"
                   disabled={!textInput.trim() || isPending || isPlaying}
-                  className="h-12 px-5 text-base font-semibold"
-                >
+                  className="h-12 px-5 text-base font-semibold">
                   확인
                 </Button>
               </form>
@@ -771,8 +763,7 @@ export default function QuizView({
             variant="ghost"
             disabled={isPlaying || autoPlayCountdown !== null}
             onClick={() => setAnswerShown((v) => !v)}
-            className={`h-10 text-sm ${answerShown ? "text-brand" : "text-muted-foreground"}`}
-          >
+            className={`h-10 text-sm ${answerShown ? "text-brand" : "text-muted-foreground"}`}>
             {answerShown ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
             {answerShown ? "정답 숨기기" : "정답 보기"}
           </Button>
@@ -784,8 +775,7 @@ export default function QuizView({
             onClick={() => {
               if (recognitionRef.current) recognitionRef.current.abort();
             }}
-            className="mx-auto h-14 w-14 rounded-full"
-          >
+            className="mx-auto h-14 w-14 rounded-full">
             <MicOff className="h-6 w-6" />
           </Button>
         )}
@@ -810,8 +800,7 @@ export default function QuizView({
                   setTextInput("");
                 }
               }}
-              className="h-12 flex-1 text-base"
-            >
+              className="h-12 flex-1 text-base">
               다시 시도
             </Button>
             <AlertDialog>

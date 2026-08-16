@@ -693,8 +693,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
             <input ref={fileInputRef} type="file" multiple accept="audio/*,video/mp4,video/*,.srt,.vtt" className="hidden" onChange={onFileChange} />
             <button
               onClick={onPickFile}
-              className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
-            >
+              className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50">
               <Upload className="h-4 w-4" />
               미디어 불러오기
             </button>
@@ -703,8 +702,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
             <button
               onClick={onPickFolder}
               title="폴더 안의 미디어를 전부 재생목록으로 불러옵니다"
-              className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
-            >
+              className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50">
               <FolderOpen className="h-4 w-4" />
               폴더 불러오기
             </button>
@@ -713,8 +711,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
               <button
                 onClick={() => setPlaylistOpen(true)}
                 title="재생목록 열기"
-                className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50"
-              >
+                className="inline-flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-4 py-2 text-sm font-medium text-zinc-900 shadow-sm hover:bg-zinc-50">
                 <ListMusic className="h-4 w-4" />
                 재생목록 {playlist.length}
               </button>
@@ -727,8 +724,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                   showVideo
                     ? "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50"
                     : "border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100",
-                )}
-              >
+                )}>
                 {showVideo ? "비디오 숨기기" : "비디오 보기"}
               </button>
             ) : null}
@@ -741,8 +737,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                   showCaptions
                     ? "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50"
                     : "border-zinc-300 bg-zinc-50 text-zinc-700 hover:bg-zinc-100",
-                )}
-              >
+                )}>
                 {showCaptions ? "자막 가리기" : "자막 보기"}
               </button>
             ) : null}
@@ -780,8 +775,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                 "inline-flex w-[90px] items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium shadow-sm",
                 controlsDisabled ? "cursor-not-allowed bg-zinc-900/50 text-white" : "bg-zinc-900 text-white hover:bg-zinc-800",
               )}
-              title="재생/일시정지 (Space)"
-            >
+              title="재생/일시정지 (Space)">
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               {isPlaying ? "Pause" : "Play"}
             </button>
@@ -794,8 +788,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
               }}
               disabled={controlsDisabled}
               className={btnBase}
-              title="정지 + 00:00.00 이동"
-            >
+              title="정지 + 00:00.00 이동">
               <RotateCcw className="h-4 w-4" />
               처음으로
             </button>
@@ -809,8 +802,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                 onClick={playFromA}
                 disabled={controlsDisabled}
                 className={btnBase}
-                title={canLoop ? "현재 A/B 구간의 A 지점부터 다시 재생" : "-3초 이동 (←)"}
-              >
+                title={canLoop ? "현재 A/B 구간의 A 지점부터 다시 재생" : "-3초 이동 (←)"}>
                 {canLoop ? <ArrowLeftToLine className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
                 {canLoop ? "A" : "-3s"}
               </button>
@@ -820,8 +812,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                 onClick={playFromBAndClearLoop}
                 disabled={controlsDisabled}
                 className={btnBase}
-                title={canLoop ? "A/B 구간을 해제하고 B 지점부터 재생" : "+3초 이동 (→)"}
-              >
+                title={canLoop ? "A/B 구간을 해제하고 B 지점부터 재생" : "+3초 이동 (→)"}>
                 {canLoop ? (
                   <>
                     B <ArrowRightFromLine className="h-4 w-4" />
@@ -855,16 +846,14 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                   onClick={() => selectTrack(playlistIndex - 1)}
                   disabled={playlistIndex <= 0 || controlsDisabled}
                   title="이전 트랙"
-                  className={btnBase}
-                >
+                  className={btnBase}>
                   <SkipBack className="h-4 w-4" /> 이전 트랙
                 </button>
                 <button
                   onClick={() => selectTrack(playlistIndex + 1)}
                   disabled={playlistIndex < 0 || playlistIndex >= playlist.length - 1 || controlsDisabled}
                   title="다음 트랙"
-                  className={btnBase}
-                >
+                  className={btnBase}>
                   다음 트랙 <SkipForward className="h-4 w-4" />
                 </button>
               </div>
@@ -901,8 +890,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                 }}
                 disabled={!mediaUrl}
                 className={btnBase}
-                title="A 지정 (KeyA)"
-              >
+                title="A 지정 (KeyA)">
                 <Flag className="h-4 w-4" /> A
               </button>
 
@@ -915,8 +903,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                 }}
                 disabled={!mediaUrl}
                 className={btnBase}
-                title="B 지정 (KeyB)"
-              >
+                title="B 지정 (KeyB)">
                 <Flag className="h-4 w-4" /> B
               </button>
 
@@ -936,8 +923,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                       : "border border-zinc-200 bg-amber-200 text-zinc-900 hover:bg-amber-100"
                     : "cursor-not-allowed border border-zinc-200 bg-white text-zinc-400",
                 )}
-                title="반복 토글 (R)"
-              >
+                title="반복 토글 (R)">
                 {canLoop ? loopEnabled ? <BsRepeat size={16} /> : <BsRepeat1 size={16} /> : <TbRepeatOff size={16} />}
               </button>
 
@@ -951,8 +937,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                 }}
                 disabled={!mediaUrl}
                 className={btnBase}
-                title="구간 초기화 (Esc)"
-              >
+                title="구간 초기화 (Esc)">
                 <RotateCcw className="h-4 w-4" />
                 Reset
               </button>
@@ -963,8 +948,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                   onClick={extractRegion}
                   disabled={!canLoop || controlsDisabled || extracting}
                   className="inline-flex min-w-[6.5rem] items-center justify-center gap-2 px-3 py-2 text-sm font-medium text-zinc-900 hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  title="선택한 A/B 구간을 MP3 파일로 저장"
-                >
+                  title="선택한 A/B 구간을 MP3 파일로 저장">
                   {extracting ? (
                     <span className="h-4 w-4 animate-spin rounded-full border-2 border-zinc-300 border-t-zinc-700" />
                   ) : (
@@ -977,8 +961,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                   onChange={(e) => setMp3Kbps(Number(e.target.value))}
                   disabled={extracting}
                   className="border-l border-zinc-200 bg-white py-2 pr-2 pl-2 text-sm text-zinc-700 outline-none hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-60"
-                  title="MP3 비트레이트 (높을수록 고음질·큰 용량)"
-                >
+                  title="MP3 비트레이트 (높을수록 고음질·큰 용량)">
                   {[128, 192, 320].map((k) => (
                     <option key={k} value={k}>
                       {k}k
@@ -992,8 +975,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                 onClick={() => setSaveOpen(true)}
                 disabled={!canLoop || controlsDisabled}
                 className={btnBase}
-                title="선택한 A/B 구간을 음원으로 삼아 문장을 등록"
-              >
+                title="선택한 A/B 구간을 음원으로 삼아 문장을 등록">
                 <BookmarkPlus className="h-4 w-4" />
                 문장으로 저장
               </button>
@@ -1069,8 +1051,7 @@ export default function Player({ initialPresets = [] }: { initialPresets?: strin
                     Math.abs(playbackRate - v) < 0.001
                       ? "border-blue-600 bg-blue-50 text-blue-700"
                       : "border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50",
-                  )}
-                >
+                  )}>
                   {v}x
                 </button>
               ))}

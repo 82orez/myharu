@@ -73,8 +73,7 @@ function CueForm({
             onClick={onApplyRange}
             disabled={!canUseRange}
             className={clsx(btnBase, "px-2 py-1 text-xs")}
-            title="이 큐의 시간을 현재 A–B 구간으로 바꿉니다"
-          >
+            title="이 큐의 시간을 현재 A–B 구간으로 바꿉니다">
             구간을 현재 A–B로
           </button>
         ) : null}
@@ -122,8 +121,7 @@ function CueForm({
             "inline-flex items-center gap-2 rounded-2xl px-3 py-2 text-sm font-medium text-white shadow-sm disabled:cursor-not-allowed disabled:opacity-60",
             cue ? "bg-blue-600 hover:bg-blue-700" : "bg-zinc-900 hover:bg-zinc-800",
           )}
-          title={cue ? "수정 내용 반영 (Ctrl+Enter)" : "현재 A–B 구간을 자막 한 줄로 추가 (Ctrl+Enter)"}
-        >
+          title={cue ? "수정 내용 반영 (Ctrl+Enter)" : "현재 A–B 구간을 자막 한 줄로 추가 (Ctrl+Enter)"}>
           {cue ? <Check className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
           {cue ? "수정 반영" : "구간 추가"}
         </button>
@@ -187,8 +185,7 @@ function CueList({
             className={clsx(
               "flex items-start gap-3 px-1 py-2",
               c.id === editingId ? "bg-blue-50/60" : c.id === activeId ? "bg-amber-50/60" : "hover:bg-zinc-50",
-            )}
-          >
+            )}>
             <span className="w-6 shrink-0 pt-0.5 text-right text-[11px] text-zinc-400">{i + 1}</span>
             <span className="w-[9.5rem] shrink-0 pt-0.5 font-mono text-[11px] text-zinc-500">
               {fmtTimeCS(c.start)} → {fmtTimeCS(c.end)}
@@ -200,15 +197,13 @@ function CueList({
               <button
                 onClick={() => onPlay(c)}
                 title="이 구간 듣기 (A–B로 지정)"
-                className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-              >
+                className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">
                 <Play className="h-4 w-4" />
               </button>
               <button
                 onClick={() => onEdit(c)}
                 title="내용·시간 수정"
-                className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
-              >
+                className="rounded-lg p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900">
                 <Pencil className="h-4 w-4" />
               </button>
               <button onClick={() => onDelete(c)} title="삭제" className="rounded-lg p-1.5 text-zinc-500 hover:bg-red-50 hover:text-red-600">

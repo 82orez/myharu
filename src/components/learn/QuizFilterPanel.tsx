@@ -83,8 +83,7 @@ export default function QuizFilterPanel({
               value={filter.dayRange}
               onChange={(e) => patch({ dayRange: e.target.value as DayRange })}
               aria-label="입력일"
-              className={selectClass}
-            >
+              className={selectClass}>
               {DAY_RANGES.map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
@@ -96,8 +95,7 @@ export default function QuizFilterPanel({
               size="sm"
               aria-pressed={filter.favoriteOnly}
               onClick={() => patch({ favoriteOnly: !filter.favoriteOnly })}
-              className={filter.favoriteOnly ? "border-amber-500 bg-amber-500/10 text-amber-600" : "text-amber-500"}
-            >
+              className={filter.favoriteOnly ? "border-amber-500 bg-amber-500/10 text-amber-600" : "text-amber-500"}>
               <Star className={`mr-1 h-4 w-4 ${filter.favoriteOnly ? "fill-current" : ""}`} />
               즐겨찾기
             </Button>
@@ -105,8 +103,7 @@ export default function QuizFilterPanel({
               variant={filter.unpracticedOnly ? "brand" : "outline"}
               size="sm"
               aria-pressed={filter.unpracticedOnly}
-              onClick={() => patch({ unpracticedOnly: !filter.unpracticedOnly })}
-            >
+              onClick={() => patch({ unpracticedOnly: !filter.unpracticedOnly })}>
               <Circle className="mr-1 h-4 w-4" />
               미연습만
             </Button>
@@ -158,8 +155,7 @@ export default function QuizFilterPanel({
                 type="button"
                 onClick={() => patch({ search: "" })}
                 aria-label="검색어 지우기"
-                className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors"
-              >
+                className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
                 <X size={14} />
               </button>
             )}
@@ -171,8 +167,7 @@ export default function QuizFilterPanel({
               <Button
                 variant={filter.tags.length === 0 && !filter.noTagOnly ? "brand" : "outline"}
                 size="sm"
-                onClick={() => patch({ tags: [], noTagOnly: false })}
-              >
+                onClick={() => patch({ tags: [], noTagOnly: false })}>
                 <Tag className="mr-1 h-4 w-4" />
                 전체 {matchedCount}
               </Button>
@@ -183,8 +178,7 @@ export default function QuizFilterPanel({
                   size="sm"
                   aria-pressed={filter.tags.includes(t)}
                   onClick={() => toggleTag(t)}
-                  className={`${tagChipClass(t)} border-transparent ${filter.tags.includes(t) ? "ring-foreground/40 ring-2" : ""}`}
-                >
+                  className={`${tagChipClass(t)} border-transparent ${filter.tags.includes(t) ? "ring-foreground/40 ring-2" : ""}`}>
                   {t}
                 </Button>
               ))}
@@ -193,8 +187,7 @@ export default function QuizFilterPanel({
                   variant="outline"
                   size="sm"
                   aria-label={`태그 조건: ${filter.tagMode === "and" ? "모두 포함" : "하나라도"} (클릭하여 전환)`}
-                  onClick={() => patch({ tagMode: filter.tagMode === "and" ? "or" : "and" })}
-                >
+                  onClick={() => patch({ tagMode: filter.tagMode === "and" ? "or" : "and" })}>
                   <ArrowLeftRight className="mr-1 h-4 w-4" />
                   {filter.tagMode === "and" ? "모두 포함" : "하나라도"}
                 </Button>
@@ -204,8 +197,7 @@ export default function QuizFilterPanel({
                   variant={filter.noTagOnly ? "brand" : "outline"}
                   size="sm"
                   aria-pressed={filter.noTagOnly}
-                  onClick={() => patch({ noTagOnly: !filter.noTagOnly, tags: [] })}
-                >
+                  onClick={() => patch({ noTagOnly: !filter.noTagOnly, tags: [] })}>
                   없음
                 </Button>
               )}
@@ -222,8 +214,7 @@ export default function QuizFilterPanel({
                 onNumberInputChange("");
                 onLimitChange(0);
               }}
-              className="text-muted-foreground"
-            >
+              className="text-muted-foreground">
               <RotateCcw className="mr-1 h-4 w-4" />
               조건 초기화
             </Button>

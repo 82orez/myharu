@@ -60,8 +60,7 @@ export default function VoicePicker({
                 className={cn(
                   "relative flex flex-col gap-2 rounded-xl border p-3 text-left transition-colors",
                   selected ? "border-brand bg-brand/5" : "border-border hover:border-brand/40 hover:bg-muted/40",
-                )}
-              >
+                )}>
                 {selected && <Check size={16} className="text-brand absolute top-3 right-3" />}
                 <span className={cn("text-base font-bold", selected ? "text-brand" : "text-foreground")}>{v.label}</span>
                 <div className="flex gap-1.5">

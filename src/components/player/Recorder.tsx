@@ -181,8 +181,7 @@ export default function Recorder() {
             onClick={stopRecording}
             className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-3 py-2 text-sm font-medium text-white shadow-sm hover:bg-red-700"
             title="녹음 중지"
-            aria-label="녹음 중지"
-          >
+            aria-label="녹음 중지">
             <Square className="h-4 w-4 fill-white" />
           </button>
           <span className="inline-flex items-center gap-1 text-xs font-medium text-red-600">
@@ -201,8 +200,7 @@ export default function Recorder() {
             onClick={phase === "playing" ? pauseRecording : playRecording}
             className={btnBase}
             title={phase === "playing" ? "녹음본 일시정지" : "녹음본 재생"}
-            aria-label={phase === "playing" ? "녹음본 일시정지" : "녹음본 재생"}
-          >
+            aria-label={phase === "playing" ? "녹음본 일시정지" : "녹음본 재생"}>
             {phase === "playing" ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
           </button>
           <span className="text-xs text-zinc-500 tabular-nums">{fmtElapsed(durationSec * 1000)}</span>

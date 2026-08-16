@@ -107,7 +107,7 @@ export default function LoginForm() {
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
                 aria-label={showPassword ? "비밀번호 숨기기" : "비밀번호 보기"}
-                className="absolute inset-y-0 right-0 flex items-center rounded pr-3 text-muted-foreground hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:outline-none">
+                className="text-muted-foreground hover:text-foreground focus-visible:ring-ring/50 absolute inset-y-0 right-0 flex items-center rounded pr-3 focus-visible:ring-2 focus-visible:outline-none">
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
@@ -118,7 +118,7 @@ export default function LoginForm() {
               </p>
             )}
             <div className="flex justify-end">
-              <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-foreground hover:underline">
+              <Link href="/forgot-password" className="text-muted-foreground hover:text-foreground text-sm hover:underline">
                 비밀번호를 잊으셨나요?
               </Link>
             </div>
@@ -126,7 +126,7 @@ export default function LoginForm() {
 
           {state?.error && (
             <div className="flex flex-col gap-2">
-              <p id="login-error" className="text-sm text-destructive" role="alert">
+              <p id="login-error" className="text-destructive text-sm" role="alert">
                 {state.error}
               </p>
               {state.canResend && (
@@ -134,14 +134,14 @@ export default function LoginForm() {
                   type="button"
                   onClick={() => setConfirmOpen(true)}
                   disabled={resendDisabled}
-                  className="self-start text-sm font-medium text-primary hover:underline disabled:cursor-not-allowed disabled:opacity-50">
+                  className="text-primary self-start text-sm font-medium hover:underline disabled:cursor-not-allowed disabled:opacity-50">
                   {resendContent}
                 </button>
               )}
             </div>
           )}
           {resendResult?.error && (
-            <p className="text-sm text-destructive" role="alert">
+            <p className="text-destructive text-sm" role="alert">
               {resendResult.error}
             </p>
           )}
@@ -164,22 +164,22 @@ export default function LoginForm() {
             </AlertDialogContent>
           </AlertDialog>
 
-          <Button type="submit" disabled={pending} className="mt-2 h-11 bg-brand text-base font-bold text-brand-foreground hover:bg-brand/90">
+          <Button type="submit" disabled={pending} className="bg-brand text-brand-foreground hover:bg-brand/90 mt-2 h-11 text-base font-bold">
             {pending && <Loader2 className="animate-spin" />}
             {pending ? "로그인 중" : "로그인"}
           </Button>
 
-          <div className="my-1 flex items-center gap-3 text-xs text-muted-foreground">
-            <div className="h-px flex-1 bg-border" />
+          <div className="text-muted-foreground my-1 flex items-center gap-3 text-xs">
+            <div className="bg-border h-px flex-1" />
             <span>또는</span>
-            <div className="h-px flex-1 bg-border" />
+            <div className="bg-border h-px flex-1" />
           </div>
 
           <KakaoButton />
 
-          <p className="mt-2 text-center text-sm text-muted-foreground">
+          <p className="text-muted-foreground mt-2 text-center text-sm">
             계정이 없으신가요?{" "}
-            <Link href="/signup" className="font-semibold text-primary hover:underline">
+            <Link href="/signup" className="text-primary font-semibold hover:underline">
               회원가입
             </Link>
           </p>

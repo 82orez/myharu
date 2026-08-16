@@ -202,8 +202,7 @@ export default async function Home() {
               <Card
                 key={item.title}
                 className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
-                style={{ animationDelay: `${i * 150}ms`, animationDuration: "600ms" }}
-              >
+                style={{ animationDelay: `${i * 150}ms`, animationDuration: "600ms" }}>
                 <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
                   <div className="bg-brand/10 text-brand relative flex h-14 w-14 items-center justify-center rounded-full">
                     <item.icon size={28} />
@@ -230,8 +229,7 @@ export default async function Home() {
               <div
                 key={item.title}
                 className="animate-in fade-in slide-in-from-bottom-2 border-border bg-background fill-mode-both flex items-start gap-4 rounded-xl border p-5"
-                style={{ animationDelay: `${i * 100}ms`, animationDuration: "500ms" }}
-              >
+                style={{ animationDelay: `${i * 100}ms`, animationDuration: "500ms" }}>
                 <div className="bg-brand/10 text-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
                   <item.icon size={20} />
                 </div>

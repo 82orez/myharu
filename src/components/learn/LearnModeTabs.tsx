@@ -13,7 +13,7 @@ export default function LearnModeTabs() {
   const pathname = usePathname();
 
   return (
-    <div className="flex gap-1 rounded-xl bg-muted/60 p-1">
+    <div className="bg-muted/60 flex gap-1 rounded-xl p-1">
       {tabs.map(({ href, label, Icon }) => {
         const active = pathname === href;
         return (
@@ -22,8 +22,7 @@ export default function LearnModeTabs() {
             href={href}
             className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-colors ${
               active ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
+            }`}>
             <Icon size={16} />
             {label}
           </Link>

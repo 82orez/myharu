@@ -29,8 +29,7 @@ function TrackChip({ track, onToggle }: { track: SubTrack; onToggle: () => void 
       className={clsx(
         "rounded-lg border px-2 py-0.5 text-xs font-medium",
         track.enabled ? "border-zinc-900 bg-zinc-900 text-white hover:bg-zinc-800" : "border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50",
-      )}
-    >
+      )}>
       {track.label}
       <span className="ml-1 font-normal opacity-60">{track.cues.length}</span>
     </button>

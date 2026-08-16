@@ -588,8 +588,7 @@ export default function ReviewClient({
               value={dayFilter}
               onChange={(e) => setDayFilter(e.target.value as DayRange)}
               aria-label="입력일"
-              className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
-            >
+              className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]">
               {DAY_RANGES.map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
@@ -601,8 +600,7 @@ export default function ReviewClient({
               size="sm"
               aria-pressed={favoriteOnly}
               onClick={() => setFavoriteOnly((v) => !v)}
-              className={favoriteOnly ? "border-amber-500 bg-amber-500/10 text-amber-600" : "text-amber-500"}
-            >
+              className={favoriteOnly ? "border-amber-500 bg-amber-500/10 text-amber-600" : "text-amber-500"}>
               <Star className={`mr-1 h-4 w-4 ${favoriteOnly ? "fill-current" : ""}`} />
               즐겨찾기
             </Button>
@@ -615,8 +613,7 @@ export default function ReviewClient({
               value={sort}
               onChange={(e) => setSort(e.target.value as SortMode)}
               aria-label="정렬"
-              className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]"
-            >
+              className="border-input bg-background ring-ring/10 focus-visible:border-ring focus-visible:ring-ring/20 h-8 rounded-md border px-2 text-sm shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px]">
               {/* 번호는 created_at 순위 파생값이라 "번호순" = 아래 두 옵션과 동일 — 중복 옵션을 추가하지 말 것 */}
               <option value="latest">최신순 (번호 ↓)</option>
               <option value="oldest">오래된순 (#1부터)</option>
@@ -641,8 +638,7 @@ export default function ReviewClient({
                   type="button"
                   onClick={() => setSearch("")}
                   aria-label="검색어 지우기"
-                  className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors"
-                >
+                  className="hover:bg-muted text-muted-foreground absolute top-1/2 right-2 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-md transition-colors">
                   <X size={14} />
                 </button>
               )}
@@ -658,8 +654,7 @@ export default function ReviewClient({
                 onClick={() => {
                   setTagFilters([]);
                   setNoTagOnly(false);
-                }}
-              >
+                }}>
                 <Tag className="mr-1 h-4 w-4" />
                 전체 {pool.length}
               </Button>
@@ -670,8 +665,7 @@ export default function ReviewClient({
                   size="sm"
                   aria-pressed={tagFilters.includes(t)}
                   onClick={() => toggleTag(t)}
-                  className={`${tagChipClass(t)} border-transparent ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}
-                >
+                  className={`${tagChipClass(t)} border-transparent ${tagFilters.includes(t) ? "ring-foreground/40 ring-2" : ""}`}>
                   {t}
                 </Button>
               ))}
@@ -680,8 +674,7 @@ export default function ReviewClient({
                   variant="outline"
                   size="sm"
                   aria-label={`태그 조건: ${tagMode === "and" ? "모두 포함" : "하나라도"} (클릭하여 전환)`}
-                  onClick={() => setTagMode((m) => (m === "and" ? "or" : "and"))}
-                >
+                  onClick={() => setTagMode((m) => (m === "and" ? "or" : "and"))}>
                   <ArrowLeftRight className="mr-1 h-4 w-4" />
                   {tagMode === "and" ? "모두 포함" : "하나라도"}
                 </Button>
@@ -694,8 +687,7 @@ export default function ReviewClient({
                   onClick={() => {
                     setNoTagOnly((v) => !v);
                     setTagFilters([]);
-                  }}
-                >
+                  }}>
                   없음
                 </Button>
               )}
@@ -751,8 +743,7 @@ export default function ReviewClient({
             <Card
               key={sentence.id}
               className={`animate-in fade-in slide-in-from-bottom-2 fill-mode-both relative ${practiceTotal(sentence) > 0 ? "border-l-success border-l-2" : "border-l-accent-orange/40 border-l-2"} ${feedbackClass} ${isRemoving ? "animate-out fade-out slide-out-to-left fill-mode-forwards duration-300" : ""}`}
-              style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}
-            >
+              style={{ animationDelay: isRemoving ? "0ms" : `${Math.min(index, 5) * 100}ms`, animationDuration: isRemoving ? "300ms" : "400ms" }}>
               <CardContent className="flex flex-col gap-3">
                 {isThisEditing && editing ? (
                   <div className="flex flex-col gap-3">
@@ -821,8 +812,7 @@ export default function ReviewClient({
                           variant="outline"
                           size="sm"
                           onClick={() => setRegenConfirmOpen(true)}
-                          disabled={editPending || !editing.englishText.trim()}
-                        >
+                          disabled={editPending || !editing.englishText.trim()}>
                           {regenerating ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <RotateCcw className="mr-1 h-4 w-4" />}
                           {regenerating ? "생성 중..." : "AI 음성 재생성"}
                         </Button>
@@ -859,8 +849,7 @@ export default function ReviewClient({
                         variant="brand"
                         size="sm"
                         onClick={handleSaveEdit}
-                        disabled={editPending || !editing.englishText.trim() || !editing.koreanText.trim()}
-                      >
+                        disabled={editPending || !editing.englishText.trim() || !editing.koreanText.trim()}>
                         {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
                         {saving ? "저장 중..." : "저장"}
                       </Button>
@@ -884,8 +873,7 @@ export default function ReviewClient({
                             onClick={() => {
                               setRegenConfirmOpen(false);
                               handleRegenAudio();
-                            }}
-                          >
+                            }}>
                             확인
                           </AlertDialogAction>
                         </AlertDialogFooter>
@@ -903,8 +891,7 @@ export default function ReviewClient({
                             variant="outline"
                             size="sm"
                             disabled={(busyPlaying && !isPlaying) || isEditing || listeningId !== null}
-                            onClick={() => playAudio(sentence)}
-                          >
+                            onClick={() => playAudio(sentence)}>
                             {isPlaying ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Volume2 className="mr-1 h-4 w-4" />}
                             듣기
                           </Button>
@@ -922,8 +909,7 @@ export default function ReviewClient({
                               return next;
                             })
                           }
-                          className="text-muted-foreground"
-                        >
+                          className="text-muted-foreground">
                           {koreanHiddenIds.has(sentence.id) ? <Eye className="mr-1 h-4 w-4" /> : <EyeOff className="mr-1 h-4 w-4" />}
                           {koreanHiddenIds.has(sentence.id) ? "한글 보기" : "한글 숨기기"}
                         </Button>
@@ -933,8 +919,7 @@ export default function ReviewClient({
                           size="sm"
                           disabled={isBusy}
                           onClick={() => handleToggleFavorite(sentence.id, sentence.is_favorite)}
-                          className={sentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"}
-                        >
+                          className={sentence.is_favorite ? "text-amber-500 hover:text-amber-600" : "text-muted-foreground hover:text-amber-500"}>
                           <Star className={`mr-1 h-4 w-4 ${sentence.is_favorite ? "fill-current" : ""}`} />
                           즐겨찾기
                         </Button>
@@ -1013,8 +998,7 @@ export default function ReviewClient({
                             } else {
                               startRecognition(sentence.id, sentence.english_text);
                             }
-                          }}
-                        >
+                          }}>
                           {isListening ? (
                             <>
                               <MicOff className="mr-1 h-4 w-4" />
@@ -1045,8 +1029,7 @@ export default function ReviewClient({
                             setWritingId(sentence.id);
                             setTextInput("");
                           }
-                        }}
-                      >
+                        }}>
                         <Keyboard className="mr-1 h-4 w-4" />
                         {isWriting ? "닫기" : "쓰기"}
                       </Button>
@@ -1063,8 +1046,7 @@ export default function ReviewClient({
                             return next;
                           })
                         }
-                        className="text-muted-foreground"
-                      >
+                        className="text-muted-foreground">
                         {revealedIds.has(sentence.id) ? <EyeOff className="mr-1 h-4 w-4" /> : <Eye className="mr-1 h-4 w-4" />}
                         {revealedIds.has(sentence.id) ? "정답 숨기기" : "정답 보기"}
                       </Button>
@@ -1087,8 +1069,7 @@ export default function ReviewClient({
                             : notesShownIds.has(sentence.id)
                               ? "text-brand"
                               : "text-foreground hover:text-brand"
-                        }
-                      >
+                        }>
                         <StickyNote className="mr-1 h-4 w-4" />
                         메모
                       </Button>
@@ -1098,8 +1079,7 @@ export default function ReviewClient({
                         size="sm"
                         disabled={isBusy}
                         onClick={() => startEditing(sentence)}
-                        className="text-muted-foreground hover:text-brand"
-                      >
+                        className="text-muted-foreground hover:text-brand">
                         <Pencil className="mr-1 h-4 w-4" />
                         편집
                       </Button>
@@ -1113,8 +1093,7 @@ export default function ReviewClient({
                               disabled={isBusy || isDeleting}
                               className="text-muted-foreground hover:text-destructive"
                             />
-                          }
-                        >
+                          }>
                           {isDeleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
                           삭제
                         </AlertDialogTrigger>
@@ -1127,8 +1106,7 @@ export default function ReviewClient({
                             <AlertDialogCancel>취소</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => handleDelete(sentence.id)}
-                              className="bg-destructive hover:bg-destructive/90 text-white"
-                            >
+                              className="bg-destructive hover:bg-destructive/90 text-white">
                               삭제
                             </AlertDialogAction>
                           </AlertDialogFooter>
@@ -1149,8 +1127,7 @@ export default function ReviewClient({
                           e.preventDefault();
                           handleTextSubmit(sentence.id, sentence.english_text);
                         }}
-                        className="flex gap-2 pt-1"
-                      >
+                        className="flex gap-2 pt-1">
                         <Input
                           ref={textInputRef}
                           type="text"
@@ -1195,8 +1172,7 @@ export default function ReviewClient({
                 size="sm"
                 aria-current={p === currentPage ? "page" : undefined}
                 aria-label={`${p}페이지로`}
-                onClick={() => goToPage(p)}
-              >
+                onClick={() => goToPage(p)}>
                 {p}
               </Button>
             ),

@@ -247,8 +247,7 @@ export default function SaveSentenceDialog({
                 }}
                 disabled={sttPending}
                 aria-label="인식 모델"
-                className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/20 h-7 rounded-md border px-1.5 text-xs outline-none focus-visible:ring-[3px]"
-              >
+                className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/20 h-7 rounded-md border px-1.5 text-xs outline-none focus-visible:ring-[3px]">
                 {STT_MODELS.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.label}

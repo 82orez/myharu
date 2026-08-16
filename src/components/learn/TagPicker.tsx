@@ -76,8 +76,7 @@ export default function TagPicker({
               onClick={() => toggle(tag)}
               className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
                 selected ? "bg-brand text-brand-foreground" : `${tagColorClass(tag)} opacity-80 hover:opacity-100`
-              }`}
-            >
+              }`}>
               {selected && <Check size={12} />}
               {tag}
             </button>
@@ -109,8 +108,7 @@ export default function TagPicker({
           onClick={() => {
             addPreset(draft, true);
             setDraft("");
-          }}
-        >
+          }}>
           {pending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
         </Button>
         <Dialog open={manageOpen} onOpenChange={setManageOpen}>
