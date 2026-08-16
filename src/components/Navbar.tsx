@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { Menu, X, PenLine, BookOpen, LogOut, Repeat, Settings } from "lucide-react";
+import { Menu, X, PenLine, BookOpen, List, LogOut, Repeat, Settings } from "lucide-react";
 import { logout } from "@/app/(auth)/logout/actions";
 import { createClient } from "@/utils/supabase/client";
 
@@ -167,8 +167,14 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
               </li>
               <li className="border-b border-border py-4">
                 <Link href="/learn/review" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
-                  <BookOpen size={18} className="text-brand" />
+                  <List size={18} className="text-brand" />
                   연습하기
+                </Link>
+              </li>
+              <li className="border-b border-border py-4">
+                <Link href="/learn/quiz" onClick={closeMenu} className="flex items-center gap-3 text-[15px] font-medium text-foreground">
+                  <BookOpen size={18} className="text-brand" />
+                  퀴즈 풀기
                 </Link>
               </li>
               <li className="border-b border-border py-4">

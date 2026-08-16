@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { cookies } from "next/headers";
-import { PenLine, Mic, CalendarDays, Star, Sparkles, Repeat, Trophy, Target, Volume2 } from "lucide-react";
+import { PenLine, Mic, CalendarDays, Star, Sparkles, Repeat, Trophy, Target, Volume2, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { createClient } from "@/utils/supabase/server";
@@ -124,7 +124,7 @@ export default async function Home() {
         )}
 
         {/* 액션 카드 */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Link href="/learn/input" className="group">
             <Card className="h-full">
               <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
@@ -145,6 +145,18 @@ export default async function Home() {
                 </div>
                 <h2 className="text-lg font-semibold">연습하기</h2>
                 <p className="text-muted-foreground text-sm">말하기·쓰기로 연습하세요</p>
+              </CardContent>
+            </Card>
+          </Link>
+
+          <Link href="/learn/quiz" className="group">
+            <Card className="h-full">
+              <CardContent className="flex flex-col items-center gap-3 py-8 text-center">
+                <div className="bg-brand/10 text-brand group-hover:bg-brand/20 flex h-14 w-14 items-center justify-center rounded-full transition-colors">
+                  <BookOpen size={28} />
+                </div>
+                <h2 className="text-lg font-semibold">퀴즈 풀기</h2>
+                <p className="text-muted-foreground text-sm">한 문제씩 집중해서 풀어요</p>
               </CardContent>
             </Card>
           </Link>
@@ -169,8 +181,8 @@ export default async function Home() {
             <span className="text-brand">나의 하루</span>
           </h1>
           <p className="text-muted-foreground mx-auto mt-6 max-w-xl text-lg">
-            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. 연습 횟수를 쌓고 하루 목표를 채우며 매일 성장하는
-            학습 습관을 만들어 보세요.
+            나만의 영어 문장을 입력하고, AI 원어민 발음을 듣고, 말하기·쓰기로 학습하세요. 연습 횟수를 쌓고 하루 목표를 채우며 매일 성장하는 학습
+            습관을 만들어 보세요.
           </p>
           <div className="mt-10">
             <Button nativeButton={false} render={<Link href="/signup" />} variant="brand" className="h-12 px-8 text-base font-semibold">
@@ -190,7 +202,8 @@ export default async function Home() {
               <Card
                 key={item.title}
                 className="animate-in fade-in slide-in-from-bottom-4 fill-mode-both"
-                style={{ animationDelay: `${i * 150}ms`, animationDuration: "600ms" }}>
+                style={{ animationDelay: `${i * 150}ms`, animationDuration: "600ms" }}
+              >
                 <CardContent className="flex flex-col items-center gap-4 py-8 text-center">
                   <div className="bg-brand/10 text-brand relative flex h-14 w-14 items-center justify-center rounded-full">
                     <item.icon size={28} />
@@ -217,7 +230,8 @@ export default async function Home() {
               <div
                 key={item.title}
                 className="animate-in fade-in slide-in-from-bottom-2 border-border bg-background fill-mode-both flex items-start gap-4 rounded-xl border p-5"
-                style={{ animationDelay: `${i * 100}ms`, animationDuration: "500ms" }}>
+                style={{ animationDelay: `${i * 100}ms`, animationDuration: "500ms" }}
+              >
                 <div className="bg-brand/10 text-brand flex h-10 w-10 shrink-0 items-center justify-center rounded-full">
                   <item.icon size={20} />
                 </div>
