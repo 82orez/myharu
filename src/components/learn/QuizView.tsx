@@ -147,6 +147,8 @@ export default function QuizView({
   const startWatchdogRef = useRef<NodeJS.Timeout | null>(null);
   // localStorage 복원이 끝났는지 — 끝나기 전에 저장 이펙트가 기본값을 덮어쓰지 않도록
   const restoredRef = useRef(false);
+  // 리스닝 자동 재생을 이미 실행한 문제 인덱스(문제당 1회 보장)
+  const autoPlayedIndexRef = useRef(-1);
   const { play, stop: stopAudio } = useAudioPlayer();
   const textInputRef = useRef<HTMLInputElement>(null);
 
@@ -241,6 +243,7 @@ export default function QuizView({
     }
     const ordered = orderSentences(pool, order, sentenceNumbers);
     setSessionSentences(limit > 0 ? ordered.slice(0, limit) : ordered);
+    autoPlayedIndexRef.current = -1; // 다시 풀기로 재시작해도 자동 재생이 다시 동작하도록
     dispatch({ type: "START" });
   }, [pool, order, limit, sentenceNumbers]);
 
@@ -261,6 +264,16 @@ export default function QuizView({
     },
     [play],
   );
+
+  // 리스닝 세션은 "다음"으로 넘어온 문제의 음원을 한 번 자동 재생한다(첫 문제는 카드 클릭으로 시작).
+  // 문제 전환 시 오디오를 정리하는 위쪽 이펙트보다 나중에 선언해야 정리 → 재생 순서가 지켜진다.
+  useEffect(() => {
+    if (quizType !== "listening" || state.phase !== "question" || state.currentIndex === 0) return;
+    // 다시 시도 등으로 question에 재진입해도 같은 문제를 다시 재생하지 않는다
+    if (autoPlayedIndexRef.current === state.currentIndex) return;
+    autoPlayedIndexRef.current = state.currentIndex;
+    if (currentSentence?.audio_url) playAudio(currentSentence);
+  }, [quizType, state.phase, state.currentIndex, currentSentence, playAudio]);
 
   const handleResult = useCallback(
     (isCorrect: boolean, recognizedText: string) => {
