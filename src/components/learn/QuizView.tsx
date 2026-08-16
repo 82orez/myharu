@@ -360,7 +360,11 @@ export default function QuizView({
     recognition.interimResults = false;
     recognition.maxAlternatives = MAX_SPEECH_ALTERNATIVES;
 
+    // 이 세션이 결과·에러로 이미 처리됐는지 — onend가 마무리(복귀)를 해야 하는지 판단한다
+    let settled = false;
+
     recognition.onresult = (event: any) => {
+      settled = true;
       // 1순위만 보지 않고 후보 전부를 채점해 최대 유사도를 채택한다
       const { text, match, similarity, alternatives } = pickBestAlternative(event, currentSentence.english_text, speechThreshold);
       console.log("[스피킹 인식]", { 인식: text, 후보: alternatives, 정답: currentSentence.english_text, 유사도: similarity, 정답여부: match });
@@ -374,6 +378,7 @@ export default function QuizView({
     recognition.onaudiostart = handleSpeechStarted;
 
     recognition.onerror = (event: any) => {
+      settled = true;
       clearStartWatchdog();
       // "aborted"(사용자가 중지)·"no-speech"(무음)는 정상/무해 케이스라 로깅 제외
       if (event.error !== "aborted" && event.error !== "no-speech") {
@@ -400,7 +405,12 @@ export default function QuizView({
 
     recognition.onend = () => {
       clearStartWatchdog();
+      // 이미 교체된 옛 세션의 늦은 onend가 새 세션의 ref를 지우지 않게 한다
+      if (recognitionRef.current !== recognition) return;
       recognitionRef.current = null;
+      // ⚠️ 결과도 에러도 없이 끝나는 경우가 있다(브라우저 자동 종료·조용한 abort·마이크 탈취 등).
+      // 이때 복귀시키지 않으면 phase가 "listening"에 갇혀 "듣는 중..."이 무한히 남는다.
+      if (!settled) dispatch({ type: "RETRY" });
     };
 
     recognitionRef.current = recognition;
@@ -760,7 +770,11 @@ export default function QuizView({
           <Button
             variant="destructive"
             onClick={() => {
-              if (recognitionRef.current) recognitionRef.current.abort();
+              // 인식 객체가 이미 사라진 뒤에도(세션이 조용히 끝난 경우) 화면은 반드시 복구되어야 한다 —
+              // abort 여부와 무관하게 질문 화면으로 되돌린다. abort의 onerror가 뒤늦게 와도 RETRY라 무해하다.
+              recognitionRef.current?.abort();
+              recognitionRef.current = null;
+              dispatch({ type: "RETRY" });
             }}
             className="mx-auto h-14 w-14 rounded-full">
             <MicOff className="h-6 w-6" />
