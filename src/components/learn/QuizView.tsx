@@ -607,6 +607,7 @@ export default function QuizView({
                 <Button
                   variant="ghost"
                   size="icon-sm"
+                  disabled={isPlaying || autoPlayCountdown !== null}
                   aria-label={currentSentence.is_favorite ? "즐겨찾기 해제" : "즐겨찾기"}
                   onClick={(e) => {
                     e.stopPropagation(); // 리스닝 세션은 카드 클릭이 오디오 재생이라 필수
