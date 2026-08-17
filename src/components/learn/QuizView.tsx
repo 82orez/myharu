@@ -33,9 +33,14 @@ import {
   speechUnavailableMessage,
   SPEECH_START_TIMEOUT_MS,
   SPEECH_SESSION_TIMEOUT_MS,
+  SPEECH_SILENCE_STOP_MS,
   MAX_SPEECH_ALTERNATIVES,
   pickBestAlternative,
+  gradeTranscript,
+  isFinalResult,
+  latestTranscript,
   type SpeechAvailability,
+  type SpeechGrade,
 } from "@/lib/speech-recognition";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
 import SessionSummary from "@/components/learn/SessionSummary";
@@ -373,22 +378,56 @@ export default function QuizView({
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     const recognition = new SpeechRecognition();
     recognition.lang = "en-US";
-    recognition.interimResults = false;
+    // ⚠️ true 유지 — iOS Safari는 최종 결과를 안 주는 경우가 있어 중간 결과를 폴백으로 들고 있어야 한다.
+    recognition.interimResults = true;
     recognition.maxAlternatives = MAX_SPEECH_ALTERNATIVES;
 
     // 이 세션이 결과·에러로 이미 처리됐는지 — onend가 마무리(복귀)를 해야 하는지 판단한다
     let settled = false;
+    // 최종 결과가 오지 않을 때 쓰는 마지막 중간 결과
+    let lastInterim = "";
+    let silenceTimer: NodeJS.Timeout | null = null;
+    const clearSilence = () => {
+      if (silenceTimer) {
+        clearTimeout(silenceTimer);
+        silenceTimer = null;
+      }
+    };
+
+    const finish = (graded: SpeechGrade) => {
+      settled = true;
+      clearSilence();
+      clearSessionWatchdog();
+      console.log("[스피킹 인식]", {
+        인식: graded.text,
+        후보: graded.alternatives,
+        정답: currentSentence.english_text,
+        유사도: graded.similarity,
+        정답여부: graded.match,
+      });
+      // 정답일 때만 모드별 정답 횟수 누적(문장 목록에 표시)
+      if (graded.match) void incrementPracticeCount(currentSentence.id, "speech");
+      handleResult(graded.match, graded.text);
+    };
 
     recognition.onresult = (event: any) => {
       if (recognitionRef.current !== recognition) return; // 이미 교체된 옛 세션의 늦은 결과는 버린다
-      settled = true;
-      clearSessionWatchdog();
+      if (!isFinalResult(event)) {
+        lastInterim = latestTranscript(event) || lastInterim;
+        // iOS는 발화 종료를 스스로 잡지 못할 수 있다 — 무음이 이어지면 stop()으로 최종 결과를 유도한다
+        clearSilence();
+        silenceTimer = setTimeout(() => {
+          silenceTimer = null;
+          try {
+            recognition.stop(); // abort와 달리 최종 결과를 요청한다
+          } catch {
+            // 이미 종료된 세션 — 무시
+          }
+        }, SPEECH_SILENCE_STOP_MS);
+        return;
+      }
       // 1순위만 보지 않고 후보 전부를 채점해 최대 유사도를 채택한다
-      const { text, match, similarity, alternatives } = pickBestAlternative(event, currentSentence.english_text, speechThreshold);
-      console.log("[스피킹 인식]", { 인식: text, 후보: alternatives, 정답: currentSentence.english_text, 유사도: similarity, 정답여부: match });
-      // 정답일 때만 모드별 정답 횟수 누적(문장 목록에 표시)
-      if (match) void incrementPracticeCount(currentSentence.id, "speech");
-      handleResult(match, text);
+      finish(pickBestAlternative(event, currentSentence.english_text, speechThreshold));
     };
 
     // 실제로 수음이 시작됐다는 신호 — 워치독 해제
@@ -400,6 +439,7 @@ export default function QuizView({
       settled = true;
       clearStartWatchdog();
       clearSessionWatchdog();
+      clearSilence();
       // "aborted"(사용자가 중지)·"no-speech"(무음)는 정상/무해 케이스라 로깅 제외
       if (event.error !== "aborted" && event.error !== "no-speech") {
         console.error("[Speech Recognition] 오류:", event.error);
@@ -425,13 +465,20 @@ export default function QuizView({
 
     recognition.onend = () => {
       clearStartWatchdog();
+      clearSilence();
       // 이미 교체된 옛 세션의 늦은 onend가 새 세션의 ref를 지우지 않게 한다
       if (recognitionRef.current !== recognition) return;
       clearSessionWatchdog();
       recognitionRef.current = null;
+      if (settled) return;
+      // 최종 결과 없이 끝났지만 중간 결과가 있으면 그걸로 채점한다(iOS Safari)
+      if (lastInterim) {
+        finish(gradeTranscript(lastInterim, currentSentence.english_text, speechThreshold));
+        return;
+      }
       // ⚠️ 결과도 에러도 없이 끝나는 경우가 있다(브라우저 자동 종료·조용한 abort·마이크 탈취 등).
       // 이때 복귀시키지 않으면 phase가 "listening"에 갇혀 "듣는 중..."이 무한히 남는다.
-      if (!settled) dispatch({ type: "RETRY" });
+      dispatch({ type: "RETRY" });
     };
 
     recognitionRef.current = recognition;
@@ -460,6 +507,12 @@ export default function QuizView({
       if (recognitionRef.current !== recognition) return; // 이미 종료·교체됨
       recognition.abort();
       recognitionRef.current = null;
+      clearSilence();
+      // 중간 결과라도 있으면 버리지 말고 채점한다 — 사용자는 말을 했으니 오류 토스트만 띄우면 억울하다
+      if (lastInterim) {
+        finish(gradeTranscript(lastInterim, currentSentence.english_text, speechThreshold));
+        return;
+      }
       toast.warning("음성 인식이 응답하지 않아 중단했습니다. 다시 시도해 주세요.");
       dispatch({ type: "RETRY" });
     }, SPEECH_SESSION_TIMEOUT_MS);

@@ -137,3 +137,32 @@ export function pickBestAlternative(
 
   return { text: bestMatch ? best : top, match: bestMatch, similarity: bestSimilarity, alternatives };
 }
+
+export type SpeechGrade = ReturnType<typeof pickBestAlternative>;
+
+// 후보 없이 문장 하나만 있을 때(중간 결과 폴백)의 채점.
+export function gradeTranscript(text: string, target: string, threshold?: number): SpeechGrade {
+  const { match, similarity } = textsMatch(text, target, threshold);
+  return { text, match, similarity, alternatives: [text] };
+}
+
+// ⚠️ iOS Safari는 발화 종료를 스스로 잡지 못해 **최종 결과(isFinal)를 내보내지 않는 경우가 있다.**
+//    그래서 `interimResults = true`로 중간 결과를 받아 두고, 무음이 이어지면 stop()으로 최종 결과를 유도하며,
+//    그래도 최종이 없으면 마지막 중간 결과로 채점한다(아래 두 헬퍼 + SPEECH_SILENCE_STOP_MS).
+//    `interimResults = false`로 되돌리지 말 것 — 아이폰에서 "듣는 중"에 갇히거나 응답 없음 토스트만 뜬다.
+export const SPEECH_SILENCE_STOP_MS = 2000;
+
+export function isFinalResult(event: any): boolean {
+  const results = event?.results;
+  if (!results) return false;
+  const index = typeof event.resultIndex === "number" ? event.resultIndex : results.length - 1;
+  return Boolean(results[index]?.isFinal ?? results[0]?.isFinal);
+}
+
+/** 방금 도착한 결과(중간 포함)의 1순위 문장. */
+export function latestTranscript(event: any): string {
+  const results = event?.results;
+  if (!results) return "";
+  const index = typeof event.resultIndex === "number" ? event.resultIndex : results.length - 1;
+  return (results[index]?.[0]?.transcript ?? results[0]?.[0]?.transcript ?? "").trim();
+}
