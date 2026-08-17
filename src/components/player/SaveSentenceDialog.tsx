@@ -230,7 +230,11 @@ export default function SaveSentenceDialog({
           <div className="flex items-center justify-between gap-2">
             <Label htmlFor="save-english">영어 문장</Label>
             <div className="flex items-center gap-1.5">
-              {/* 인식 모델 — 선택 즉시 localStorage에 기억(기기별) */}
+              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={!clip || sttPending} onClick={handleTranscribe}>
+                {sttPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                영어 자동 채우기
+              </Button>
+              {/* 인식 모델 — 선택 즉시 localStorage에 기억(기기별, /settings와 같은 값) */}
               <select
                 value={sttModel}
                 onChange={(e) => {
@@ -247,10 +251,6 @@ export default function SaveSentenceDialog({
                   </option>
                 ))}
               </select>
-              <Button type="button" variant="ghost" size="sm" className="h-7 text-xs" disabled={!clip || sttPending} onClick={handleTranscribe}>
-                {sttPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                영어 자동 채우기
-              </Button>
             </div>
           </div>
           <Input id="save-english" value={english} onChange={(e) => setEnglish(e.target.value)} placeholder="영어 문장" maxLength={500} />
