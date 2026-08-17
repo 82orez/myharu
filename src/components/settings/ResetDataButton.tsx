@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -99,10 +98,12 @@ export default function ResetDataButton({ kind, count }: { kind: ResetKind; coun
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={resetting}>취소</AlertDialogCancel>
-          <AlertDialogAction disabled={!canReset} onClick={handleReset} className="bg-destructive hover:bg-destructive/90 text-white">
+          {/* AlertDialogAction이 아니라 일반 Button — 초기화 중 스피너를 다이얼로그 안에서 보여주고,
+              실패 시 다시 시도할 수 있게 열린 상태를 유지해야 한다(닫기는 handleReset이 성공 시에만). */}
+          <Button disabled={!canReset} onClick={handleReset} className="bg-destructive hover:bg-destructive/90 text-white">
             {resetting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
             초기화
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

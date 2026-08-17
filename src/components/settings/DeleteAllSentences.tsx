@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -81,10 +80,12 @@ export default function DeleteAllSentences({ sentenceCount }: { sentenceCount: n
 
         <AlertDialogFooter>
           <AlertDialogCancel disabled={deleting}>취소</AlertDialogCancel>
-          <AlertDialogAction disabled={!canDelete} onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-white">
+          {/* AlertDialogAction이 아니라 일반 Button — 삭제 중 스피너를 다이얼로그 안에서 보여주고,
+              실패 시 다시 시도할 수 있게 열린 상태를 유지해야 한다(닫기는 handleDelete가 성공 시에만). */}
+          <Button disabled={!canDelete} onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-white">
             {deleting ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : null}
             영구 삭제
-          </AlertDialogAction>
+          </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>

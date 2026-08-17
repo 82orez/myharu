@@ -119,8 +119,22 @@ function AlertDialogDescription({ className, ...props }: React.ComponentProps<ty
   );
 }
 
-function AlertDialogAction({ className, ...props }: React.ComponentProps<typeof Button>) {
-  return <Button data-slot="alert-dialog-action" className={cn(className)} {...props} />;
+// ⚠️ Cancel과 같이 Close로 감싼다 — 평범한 <Button>이면 onClick만 돌고 다이얼로그가 열린 채 남는다.
+// (그래도 닫히는 것처럼 보이는 다이얼로그가 있는데, 액션이 라우팅하거나 다이얼로그 자체가 언마운트되는 화면뿐이다.)
+function AlertDialogAction({
+  className,
+  variant,
+  size,
+  ...props
+}: AlertDialogPrimitive.Close.Props & Pick<React.ComponentProps<typeof Button>, "variant" | "size">) {
+  return (
+    <AlertDialogPrimitive.Close
+      data-slot="alert-dialog-action"
+      className={cn(className)}
+      render={<Button variant={variant} size={size} />}
+      {...props}
+    />
+  );
 }
 
 function AlertDialogCancel({

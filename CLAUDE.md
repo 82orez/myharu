@@ -181,7 +181,7 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 ### shadcn
 - `components.json`: `base-nova` / `neutral` / `lucide`.
 - 포함(`src/components/ui/`): button, card, input, label, alert-dialog, skeleton, badge, sonner, progress, dialog, separator, tooltip.
-- **Button/AlertDialog는 `@base-ui/react` 기반**(radix Slot 아님). Button `variant`: `default|outline|secondary|ghost|destructive|kakao|brand|success|link`. Link 렌더는 `nativeButton={false} render={<Link href="..." />}`. `AlertDialogCancel`도 `render={<Button />}`.
+- **Button/AlertDialog는 `@base-ui/react` 기반**(radix Slot 아님). Button `variant`: `default|outline|secondary|ghost|destructive|kakao|brand|success|link`. Link 렌더는 `nativeButton={false} render={<Link href="..." />}`. `AlertDialogCancel`도 `render={<Button />}`. ⚠️ **`AlertDialogAction`은 생성 기본형(평범한 `<Button>`)에서 `AlertDialogPrimitive.Close` 래핑으로 직접 고쳐 둔 것**(그대로 두면 `onClick`만 돌고 다이얼로그가 열린 채 남는다 — 라우팅·언마운트가 없는 화면에서 버그로 드러남). `npx shadcn add`로 `ui/alert-dialog.tsx`를 덮어쓰면 다시 넣을 것. 반대로 **처리 중 스피너를 다이얼로그 안에 보여주거나 실패 시 열린 채 재시도해야 하는 흐름**(`ResetDataButton`·`DeleteAllSentences`·`TagManager` 삭제)은 `AlertDialogAction` 대신 일반 `Button`을 쓰고 성공 시에만 닫는다.
 - Sonner: `layout.tsx`에 `<Toaster />` 마운트됨 → `import { toast } from "sonner"`.
 
 ### 컬러 토큰 (`globals.css`)
