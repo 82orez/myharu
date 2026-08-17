@@ -32,6 +32,7 @@ import {
   forgetUnavailable,
   speechUnavailableMessage,
   SPEECH_START_TIMEOUT_MS,
+  SPEECH_SESSION_TIMEOUT_MS,
   MAX_SPEECH_ALTERNATIVES,
   pickBestAlternative,
   type SpeechAvailability,
@@ -150,6 +151,8 @@ export default function QuizView({
   const [isPending, startTransition] = useTransition();
   const recognitionRef = useRef<any>(null);
   const startWatchdogRef = useRef<NodeJS.Timeout | null>(null);
+  // 수음 시작 후에도 결과가 오지 않는 세션을 끊는 워치독(무한 "듣는 중..." 방지)
+  const sessionWatchdogRef = useRef<NodeJS.Timeout | null>(null);
   // localStorage 복원이 끝났는지 — 끝나기 전에 저장 이펙트가 기본값을 덮어쓰지 않도록
   const restoredRef = useRef(false);
   // 리스닝 자동 재생을 이미 실행한 문제 인덱스(문제당 1회 보장)
@@ -166,6 +169,13 @@ export default function QuizView({
     }
   }, []);
 
+  const clearSessionWatchdog = useCallback(() => {
+    if (sessionWatchdogRef.current) {
+      clearTimeout(sessionWatchdogRef.current);
+      sessionWatchdogRef.current = null;
+    }
+  }, []);
+
   // 수음이 실제로 시작됨 — 워치독 해제 + 과거 실패 기록 폐기
   const handleSpeechStarted = useCallback(() => {
     clearStartWatchdog();
@@ -176,6 +186,7 @@ export default function QuizView({
     setSpeechAvailability(getSpeechAvailability());
     return () => {
       if (startWatchdogRef.current) clearTimeout(startWatchdogRef.current);
+      if (sessionWatchdogRef.current) clearTimeout(sessionWatchdogRef.current);
     };
   }, []);
 
@@ -352,6 +363,11 @@ export default function QuizView({
       recognitionRef.current = null;
     }
 
+    // iOS는 재생 중인 오디오/AudioContext가 세션을 잡고 있으면 다음 인식이 시작되지 않을 수 있다.
+    // 리스닝 퀴즈는 문제마다 자동 재생을 하므로 이 순서가 잦다 — 마이크를 요청하기 전에 확실히 놓아준다.
+    stopAudio();
+    setIsPlaying(false);
+
     dispatch({ type: "LISTEN" });
 
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -364,7 +380,9 @@ export default function QuizView({
     let settled = false;
 
     recognition.onresult = (event: any) => {
+      if (recognitionRef.current !== recognition) return; // 이미 교체된 옛 세션의 늦은 결과는 버린다
       settled = true;
+      clearSessionWatchdog();
       // 1순위만 보지 않고 후보 전부를 채점해 최대 유사도를 채택한다
       const { text, match, similarity, alternatives } = pickBestAlternative(event, currentSentence.english_text, speechThreshold);
       console.log("[스피킹 인식]", { 인식: text, 후보: alternatives, 정답: currentSentence.english_text, 유사도: similarity, 정답여부: match });
@@ -378,8 +396,10 @@ export default function QuizView({
     recognition.onaudiostart = handleSpeechStarted;
 
     recognition.onerror = (event: any) => {
+      if (recognitionRef.current !== recognition) return; // 옛 세션의 늦은 에러가 새 세션을 튕겨내지 않게
       settled = true;
       clearStartWatchdog();
+      clearSessionWatchdog();
       // "aborted"(사용자가 중지)·"no-speech"(무음)는 정상/무해 케이스라 로깅 제외
       if (event.error !== "aborted" && event.error !== "no-speech") {
         console.error("[Speech Recognition] 오류:", event.error);
@@ -407,6 +427,7 @@ export default function QuizView({
       clearStartWatchdog();
       // 이미 교체된 옛 세션의 늦은 onend가 새 세션의 ref를 지우지 않게 한다
       if (recognitionRef.current !== recognition) return;
+      clearSessionWatchdog();
       recognitionRef.current = null;
       // ⚠️ 결과도 에러도 없이 끝나는 경우가 있다(브라우저 자동 종료·조용한 abort·마이크 탈취 등).
       // 이때 복귀시키지 않으면 phase가 "listening"에 갇혀 "듣는 중..."이 무한히 남는다.
@@ -430,7 +451,19 @@ export default function QuizView({
       toast.warning(speechUnavailableMessage(availability));
       dispatch({ type: "RETRY" }); // 오답 처리하지 않고 질문 화면으로 복귀
     }, SPEECH_START_TIMEOUT_MS);
-  }, [speechSupported, currentSentence, handleResult, speechThreshold, clearStartWatchdog, handleSpeechStarted]);
+
+    // 시작 워치독과 별개의 세션 워치독 — onstart는 왔지만 결과·에러·종료가 하나도 오지 않는 경우의 탈출구.
+    // ⚠️ 여기서는 가용성을 "불가"로 기록하지 않는다(일시적 문제일 수 있어 말하기를 빼앗지 않는다).
+    clearSessionWatchdog();
+    sessionWatchdogRef.current = setTimeout(() => {
+      sessionWatchdogRef.current = null;
+      if (recognitionRef.current !== recognition) return; // 이미 종료·교체됨
+      recognition.abort();
+      recognitionRef.current = null;
+      toast.warning("음성 인식이 응답하지 않아 중단했습니다. 다시 시도해 주세요.");
+      dispatch({ type: "RETRY" });
+    }, SPEECH_SESSION_TIMEOUT_MS);
+  }, [speechSupported, currentSentence, handleResult, speechThreshold, clearStartWatchdog, clearSessionWatchdog, handleSpeechStarted, stopAudio]);
 
   // 즐겨찾기 토글 — 학습 모드와 같은 toggleFavorite 액션 재사용.
   // ⚠️ startTransition으로 감싸지 말 것: isPending이 쓰기 입력창·확인 버튼을 비활성화하는 데 묶여 있다.
@@ -837,8 +870,9 @@ export default function QuizView({
               variant="outline"
               onClick={() => {
                 if (mode === "speech") {
-                  dispatch({ type: "LISTEN" });
-                  setTimeout(startRecognition, 100);
+                  // ⚠️ setTimeout으로 감싸지 말 것 — iOS Safari는 start()가 사용자 제스처와 같은 태스크에
+                  // 있어야 마이크를 잡는다(지연을 두면 두 번째 시도부터 조용히 실패). LISTEN도 내부에서 dispatch한다.
+                  startRecognition();
                 } else {
                   dispatch({ type: "RETRY" });
                   setTextInput("");

@@ -85,6 +85,11 @@ export function speechUnavailableMessage(availability: SpeechAvailability): stri
 // 정상 환경에서는 start() 직후 수 ms 안에 onstart가 오므로 오탐 위험은 낮다.
 export const SPEECH_START_TIMEOUT_MS = 3000;
 
+// 수음이 시작된(onstart) 뒤에도 이 시간 안에 결과·에러·종료가 하나도 오지 않으면 세션을 끊고 복귀한다.
+// ⚠️ 시작 워치독만으로는 부족하다: iOS Safari는 onstart만 발생시키고 이후 아무 이벤트도 주지 않는
+//    경우가 있어, 그때 "듣는 중..."에 영구 고착된다(실제로 겪음). 원인 불문 탈출구로 유지할 것.
+export const SPEECH_SESSION_TIMEOUT_MS = 15000;
+
 // 인식 엔진에 요청할 후보 개수(`recognition.maxAlternatives`).
 // 엔진이 이보다 적게 돌려주는 경우가 흔하므로 "최대치"로만 이해할 것.
 export const MAX_SPEECH_ALTERNATIVES = 5;

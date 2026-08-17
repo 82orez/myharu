@@ -37,6 +37,7 @@ import {
   forgetUnavailable,
   speechUnavailableMessage,
   SPEECH_START_TIMEOUT_MS,
+  SPEECH_SESSION_TIMEOUT_MS,
   MAX_SPEECH_ALTERNATIVES,
   pickBestAlternative,
   type SpeechAvailability,
@@ -163,10 +164,12 @@ export default function ReviewClient({
   const [feedbackStatus, setFeedbackStatus] = useState<"correct" | "incorrect" | null>(null);
   const [writingId, setWritingId] = useState<string | null>(null);
   const [textInput, setTextInput] = useState("");
-  const { play } = useAudioPlayer();
+  const { play, stop: stopAudio } = useAudioPlayer();
   const recognitionRef = useRef<any>(null);
   const feedbackTimerRef = useRef<NodeJS.Timeout | null>(null);
   const startWatchdogRef = useRef<NodeJS.Timeout | null>(null);
+  // 수음 시작 후에도 결과가 오지 않는 세션을 끊는 워치독(무한 "듣는 중" 방지)
+  const sessionWatchdogRef = useRef<NodeJS.Timeout | null>(null);
   const textInputRef = useRef<HTMLInputElement>(null);
   const editFileInputRef = useRef<HTMLInputElement>(null);
   // 스테이징된 음성의 blob URL — 교체/취소/저장/언마운트 시 해제해야 해서 ref로도 들고 있는다
@@ -180,6 +183,13 @@ export default function ReviewClient({
     }
   }, []);
 
+  const clearSessionWatchdog = useCallback(() => {
+    if (sessionWatchdogRef.current) {
+      clearTimeout(sessionWatchdogRef.current);
+      sessionWatchdogRef.current = null;
+    }
+  }, []);
+
   const handleSpeechStarted = useCallback(() => {
     clearStartWatchdog();
     forgetUnavailable();
@@ -189,6 +199,7 @@ export default function ReviewClient({
     return () => {
       if (feedbackTimerRef.current) clearTimeout(feedbackTimerRef.current);
       if (startWatchdogRef.current) clearTimeout(startWatchdogRef.current);
+      if (sessionWatchdogRef.current) clearTimeout(sessionWatchdogRef.current);
     };
   }, []);
 
@@ -281,6 +292,10 @@ export default function ReviewClient({
         recognitionRef.current = null;
       }
 
+      // iOS는 재생 중인 오디오/AudioContext가 세션을 잡고 있으면 다음 인식이 시작되지 않을 수 있다 — 먼저 놓아준다.
+      stopAudio();
+      setPlayingId(null);
+
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       const recognition = new SpeechRecognition();
       recognition.lang = "en-US";
@@ -288,6 +303,8 @@ export default function ReviewClient({
       recognition.maxAlternatives = MAX_SPEECH_ALTERNATIVES;
 
       recognition.onresult = (event: any) => {
+        if (recognitionRef.current !== recognition) return; // 이미 교체된 옛 세션의 늦은 결과는 버린다
+        clearSessionWatchdog();
         const threshold = speechStrict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
         // 1순위만 보지 않고 후보 전부를 채점해 최대 유사도를 채택한다
         const { text: recognizedText, match, similarity, alternatives } = pickBestAlternative(event, targetText, threshold);
@@ -315,7 +332,9 @@ export default function ReviewClient({
       recognition.onaudiostart = handleSpeechStarted;
 
       recognition.onerror = (event: any) => {
+        if (recognitionRef.current !== recognition) return; // 옛 세션의 늦은 에러가 새 세션을 끊지 않게
         clearStartWatchdog();
+        clearSessionWatchdog();
         // "aborted"(사용자가 중지)·"no-speech"(무음)는 정상/무해 케이스라 로깅 제외
         if (event.error !== "aborted" && event.error !== "no-speech") {
           console.error("[Speech Recognition] 오류:", event.error);
@@ -335,6 +354,9 @@ export default function ReviewClient({
       recognition.onend = () => {
         clearStartWatchdog();
         setListeningId(null);
+        // 이미 교체된 옛 세션의 늦은 onend가 새 세션의 ref를 지우지 않게 한다
+        if (recognitionRef.current !== recognition) return;
+        clearSessionWatchdog();
         recognitionRef.current = null;
       };
 
@@ -356,8 +378,30 @@ export default function ReviewClient({
         setSpeechAvailability(availability);
         toast.warning(speechUnavailableMessage(availability));
       }, SPEECH_START_TIMEOUT_MS);
+
+      // 시작 워치독과 별개의 세션 워치독 — onstart는 왔지만 결과·에러·종료가 하나도 오지 않는 경우의 탈출구.
+      // ⚠️ 여기서는 가용성을 "불가"로 기록하지 않는다(일시적 문제일 수 있어 말하기를 빼앗지 않는다).
+      clearSessionWatchdog();
+      sessionWatchdogRef.current = setTimeout(() => {
+        sessionWatchdogRef.current = null;
+        if (recognitionRef.current !== recognition) return; // 이미 종료·교체됨
+        recognition.abort();
+        recognitionRef.current = null;
+        setListeningId(null);
+        toast.warning("음성 인식이 응답하지 않아 중단했습니다. 다시 시도해 주세요.");
+      }, SPEECH_SESSION_TIMEOUT_MS);
     },
-    [speechSupported, startTransition, triggerFeedback, writingId, speechStrict, clearStartWatchdog, handleSpeechStarted],
+    [
+      speechSupported,
+      startTransition,
+      triggerFeedback,
+      writingId,
+      speechStrict,
+      clearStartWatchdog,
+      clearSessionWatchdog,
+      handleSpeechStarted,
+      stopAudio,
+    ],
   );
 
   const handleToggleFavorite = useCallback(
