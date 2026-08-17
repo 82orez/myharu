@@ -61,6 +61,24 @@ export function forgetUnavailable(): void {
   }
 }
 
+/** 녹음(MediaRecorder + getUserMedia) 가능 여부 — 서버 STT 경로의 전제. */
+export function isMediaRecorderSupported(): boolean {
+  if (typeof window === "undefined") return false;
+  return typeof MediaRecorder !== "undefined" && !!navigator.mediaDevices?.getUserMedia;
+}
+
+/**
+ * 브라우저 인식 대신 **녹음 → 서버 STT**를 쓸지 판정.
+ * ⚠️ iOS는 Safari라도 Web Speech가 최종 결과를 주지 않거나 두 번째 시도부터 침묵하는 사례가 많아
+ *    UA로 서버 경로를 기본값으로 삼는다(여기가 "UA로 사전 차단하지 말 것" 규칙의 예외 —
+ *    기능을 빼앗는 게 아니라 더 튼튼한 경로로 바꾸는 것이라 안전하다).
+ * `availability`가 null(판정 전)이면 아직 결정하지 않는다(false).
+ */
+export function preferServerStt(availability: SpeechAvailability | null): boolean {
+  if (availability === null) return false;
+  return isIOS() || availability !== "available";
+}
+
 export function getSpeechAvailability(): SpeechAvailability {
   if (typeof window === "undefined") return "unsupported";
 

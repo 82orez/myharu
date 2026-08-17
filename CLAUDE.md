@@ -108,7 +108,18 @@ npx shadcn@latest add <component>   # shadcn 컴포넌트 추가 (base-nova / ne
 - **워치독 2단**: ① `start()` 후 `SPEECH_START_TIMEOUT_MS`(3s) 안에 `onstart`/`onaudiostart`가 없으면 abort + 불가 판정 + 기억 + 토스트. ② `onstart` 이후에도 `SPEECH_SESSION_TIMEOUT_MS`(15s) 안에 결과·에러·종료가 하나도 없으면 abort + 복귀 + 토스트(**가용성은 건드리지 않는다** — 일시적 문제일 수 있어 말하기를 빼앗지 않는다). ⚠️ ②를 지우지 말 것: iOS Safari는 `onstart`만 주고 이후 침묵하는 경우가 있어 시작 워치독만으로는 `듣는 중`에 영구 고착된다(실제로 겪음). 세션 종료 처리는 `settled` 플래그로 판단하고, `onresult`/`onerror`/`onend` 모두 **`recognitionRef.current !== recognition`이면 즉시 무시**해 옛 세션의 늦은 콜백이 새 세션을 끊지 않게 한다.
 - **중간 결과 폴백 (iOS 필수)**: `interimResults = true`로 두고 ① 중간 결과가 오면 `lastInterim`에 보관 + `SPEECH_SILENCE_STOP_MS`(2s) 무음 타이머를 걸어 **`recognition.stop()`**(abort 아님 — 최종 결과를 요청) ② 최종 결과(`isFinalResult`)가 오면 `pickBestAlternative`로 채점 ③ 최종 없이 `onend`·세션 워치독에 도달하면 **`gradeTranscript(lastInterim, …)`으로 채점**(말은 했는데 오류 토스트만 띄우면 억울하다). 헬퍼는 `lib/speech-recognition.ts`(`isFinalResult`/`latestTranscript`/`gradeTranscript`/`SpeechGrade`). ⚠️ `interimResults = false`로 되돌리지 말 것 — iOS Safari는 발화 종료를 스스로 못 잡아 최종 결과를 안 주는 경우가 있고, 그러면 아이폰에서 두 번째 시도부터 응답 없음이 된다.
 - ⚠️ **`start()`를 `setTimeout` 안에서 부르지 말 것** — iOS Safari는 사용자 제스처와 같은 태스크에서만 마이크를 잡는다. 과거 `다시 시도`가 `setTimeout(startRecognition, 100)`이라 **아이폰에서 두 번째 시도부터 조용히 실패**했다. 클릭 핸들러에서 직접 호출한다. 같은 이유로 `startRecognition` 진입부에서 `stopAudio()`로 오디오 세션을 놓아준다(재생 직후 인식이 시작되지 않는 문제). `onerror`의 `service-not-allowed`·`language-not-supported`도 같은 판정. QuizView는 이때 오답 처리 대신 `RETRY` dispatch.
-- 퀴즈 **리스닝 세션은 말하기 전용**이라 불가 판정 시 ready 화면에서 선택 버튼을 `disabled` 처리.
+- 퀴즈 **리스닝 세션은 말하기 전용**이라 말하기 불가 판정 시 ready 화면에서 선택 버튼을 `disabled` 처리.
+
+### 말하기 2경로: 브라우저 인식 vs 서버 STT (`hooks/use-speech-recorder.ts`)
+
+⚠️ **iOS에서는 Web Speech API를 쓰지 않는다.** Safari에서도 두 번째 시도부터 침묵하거나 최종 결과를 주지 않는 사례를 반복 확인해(워치독·중간 결과 폴백까지 넣었지만 해결 안 됨) **녹음 → `/api/stt` → `textsMatch` 채점** 경로를 도입했다.
+
+- 경로 선택은 `preferServerStt(availability)`(`lib/speech-recognition.ts`) — **iOS이거나 브라우저 인식 실패 기록이 있으면 서버 STT**. 판정 전(`null`)이면 false. 말하기 가능 여부는 경로별로 다르므로 컴포넌트에서 `canSpeak = serverStt ? isMediaRecorderSupported() : speechSupported`로 파생해 버튼·안내를 제어한다(`speechSupported`만 보고 막지 말 것 — iOS에서 말하기가 사라진다).
+- `useSpeechRecorder()` = `{ state: "idle"|"recording"|"transcribing", start({onResult,onError}), stop, cancel }`. `getUserMedia` → `MediaRecorder` → Blob → `transcribeClip`(`lib/stt-client.ts`, 모델은 `getSttModel()`). **포맷은 `MediaRecorder.isTypeSupported`로 실제 지원되는 것을 골라 확장자까지 맞춘다**(iOS는 webm이 아니라 mp4 — 확장자가 틀리면 OpenAI가 거부).
+- **자동 종료**: AnalyserNode RMS로 무음 감지 → 발화 후 `RECORD_SILENCE_MS`(1.5s) 조용하면 종료, 상한 `RECORD_MAX_MS`(15s). 수동 종료(중지 버튼)는 지금까지 녹음분으로 채점한다(취소가 아님).
+- ⚠️ `start()`는 **사용자 제스처와 같은 태스크**에서 부를 것(iOS `getUserMedia`도 Web Speech와 같은 제약). 녹음 종료 후 `stream.getTracks().forEach(stop)`으로 마이크를 놓지 않으면 iOS에서 이후 재생이 무음이 된다.
+- 채점 처리는 두 경로가 `applySpeechGrade`(각 컴포넌트) 하나를 공유한다 — 정답 판정·연습 횟수·피드백을 두 번 구현하지 말 것.
+- 문제 전환·오디오 재생 시 `cancelRecording()`으로 진행 중 녹음을 버린다(늦게 도착한 인식 결과는 순번으로 무시).
 - **다중 후보 채점**: `recognition.maxAlternatives = MAX_SPEECH_ALTERNATIVES`(5)로 후보를 받아 `pickBestAlternative(event, target, threshold)`가 **후보 전부에 `textsMatch`를 돌려 최대 유사도를 채택**한다(⚠️ `event.results[0][0]`만 쓰던 방식으로 되돌리지 말 것 — 정확히 말해도 1순위가 동음이의·관사로 빗나가고 2~3순위가 맞는 경우가 잦다). 표시 문장은 **정답이면 실제로 맞은 후보, 오답이면 1순위** — 오답에 "정답에 가장 가까운 후보"를 보여주면 실제보다 잘 말한 것처럼 보인다.
 
 ### DB 스키마 (`supabase/migrations/`)
@@ -221,9 +232,9 @@ src/
 │   ├── ScrollToTop.tsx        # 라우트 변경 시 최상단 스크롤, 렌더 없음
 │   └── Footer.tsx             # hidden md:block
 ├── types/gamification.ts
-├── hooks/{use-caps-lock,use-selected-voice,use-selected-speed,use-audio-player}.ts
+├── hooks/{use-caps-lock,use-selected-voice,use-selected-speed,use-audio-player,use-speech-recorder}.ts
 ├── store/playerStore.ts       # Zustand + persist, 플레이어 전용 (myharu의 유일한 전역 스토어)
-├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,audio-upload,feedback-sound,speech-recognition,sentence-number,sentence-filter,quiz-autoplay,stt-models}.ts
+├── lib/{utils,origin,email,rate-limit,normalize-text,openai,gamification,tags,tag-color,tts-voices,settings-config,audio-loudness,audio-formats,audio-upload,feedback-sound,speech-recognition,sentence-number,sentence-filter,quiz-autoplay,stt-models,stt-client}.ts
 ├── lib/{audioExport,subtitles,subtitleDraft,videoTranscode,time,id,dom}.ts   # next-repeater 이식분(camelCase 파일명은 원본 유지)
 ├── utils/supabase/{client,server,middleware,admin}.ts
 └── proxy.ts

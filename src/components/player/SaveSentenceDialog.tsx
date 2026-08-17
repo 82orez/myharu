@@ -15,6 +15,7 @@ import { prepareAudioBuffer } from "@/lib/audio-upload";
 import { MAX_AUDIO_BYTES } from "@/lib/audio-formats";
 import { findCueText, type SubTrack } from "@/lib/subtitles";
 import { DEFAULT_STT_MODEL, STT_MODELS, getSttModel, setSttModel, type SttModelId } from "@/lib/stt-models";
+import { transcribeClip } from "@/lib/stt-client";
 import { fmtTime } from "@/lib/time";
 import { cn } from "@/lib/utils";
 
@@ -148,26 +149,18 @@ export default function SaveSentenceDialog({
     if (!clip) return;
     setSttPending(true);
     try {
-      const form = new FormData();
-      form.append("file", new File([clip.blob], "clip.mp3", { type: "audio/mpeg" }));
-      form.append("model", sttModel);
-      form.append("format", "text");
-
-      const res = await fetch("/api/stt", { method: "POST", body: form });
-      const data = await res.json();
-      if (!res.ok) {
-        toast.error(data?.error ?? "텍스트 추출에 실패했습니다.");
+      const result = await transcribeClip(clip.blob, "clip.mp3", sttModel);
+      if ("error" in result) {
+        toast.error(result.error);
         return;
       }
-      const text = flatten(String(data.text ?? ""));
+      const text = flatten(result.text);
       if (!text) {
         toast.warning("인식된 텍스트가 없습니다.");
         return;
       }
       setEnglish(text);
       toast.success("영어 문장을 채웠습니다. 내용을 확인해 주세요.");
-    } catch {
-      toast.error("텍스트 추출 중 오류가 발생했습니다.");
     } finally {
       setSttPending(false);
     }

@@ -44,9 +44,12 @@ import {
   gradeTranscript,
   isFinalResult,
   latestTranscript,
+  isMediaRecorderSupported,
+  preferServerStt,
   type SpeechAvailability,
   type SpeechGrade,
 } from "@/lib/speech-recognition";
+import { useSpeechRecorder } from "@/hooks/use-speech-recorder";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -164,6 +167,10 @@ export default function ReviewClient({
   // null = 아직 판정 전(SSR/첫 렌더) — 안내 문구가 깜빡이지 않도록 구분한다.
   const [speechAvailability, setSpeechAvailability] = useState<SpeechAvailability | null>(null);
   const speechSupported = speechAvailability === "available";
+  // iOS·브라우저 인식 실패 환경에서는 녹음 → /api/stt 경로를 쓴다(브라우저 인식 엔진 미사용)
+  const serverStt = preferServerStt(speechAvailability);
+  const { state: recorderState, start: startRecording, stop: stopRecording, cancel: cancelRecording } = useSpeechRecorder();
+  const canSpeak = serverStt ? isMediaRecorderSupported() : speechSupported;
   const [listeningId, setListeningId] = useState<string | null>(null);
   const [feedbackId, setFeedbackId] = useState<string | null>(null);
   const [feedbackStatus, setFeedbackStatus] = useState<"correct" | "incorrect" | null>(null);
@@ -229,6 +236,7 @@ export default function ReviewClient({
         recognitionRef.current = null;
         setListeningId(null);
       }
+      cancelRecording(); // 녹음 중이었다면 마이크를 놓아준다(iOS는 그래야 재생이 들린다)
       setPlayingId(sentence.id);
       // 듣기도 연습으로 인정 — 재생할 때마다 +1(중복 제한 없음). 기록 실패가 재생을 막지 않도록 fire-and-forget.
       void incrementPracticeCount(sentence.id, "listen");
@@ -238,7 +246,7 @@ export default function ReviewClient({
         onError: () => setPlayingId(null),
       });
     },
-    [play],
+    [play, cancelRecording],
   );
 
   const triggerFeedback = useCallback((sentenceId: string, status: "correct" | "incorrect") => {
@@ -278,6 +286,65 @@ export default function ReviewClient({
       });
     },
     [textInput, triggerFeedback, startTransition],
+  );
+
+  // 브라우저 인식·서버 STT 두 경로가 공유하는 채점 처리
+  const applySpeechGrade = useCallback(
+    (sentenceId: string, targetText: string, graded: SpeechGrade) => {
+      const recognizedText = graded.text;
+      const match = graded.match;
+      console.log("[스피킹 인식]", {
+        인식: recognizedText,
+        후보: graded.alternatives,
+        정답: targetText,
+        유사도: graded.similarity,
+        정답여부: match,
+      });
+      // 판정 즉시 소리 — 서버 왕복(recordPracticeResult)을 기다리면 늦게 울린다
+      playFeedbackSound(match ? "correct" : "incorrect");
+      startTransition(async () => {
+        const result = await recordPracticeResult(sentenceId, match, "speech");
+        if (result.error) {
+          toast.error(result.error);
+          return;
+        }
+        triggerFeedback(sentenceId, match ? "correct" : "incorrect");
+        setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + (match ? 1 : 0) } : s)));
+        if (match) {
+          toast.success("정확합니다!");
+        } else {
+          toast.error("다시 시도하세요.", { description: `인식된 문장: "${recognizedText}"` });
+        }
+      });
+    },
+    [startTransition, triggerFeedback],
+  );
+
+  // 녹음 → /api/stt 경로(iOS 등 브라우저 인식이 못 미더운 환경)
+  const startServerStt = useCallback(
+    (sentenceId: string, targetText: string) => {
+      primeFeedbackSounds();
+      if (writingId !== null) {
+        setWritingId(null);
+        setTextInput("");
+      }
+      // iOS는 재생 중인 오디오가 세션을 잡고 있으면 녹음이 시작되지 않는다
+      stopAudio();
+      setPlayingId(null);
+      setListeningId(sentenceId);
+      const threshold = speechStrict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
+      void startRecording({
+        onResult: (text) => {
+          setListeningId(null);
+          applySpeechGrade(sentenceId, targetText, gradeTranscript(text, targetText, threshold));
+        },
+        onError: (message) => {
+          setListeningId(null);
+          toast.warning(message);
+        },
+      });
+    },
+    [applySpeechGrade, speechStrict, startRecording, stopAudio, writingId],
   );
 
   const startRecognition = useCallback(
@@ -324,31 +391,7 @@ export default function ReviewClient({
         settled = true;
         clearSilence();
         clearSessionWatchdog();
-        const recognizedText = graded.text;
-        const match = graded.match;
-        console.log("[스피킹 인식]", {
-          인식: recognizedText,
-          후보: graded.alternatives,
-          정답: targetText,
-          유사도: graded.similarity,
-          정답여부: match,
-        });
-        // 판정 즉시 소리 — 서버 왕복(recordPracticeResult)을 기다리면 늦게 울린다
-        playFeedbackSound(match ? "correct" : "incorrect");
-        startTransition(async () => {
-          const result = await recordPracticeResult(sentenceId, match, "speech");
-          if (result.error) {
-            toast.error(result.error);
-            return;
-          }
-          triggerFeedback(sentenceId, match ? "correct" : "incorrect");
-          setSentences((prev) => prev.map((s) => (s.id === sentenceId ? { ...s, speech_count: s.speech_count + (match ? 1 : 0) } : s)));
-          if (match) {
-            toast.success("정확합니다!");
-          } else {
-            toast.error("다시 시도하세요.", { description: `인식된 문장: "${recognizedText}"` });
-          }
-        });
+        applySpeechGrade(sentenceId, targetText, graded);
       };
 
       recognition.onresult = (event: any) => {
@@ -446,17 +489,7 @@ export default function ReviewClient({
         toast.warning("음성 인식이 응답하지 않아 중단했습니다. 다시 시도해 주세요.");
       }, SPEECH_SESSION_TIMEOUT_MS);
     },
-    [
-      speechSupported,
-      startTransition,
-      triggerFeedback,
-      writingId,
-      speechStrict,
-      clearStartWatchdog,
-      clearSessionWatchdog,
-      handleSpeechStarted,
-      stopAudio,
-    ],
+    [speechSupported, applySpeechGrade, writingId, speechStrict, clearStartWatchdog, clearSessionWatchdog, handleSpeechStarted, stopAudio],
   );
 
   const handleToggleFavorite = useCallback(
@@ -1085,18 +1118,30 @@ export default function ReviewClient({
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2 pt-1">
-                      {speechSupported && (
+                      {canSpeak && (
                         <Button
                           variant={isListening ? "destructive" : "outline"}
                           size="sm"
-                          disabled={(listeningId !== null && !isListening) || busyPlaying || isEditing || (writingId !== null && !isWriting)}
+                          disabled={
+                            (listeningId !== null && !isListening) ||
+                            busyPlaying ||
+                            isEditing ||
+                            (writingId !== null && !isWriting) ||
+                            (isListening && serverStt && recorderState === "transcribing")
+                          }
                           onClick={() => {
-                            if (isListening && recognitionRef.current) {
-                              recognitionRef.current.abort();
+                            if (isListening) {
+                              // 서버 STT는 지금까지 녹음한 것으로 채점(수동 종료), 브라우저 인식은 중단
+                              if (serverStt) {
+                                stopRecording();
+                                return;
+                              }
+                              recognitionRef.current?.abort();
                               setListeningId(null);
-                            } else {
-                              startRecognition(sentence.id, sentence.english_text);
+                              return;
                             }
+                            if (serverStt) startServerStt(sentence.id, sentence.english_text);
+                            else startRecognition(sentence.id, sentence.english_text);
                           }}>
                           {isListening ? (
                             <>
@@ -1216,7 +1261,7 @@ export default function ReviewClient({
                     {isListening && (
                       <p className="text-muted-foreground text-center text-sm" aria-live="polite">
                         <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
-                        듣는 중...
+                        {!serverStt ? "듣는 중..." : recorderState === "transcribing" ? "인식 중..." : "녹음 중... 말한 뒤 잠시 기다리세요"}
                       </p>
                     )}
 

@@ -39,10 +39,13 @@ import {
   gradeTranscript,
   isFinalResult,
   latestTranscript,
+  isMediaRecorderSupported,
+  preferServerStt,
   type SpeechAvailability,
   type SpeechGrade,
 } from "@/lib/speech-recognition";
 import { useAudioPlayer } from "@/hooks/use-audio-player";
+import { useSpeechRecorder } from "@/hooks/use-speech-recorder";
 import SessionSummary from "@/components/learn/SessionSummary";
 import QuizFilterPanel from "@/components/learn/QuizFilterPanel";
 import { EMPTY_FILTER, filterSentences, orderSentences, parseNumberRanges, type QuizOrder, type SentenceFilter } from "@/lib/sentence-filter";
@@ -136,6 +139,11 @@ export default function QuizView({
   // null = 아직 판정 전(SSR/첫 렌더) — 안내 문구가 깜빡이지 않도록 구분한다.
   const [speechAvailability, setSpeechAvailability] = useState<SpeechAvailability | null>(null);
   const speechSupported = speechAvailability === "available";
+  // iOS·브라우저 인식 실패 환경에서는 녹음 → /api/stt 경로를 쓴다(브라우저 인식 엔진 미사용)
+  const serverStt = preferServerStt(speechAvailability);
+  const { state: recorderState, start: startRecording, stop: stopRecording, cancel: cancelRecording } = useSpeechRecorder();
+  // 말하기 자체가 가능한가 — 경로에 따라 전제가 다르다
+  const canSpeak = serverStt ? isMediaRecorderSupported() : speechSupported;
   // 기본은 리스닝 — 음성 인식 불가 판정이 나면 아래 이펙트가 일반 모드로 되돌린다
   const [quizType, setQuizType] = useState<"translate" | "listening">("listening");
   // 출제 범위(시작 화면 필터). 세션에 쓰이는 문장은 START에서 sessionSentences로 스냅샷한다.
@@ -198,12 +206,12 @@ export default function QuizView({
   // iOS: 첫 사용자 입력에서 알림음 엘리먼트 잠금 해제 (제스처 밖에서 울리는 채점음 대비)
   useEffect(() => installFeedbackSoundUnlock(), []);
 
-  // 리스닝은 말하기 전용이라 인식 불가 환경에선 선택 버튼이 비활성 — 기본값을 일반 모드로 되돌린다(시작 화면에서만).
+  // 리스닝은 말하기 전용이라 말하기가 불가한 환경에선 선택 버튼이 비활성 — 기본값을 일반 모드로 되돌린다(시작 화면에서만).
   useEffect(() => {
-    if (state.phase === "ready" && speechAvailability !== null && speechAvailability !== "available") {
+    if (state.phase === "ready" && speechAvailability !== null && !canSpeak) {
       setQuizType("translate");
     }
-  }, [state.phase, speechAvailability]);
+  }, [state.phase, speechAvailability, canSpeak]);
 
   useEffect(() => {
     setTextInput("");
@@ -211,7 +219,8 @@ export default function QuizView({
     setAnswerShown(false);
     stopAudio();
     setIsPlaying(false);
-  }, [state.currentIndex, stopAudio]);
+    cancelRecording(); // 문제가 바뀌면 진행 중인 녹음·전송은 버린다
+  }, [state.currentIndex, stopAudio, cancelRecording]);
 
   useEffect(() => {
     if (writingActive && state.phase === "question") {
@@ -357,6 +366,41 @@ export default function QuizView({
     handleResult(match, trimmed);
   }, [currentSentence, textInput, handleResult]);
 
+  // 브라우저 인식·서버 STT 두 경로가 공유하는 채점 처리
+  const applySpeechGrade = useCallback(
+    (graded: SpeechGrade) => {
+      if (!currentSentence) return;
+      console.log("[스피킹 인식]", {
+        인식: graded.text,
+        후보: graded.alternatives,
+        정답: currentSentence.english_text,
+        유사도: graded.similarity,
+        정답여부: graded.match,
+      });
+      // 정답일 때만 모드별 정답 횟수 누적(문장 목록에 표시)
+      if (graded.match) void incrementPracticeCount(currentSentence.id, "speech");
+      handleResult(graded.match, graded.text);
+    },
+    [currentSentence, handleResult],
+  );
+
+  // 녹음 → /api/stt 경로(iOS 등 브라우저 인식이 못 미더운 환경)
+  const startServerStt = useCallback(() => {
+    if (!currentSentence) return;
+    primeFeedbackSounds();
+    // iOS는 재생 중인 오디오가 세션을 잡고 있으면 녹음이 시작되지 않는다
+    stopAudio();
+    setIsPlaying(false);
+    dispatch({ type: "LISTEN" });
+    void startRecording({
+      onResult: (text) => applySpeechGrade(gradeTranscript(text, currentSentence.english_text, speechThreshold)),
+      onError: (message) => {
+        toast.warning(message);
+        dispatch({ type: "RETRY" }); // 오답 처리하지 않고 문제 화면으로 복귀
+      },
+    });
+  }, [currentSentence, startRecording, applySpeechGrade, speechThreshold, stopAudio]);
+
   const startRecognition = useCallback(() => {
     if (!speechSupported || !currentSentence) return;
 
@@ -398,16 +442,7 @@ export default function QuizView({
       settled = true;
       clearSilence();
       clearSessionWatchdog();
-      console.log("[스피킹 인식]", {
-        인식: graded.text,
-        후보: graded.alternatives,
-        정답: currentSentence.english_text,
-        유사도: graded.similarity,
-        정답여부: graded.match,
-      });
-      // 정답일 때만 모드별 정답 횟수 누적(문장 목록에 표시)
-      if (graded.match) void incrementPracticeCount(currentSentence.id, "speech");
-      handleResult(graded.match, graded.text);
+      applySpeechGrade(graded);
     };
 
     recognition.onresult = (event: any) => {
@@ -516,7 +551,7 @@ export default function QuizView({
       toast.warning("음성 인식이 응답하지 않아 중단했습니다. 다시 시도해 주세요.");
       dispatch({ type: "RETRY" });
     }, SPEECH_SESSION_TIMEOUT_MS);
-  }, [speechSupported, currentSentence, handleResult, speechThreshold, clearStartWatchdog, clearSessionWatchdog, handleSpeechStarted, stopAudio]);
+  }, [speechSupported, currentSentence, applySpeechGrade, speechThreshold, clearStartWatchdog, clearSessionWatchdog, handleSpeechStarted, stopAudio]);
 
   // 즐겨찾기 토글 — 학습 모드와 같은 toggleFavorite 액션 재사용.
   // ⚠️ startTransition으로 감싸지 말 것: isPending이 쓰기 입력창·확인 버튼을 비활성화하는 데 묶여 있다.
@@ -601,10 +636,10 @@ export default function QuizView({
         />
 
         <div className="flex w-full max-w-md flex-col gap-3">
-          {/* 리스닝이 기본값 — 말하기 전용이라 음성 인식이 안 되는 환경(iOS 비-Safari 등)에서는 선택할 수 없다 */}
+          {/* 리스닝이 기본값 — 말하기 전용이라 녹음·인식이 모두 불가한 환경에서는 선택할 수 없다 */}
           <Button
             variant={quizType === "listening" ? "brand" : "outline"}
-            disabled={speechAvailability !== null && !speechSupported}
+            disabled={speechAvailability !== null && !canSpeak}
             onClick={() => setQuizType("listening")}
             className="h-auto flex-col items-start gap-1 px-5 py-4 text-left">
             <span className="text-base font-bold">리스닝 (듣고 따라 말하기)</span>
@@ -619,7 +654,7 @@ export default function QuizView({
           </Button>
         </div>
 
-        {speechAvailability !== null && !speechSupported && (
+        {speechAvailability !== null && !canSpeak && (
           <p className="text-muted-foreground max-w-md text-sm">{speechUnavailableMessage(speechAvailability)}</p>
         )}
 
@@ -784,11 +819,12 @@ export default function QuizView({
               <Button
                 variant="outline"
                 // 자동 재생 대기(카운트다운)~재생이 끝날 때까지는 수음을 막는다 — 음원과 마이크가 겹치지 않게
-                disabled={!speechSupported || isPlaying || autoPlayCountdown !== null}
+                disabled={!canSpeak || isPlaying || autoPlayCountdown !== null}
                 onClick={() => {
                   setWritingActive(false);
                   setMode("speech");
-                  startRecognition();
+                  if (serverStt) startServerStt();
+                  else startRecognition();
                 }}
                 className="h-12 flex-1 text-base font-semibold">
                 <Mic className="mr-2 h-5 w-5" />
@@ -814,7 +850,7 @@ export default function QuizView({
               )}
             </div>
 
-            {speechAvailability !== null && speechAvailability !== "available" && (
+            {speechAvailability !== null && !canSpeak && (
               <p className="text-muted-foreground text-center text-xs">
                 {speechUnavailableMessage(speechAvailability)}
                 {quizType === "translate" ? " 쓰기로 연습해 주세요." : ""}
@@ -856,7 +892,14 @@ export default function QuizView({
         {state.phase === "listening" && (
           <Button
             variant="destructive"
+            // 전송·인식 중에는 멈출 게 없다
+            disabled={serverStt && recorderState === "transcribing"}
             onClick={() => {
+              // 서버 STT: 지금까지 녹음한 것으로 채점한다(수동 종료)
+              if (serverStt) {
+                stopRecording();
+                return;
+              }
               // 인식 객체가 이미 사라진 뒤에도(세션이 조용히 끝난 경우) 화면은 반드시 복구되어야 한다 —
               // abort 여부와 무관하게 질문 화면으로 되돌린다. abort의 onerror가 뒤늦게 와도 RETRY라 무해하다.
               recognitionRef.current?.abort();
@@ -871,7 +914,7 @@ export default function QuizView({
         {state.phase === "listening" && (
           <p className="text-muted-foreground text-center text-sm" aria-live="polite">
             <Loader2 className="mr-1 inline h-4 w-4 animate-spin" />
-            듣는 중...
+            {!serverStt ? "듣는 중..." : recorderState === "transcribing" ? "인식 중..." : "녹음 중... 말한 뒤 잠시 기다리세요"}
           </p>
         )}
 
@@ -923,9 +966,10 @@ export default function QuizView({
               variant="outline"
               onClick={() => {
                 if (mode === "speech") {
-                  // ⚠️ setTimeout으로 감싸지 말 것 — iOS Safari는 start()가 사용자 제스처와 같은 태스크에
-                  // 있어야 마이크를 잡는다(지연을 두면 두 번째 시도부터 조용히 실패). LISTEN도 내부에서 dispatch한다.
-                  startRecognition();
+                  // ⚠️ setTimeout으로 감싸지 말 것 — iOS Safari는 start()/getUserMedia가 사용자 제스처와 같은
+                  // 태스크에 있어야 마이크를 잡는다(지연을 두면 두 번째 시도부터 조용히 실패). LISTEN도 내부에서 dispatch한다.
+                  if (serverStt) startServerStt();
+                  else startRecognition();
                 } else {
                   dispatch({ type: "RETRY" });
                   setTextInput("");
