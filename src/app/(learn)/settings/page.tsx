@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Mic, Target, ListChecks, Tag, AlertTriangle, Mail, Volume2, RotateCcw, CalendarDays, Timer } from "lucide-react";
+import { Mic, Target, ListChecks, Tag, AlertTriangle, Mail, Volume2, RotateCcw, CalendarDays, Timer, AudioLines } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { fetchUserStats, fetchPracticeCountTotal } from "@/lib/gamification";
 import { getTagPresets } from "@/app/(learn)/learn/tag-actions";
@@ -13,6 +13,7 @@ import SpeechStrictField from "@/components/settings/SpeechStrictField";
 import DailyGoalField from "@/components/settings/DailyGoalField";
 import FeedbackSoundField from "@/components/settings/FeedbackSoundField";
 import AutoPlayDelayField from "@/components/settings/AutoPlayDelayField";
+import SttModelField from "@/components/settings/SttModelField";
 import TagManagerCard from "@/components/settings/TagManagerCard";
 import DeleteAllSentences from "@/components/settings/DeleteAllSentences";
 import ResetDataButton from "@/components/settings/ResetDataButton";
@@ -99,6 +100,12 @@ export default async function SettingsPage() {
           </Row>
           <Row icon={<Timer size={16} />} label="리스닝 자동 재생" description="듣기 퀴즈에서 문제가 바뀐 뒤 음원 재생까지 (이 기기에만 적용)">
             <AutoPlayDelayField />
+          </Row>
+          <Row
+            icon={<AudioLines size={16} />}
+            label="음성 인식 모델"
+            description="말하기 채점(아이폰 등)과 Repeater의 영어 자동 채우기에 사용 (이 기기에만 적용)">
+            <SttModelField />
           </Row>
           <Row
             icon={<Target size={16} />}
