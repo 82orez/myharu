@@ -62,7 +62,8 @@ export default function MemoEditorDialog({
 
   return (
     <Dialog open={memo !== null} onOpenChange={(open) => !open && close()}>
-      <DialogContent className="max-h-[90vh] gap-3 overflow-y-auto sm:max-w-lg">
+      {/* 본문이 화면 높이를 채우도록 flex 컬럼 + 고정 높이(85vh). textarea가 남는 공간을 전부 가져간다. */}
+      <DialogContent className="flex h-[70vh] max-h-[90vh] flex-col gap-3 overflow-hidden sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="sr-only">메모 편집</DialogTitle>
         </DialogHeader>
@@ -80,7 +81,7 @@ export default function MemoEditorDialog({
           maxLength={MAX_MEMO_CONTENT}
           placeholder="메모 작성..."
           onChange={(e) => setContent(e.target.value)}
-          className="w-full resize-y bg-transparent text-sm leading-relaxed outline-none"
+          className="min-h-0 w-full flex-1 resize-none bg-transparent text-sm leading-relaxed outline-none"
         />
 
         <div className="flex flex-wrap items-center gap-1.5">
