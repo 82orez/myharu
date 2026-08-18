@@ -255,6 +255,20 @@ export default function MemoClient({ initialMemos, initialError }: { initialMemo
   return (
     <TooltipProvider delay={300}>
       <div className="flex flex-col gap-4">
+        {/* 툴바 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-40 flex-1">
+            <Search className="text-muted-foreground absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="메모 검색" className="h-9 pl-8" />
+          </div>
+          <Button variant={view === "active" ? "brand" : "outline"} size="sm" onClick={() => setView("active")}>
+            메모
+          </Button>
+          <Button variant={view === "archived" ? "brand" : "outline"} size="sm" onClick={() => setView("archived")}>
+            보관함 {archivedCount > 0 && archivedCount}
+          </Button>
+        </div>
+
         {/* 빠른 작성 바 */}
         <Card className={memoColor(draftColor).card}>
           <CardContent className="py-3">
@@ -306,20 +320,6 @@ export default function MemoClient({ initialMemos, initialError }: { initialMemo
             )}
           </CardContent>
         </Card>
-
-        {/* 툴바 */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative min-w-40 flex-1">
-            <Search className="text-muted-foreground absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
-            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="메모 검색" className="h-9 pl-8" />
-          </div>
-          <Button variant={view === "active" ? "brand" : "outline"} size="sm" onClick={() => setView("active")}>
-            메모
-          </Button>
-          <Button variant={view === "archived" ? "brand" : "outline"} size="sm" onClick={() => setView("archived")}>
-            보관함 {archivedCount > 0 && archivedCount}
-          </Button>
-        </div>
 
         {/* 그리드 */}
         {visible.length === 0 ? (
