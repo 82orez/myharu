@@ -3,7 +3,7 @@
 import { useReducer, useCallback, useRef, useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Volume2, Mic, MicOff, Eye, EyeOff, X as XIcon, Loader2, Keyboard, Star, SkipForward } from "lucide-react";
+import { Volume2, Mic, MicOff, Eye, EyeOff, X as XIcon, Loader2, Keyboard, Star, SkipForward, Ban } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -48,13 +48,25 @@ import { useAudioPlayer } from "@/hooks/use-audio-player";
 import { useSpeechRecorder } from "@/hooks/use-speech-recorder";
 import SessionSummary from "@/components/learn/SessionSummary";
 import QuizFilterPanel from "@/components/learn/QuizFilterPanel";
-import { EMPTY_FILTER, filterSentences, orderSentences, parseNumberRanges, type QuizOrder, type SentenceFilter } from "@/lib/sentence-filter";
+import {
+  EMPTY_FILTER,
+  clampRepeat,
+  filterSentences,
+  orderSentences,
+  parseNumberRanges,
+  type QuizOrder,
+  type SentenceFilter,
+} from "@/lib/sentence-filter";
 import { incrementPracticeCount } from "@/app/(learn)/learn/review/gamification-actions";
 import { toggleFavorite, type Sentence } from "@/app/(learn)/learn/review/actions";
 import type { UserStats, SessionSummary as SessionSummaryType, QuizMode } from "@/types/gamification";
 
 type Phase = "ready" | "question" | "listening" | "result" | "summary";
 type Answer = { sentenceId: string; isCorrect: boolean; recognizedText?: string };
+
+// 세션의 한 문제. ⚠️ 회차(cycle)를 항목에 박아 두는 이유: 진행 중 문장을 제외하면 회차 경계가
+// 어긋나 `floor(index / 세트크기)`로는 회차를 알 수 없다.
+type SessionItem = { sentence: Sentence; cycle: number };
 
 type State = {
   phase: Phase;
@@ -69,6 +81,7 @@ type Action =
   | { type: "LISTEN" }
   | { type: "SHOW_RESULT"; sentenceId: string; isCorrect: boolean; recognizedText: string }
   | { type: "NEXT" }
+  | { type: "REMOVE_CURRENT" }
   | { type: "ACCEPT" }
   | { type: "RETRY" }
   | { type: "FINISH" }
@@ -95,6 +108,10 @@ function reducer(state: State, action: Action): State {
     case "NEXT":
       const nextIndex = state.currentIndex + 1;
       return { ...state, phase: "question", currentIndex: nextIndex, resultStatus: null, recognizedText: "" };
+    case "REMOVE_CURRENT":
+      // 세션에서 현재 문장을 뺐다 — currentIndex는 그대로 두면 자동으로 다음 문제를 가리킨다.
+      // ⚠️ answers는 현재 인덱스 이후만 버린다(과거 기록을 지우면 뒤 인덱스가 다른 문제로 밀린다).
+      return { ...state, phase: "question", resultStatus: null, recognizedText: "", answers: state.answers.slice(0, state.currentIndex) };
     case "ACCEPT": {
       // 음성 인식 오탐 등을 고려해, 오답 결과에서 넘어갈 때 그 문제를 정답으로 인정한다.
       const answers = [...state.answers];
@@ -146,13 +163,15 @@ export default function QuizView({
   const canSpeak = serverStt ? isMediaRecorderSupported() : speechSupported;
   // 기본은 리스닝 — 음성 인식 불가 판정이 나면 아래 이펙트가 일반 모드로 되돌린다
   const [quizType, setQuizType] = useState<"translate" | "listening">("listening");
-  // 출제 범위(시작 화면 필터). 세션에 쓰이는 문장은 START에서 sessionSentences로 스냅샷한다.
+  // 출제 범위(시작 화면 필터). 세션에 쓰이는 문장은 START에서 sessionItems로 스냅샷한다.
   const [filter, setFilter] = useState<SentenceFilter>(EMPTY_FILTER);
   const [numberInput, setNumberInput] = useState(""); // 순번 원문("1-20, 35")
   const [order, setOrder] = useState<QuizOrder>("number");
   const [limit, setLimit] = useState(0); // 0 = 전체
   const [filterOpen, setFilterOpen] = useState(false);
-  const [sessionSentences, setSessionSentences] = useState<Sentence[]>(sentences);
+  const [limitRepeat, setRepeat] = useState(1); // 세트를 몇 번 반복할지(출제 조건)
+  const [sessionItems, setSessionItems] = useState<SessionItem[]>(() => sentences.map((sentence) => ({ sentence, cycle: 0 })));
+  const [repeatTotal, setRepeatTotal] = useState(1); // 진행 중 세션의 회차 수(START에서 스냅샷)
   const [mode, setMode] = useState<QuizMode>("speech");
   const [writingActive, setWritingActive] = useState(false);
   // 카드 안에 정답을 띄운 상태(정답을 보며 말하기 위함) — 문제가 바뀌면 자동 해제
@@ -228,10 +247,24 @@ export default function QuizView({
     }
   }, [writingActive, state.phase, state.currentIndex]);
 
-  const currentSentence = sessionSentences[state.currentIndex];
+  const currentItem = sessionItems[state.currentIndex];
+  const currentSentence = currentItem?.sentence;
   // 번호는 필터와 무관하게 전체 목록 기준 — 학습 모드와 같은 #N을 보여야 한다(출제 범위로 다시 매기지 말 것)
   const sentenceNumbers = useMemo(() => buildSentenceNumbers(sentences), [sentences]);
-  const progressPercent = sessionSentences.length > 0 ? Math.round(((state.currentIndex + 1) / sessionSentences.length) * 100) : 0;
+  const progressPercent = sessionItems.length > 0 ? Math.round(((state.currentIndex + 1) / sessionItems.length) * 100) : 0;
+
+  // 현재 회차와 그 안에서의 위치. 문장 제외로 회차 크기가 줄어도 맞도록 매번 세어 구한다.
+  const cyclePos = useMemo(() => {
+    if (!currentItem) return null;
+    let total = 0;
+    let pos = 0;
+    sessionItems.forEach((item, i) => {
+      if (item.cycle !== currentItem.cycle) return;
+      total++;
+      if (i <= state.currentIndex) pos++;
+    });
+    return { cycle: currentItem.cycle + 1, pos, total };
+  }, [sessionItems, currentItem, state.currentIndex]);
   const speechThreshold = initialStats?.speech_strict ? STRICT_SIMILARITY_THRESHOLD : SIMILARITY_THRESHOLD;
 
   // 시작 화면에서 조건에 맞는 문장(정렬·문제 수 제한 전)
@@ -250,6 +283,7 @@ export default function QuizView({
       setNumberInput(typeof saved.numberInput === "string" ? saved.numberInput : "");
       if (typeof saved.order === "string") setOrder(saved.order);
       if (typeof saved.limit === "number") setLimit(saved.limit);
+      if (typeof saved.repeat === "number") setRepeat(clampRepeat(saved.repeat));
     } catch {
       // 손상된 값은 무시하고 기본 조건으로 시작
     } finally {
@@ -269,11 +303,11 @@ export default function QuizView({
     // 복원 전(첫 커밋)에 저장하면 방금 읽은 값을 기본값으로 덮어쓴다
     if (!restoredRef.current) return;
     try {
-      localStorage.setItem(QUIZ_FILTER_KEY, JSON.stringify({ filter: { ...filter, numbers: null }, numberInput, order, limit }));
+      localStorage.setItem(QUIZ_FILTER_KEY, JSON.stringify({ filter: { ...filter, numbers: null }, numberInput, order, limit, repeat: limitRepeat }));
     } catch {
       // 저장 실패(사파리 프라이빗 등)는 무시 — 조건은 이번 세션에만 유지된다
     }
-  }, [filter, numberInput, order, limit]);
+  }, [filter, numberInput, order, limit, limitRepeat]);
 
   // 조건에 맞는 문장으로 세션을 시작. 여기서 스냅샷해 세션 중 필터·무작위 순서가 흔들리지 않게 한다.
   const startQuiz = useCallback(() => {
@@ -282,10 +316,32 @@ export default function QuizView({
       return;
     }
     const ordered = orderSentences(pool, order, sentenceNumbers);
-    setSessionSentences(limit > 0 ? ordered.slice(0, limit) : ordered);
+    const base = limit > 0 ? ordered.slice(0, limit) : ordered;
+    // 세트를 회차만큼 이어 붙인다. 무작위는 회차마다 다시 섞는다(구성은 그대로, 순서만 새로).
+    const items: SessionItem[] = [];
+    for (let cycle = 0; cycle < limitRepeat; cycle++) {
+      const round = order === "random" && cycle > 0 ? orderSentences(base, "random", sentenceNumbers) : base;
+      for (const sentence of round) items.push({ sentence, cycle });
+    }
+    setSessionItems(items);
+    setRepeatTotal(limitRepeat); // 진행 중 ready 화면 값이 바뀌어도 세션은 흔들리지 않게 스냅샷
     autoPlayedIndexRef.current = -1; // 다시 풀기로 재시작해도 자동 재생이 다시 동작하도록
     dispatch({ type: "START" });
-  }, [pool, order, limit, sentenceNumbers]);
+  }, [pool, order, limit, limitRepeat, sentenceNumbers]);
+
+  // 이 세션에서만 문장을 뺀다(DB·필터와 무관). 남은 회차의 같은 문장도 함께 사라진다.
+  const removeCurrentSentence = useCallback(() => {
+    if (!currentSentence) return;
+    const id = currentSentence.id;
+    // ⚠️ 지나간 문제는 남긴다 — 과거 인덱스를 지우면 answers[i]가 다른 문제의 기록으로 밀린다.
+    const next = sessionItems.filter((item, i) => i < state.currentIndex || item.sentence.id !== id);
+    setSessionItems(next);
+    if (state.currentIndex >= next.length) {
+      dispatch({ type: "FINISH" });
+      return;
+    }
+    dispatch({ type: "REMOVE_CURRENT" });
+  }, [currentSentence, sessionItems, state.currentIndex]);
 
   // 대기 중인 자동 재생(카운트다운 포함)을 취소한다 — 카드 클릭·말하기 등으로 먼저 움직이면 중복 재생이 되므로
   const cancelAutoPlay = useCallback(() => {
@@ -560,10 +616,10 @@ export default function QuizView({
     const { id } = currentSentence;
     const next = !currentSentence.is_favorite;
     // 카드가 읽는 건 세션 스냅샷이라 여기만 낙관적으로 갱신한다
-    setSessionSentences((prev) => prev.map((s) => (s.id === id ? { ...s, is_favorite: next } : s)));
+    setSessionItems((prev) => prev.map((it) => (it.sentence.id === id ? { ...it, sentence: { ...it.sentence, is_favorite: next } } : it)));
     void toggleFavorite(id, next).then((result) => {
       if (result?.error) {
-        setSessionSentences((prev) => prev.map((s) => (s.id === id ? { ...s, is_favorite: !next } : s)));
+        setSessionItems((prev) => prev.map((it) => (it.sentence.id === id ? { ...it, sentence: { ...it.sentence, is_favorite: !next } } : it)));
         toast.error(result.error);
         return;
       }
@@ -573,12 +629,12 @@ export default function QuizView({
   }, [currentSentence, router]);
 
   const handleNext = useCallback(() => {
-    if (state.currentIndex + 1 >= sessionSentences.length) {
+    if (state.currentIndex + 1 >= sessionItems.length) {
       dispatch({ type: "FINISH" });
     } else {
       dispatch({ type: "NEXT" });
     }
-  }, [state.currentIndex, sessionSentences.length]);
+  }, [state.currentIndex, sessionItems.length]);
 
   // 오답 결과의 "다음" — 음성 인식이 잘못 받아쓴 경우가 있어 오답으로 남기지 않고 정답으로 인정하고 넘어간다.
   const handleSkipAsCorrect = useCallback(() => {
@@ -618,6 +674,7 @@ export default function QuizView({
           {plannedCount === sentences.length
             ? `총 ${sentences.length}문장을 연습합니다.`
             : `총 ${sentences.length}문장 중 ${plannedCount}문장을 연습합니다.`}
+          {limitRepeat > 1 && ` (${limitRepeat}회 반복 · ${(plannedCount * limitRepeat).toLocaleString()}문제)`}
         </p>
 
         <QuizFilterPanel
@@ -630,6 +687,8 @@ export default function QuizView({
           onOrderChange={setOrder}
           limit={limit}
           onLimitChange={setLimit}
+          repeat={limitRepeat}
+          onRepeatChange={setRepeat}
           matchedCount={pool.length}
           open={filterOpen}
           onOpenChange={setFilterOpen}
@@ -701,8 +760,11 @@ export default function QuizView({
         </AlertDialog>
 
         <Progress value={progressPercent} className="h-3 flex-1 items-center [&_[data-slot=progress-track]]:h-3" />
-        <span className="text-muted-foreground text-sm font-medium">
-          {state.currentIndex + 1}/{sessionSentences.length}
+        {/* 반복 세션이면 회차와 회차 내 위치를, 아니면 기존처럼 전체 번호만 */}
+        <span className="text-muted-foreground shrink-0 text-sm font-medium tabular-nums">
+          {repeatTotal > 1 && cyclePos
+            ? `${cyclePos.cycle}/${repeatTotal}회 · ${cyclePos.pos}/${cyclePos.total}`
+            : `${state.currentIndex + 1}/${sessionItems.length}`}
         </span>
       </div>
 
@@ -955,6 +1017,35 @@ export default function QuizView({
               <AlertDialogFooter>
                 <AlertDialogCancel>취소</AlertDialogCancel>
                 <AlertDialogAction onClick={handleNext}>건너뛰기</AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+
+        {/* 이번 세션에서만 제외 — 남은 회차의 같은 문장까지 사라진다(문장 자체는 그대로) */}
+        {state.phase === "question" && currentSentence && (
+          <AlertDialog>
+            <AlertDialogTrigger
+              render={
+                <Button
+                  type="button"
+                  variant="ghost"
+                  disabled={isPlaying || autoPlayCountdown !== null}
+                  className="text-muted-foreground h-10 text-sm"
+                />
+              }>
+              <Ban className="mr-1 h-4 w-4" />이 문장 빼기
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>이 문장 빼기</AlertDialogTitle>
+                <AlertDialogDescription>
+                  이 문장을 이번 세션에서 제외할까요? 남은 회차에서도 나오지 않습니다. (저장된 문장은 삭제되지 않습니다.)
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>취소</AlertDialogCancel>
+                <AlertDialogAction onClick={removeCurrentSentence}>빼기</AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>

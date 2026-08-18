@@ -132,6 +132,14 @@ export const QUIZ_ORDERS: { value: QuizOrder; label: string }[] = [
   { value: "practice-asc", label: "연습 적은순" },
 ];
 
+// 세트 반복 횟수(퀴즈 세션). 1 = 반복 없음. 총 문제 수 = 문장 수 × 반복.
+export const MIN_QUIZ_REPEAT = 1;
+export const MAX_QUIZ_REPEAT = 99;
+export function clampRepeat(raw: number): number {
+  if (!Number.isFinite(raw)) return MIN_QUIZ_REPEAT;
+  return Math.min(Math.max(Math.round(raw), MIN_QUIZ_REPEAT), MAX_QUIZ_REPEAT);
+}
+
 export function orderSentences<T extends FilterableSentence>(list: T[], order: QuizOrder, numbers: Map<string, number>): T[] {
   const out = list.slice();
   const byNumber = (a: T, b: T) => (numbers.get(a.id) ?? 0) - (numbers.get(b.id) ?? 0);

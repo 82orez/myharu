@@ -1,11 +1,22 @@
 "use client";
 
 import { useMemo } from "react";
-import { Search, Star, Tag, ArrowLeftRight, X, ChevronDown, SlidersHorizontal, Circle, RotateCcw } from "lucide-react";
+import { Search, Star, Tag, ArrowLeftRight, X, ChevronDown, SlidersHorizontal, Circle, RotateCcw, Repeat } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { tagChipClass } from "@/lib/tag-color";
-import { DAY_RANGES, EMPTY_FILTER, QUIZ_ORDERS, parseNumberRanges, type DayRange, type QuizOrder, type SentenceFilter } from "@/lib/sentence-filter";
+import {
+  DAY_RANGES,
+  EMPTY_FILTER,
+  MAX_QUIZ_REPEAT,
+  MIN_QUIZ_REPEAT,
+  QUIZ_ORDERS,
+  clampRepeat,
+  parseNumberRanges,
+  type DayRange,
+  type QuizOrder,
+  type SentenceFilter,
+} from "@/lib/sentence-filter";
 import type { Sentence } from "@/app/(learn)/learn/review/actions";
 
 // 한 세션 문제 수 제한 (0 = 전체)
@@ -24,6 +35,8 @@ export default function QuizFilterPanel({
   onOrderChange,
   limit,
   onLimitChange,
+  repeat,
+  onRepeatChange,
   matchedCount,
   open,
   onOpenChange,
@@ -38,6 +51,9 @@ export default function QuizFilterPanel({
   onOrderChange: (order: QuizOrder) => void;
   limit: number;
   onLimitChange: (limit: number) => void;
+  /** 세트를 몇 번 반복할지(1 = 반복 없음). 총 문제 수 = 문장 수 × 반복 */
+  repeat: number;
+  onRepeatChange: (repeat: number) => void;
   matchedCount: number;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -63,7 +79,8 @@ export default function QuizFilterPanel({
     filter.tags.length === 0 &&
     !filter.search &&
     !numberInput.trim() &&
-    limit === 0;
+    limit === 0 &&
+    repeat === MIN_QUIZ_REPEAT;
 
   return (
     <div className="w-full max-w-md">
@@ -117,13 +134,28 @@ export default function QuizFilterPanel({
                 </option>
               ))}
             </select>
-            <select value={limit} onChange={(e) => onLimitChange(Number(e.target.value))} aria-label="문제 수" className={selectClass}>
+            <select value={limit} onChange={(e) => onLimitChange(Number(e.target.value))} aria-label="문장 수" className={selectClass}>
               {QUIZ_LIMITS.map((n) => (
                 <option key={n} value={n}>
-                  {n === 0 ? "전체 문항" : `${n}문제`}
+                  {n === 0 ? "전체 문장" : `${n}문장`}
                 </option>
               ))}
             </select>
+            {/* 반복 횟수 — 총 문제 수는 문장 수 × 반복이 된다 */}
+            <label className="text-muted-foreground flex items-center gap-1 text-sm">
+              <Repeat className="h-4 w-4" />
+              <Input
+                type="number"
+                inputMode="numeric"
+                min={MIN_QUIZ_REPEAT}
+                max={MAX_QUIZ_REPEAT}
+                value={repeat}
+                onChange={(e) => onRepeatChange(clampRepeat(Number(e.target.value)))}
+                aria-label="반복 횟수"
+                className="h-8 w-16 text-center"
+              />
+              회 반복
+            </label>
           </div>
 
           {/* 순번 범위 */}
@@ -213,6 +245,7 @@ export default function QuizFilterPanel({
                 onFilterChange(EMPTY_FILTER);
                 onNumberInputChange("");
                 onLimitChange(0);
+                onRepeatChange(MIN_QUIZ_REPEAT);
               }}
               className="text-muted-foreground">
               <RotateCcw className="mr-1 h-4 w-4" />
