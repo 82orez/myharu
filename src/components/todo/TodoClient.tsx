@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -28,6 +29,7 @@ import {
   isDueToday,
   isOverdue,
   priorityMeta,
+  repeatLabel,
   sortTodos,
   todayKST,
   type TodoPriority,
@@ -51,6 +53,16 @@ function dueLabel(due: string, today: string): string {
   if (isDueToday(due, today)) return "오늘";
   const [, m, d] = due.split("-");
   return `${Number(m)}/${Number(d)}`;
+}
+
+// 아이콘 버튼 설명(MemoClient의 IconTip과 같은 구조 — base-ui 트리거는 단일 엘리먼트여야 한다)
+function IconTip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className="inline-flex" />}>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
 }
 
 export default function TodoClient({ initialTodos, initialError }: { initialTodos: Todo[]; initialError?: string }) {
@@ -221,33 +233,43 @@ export default function TodoClient({ initialTodos, initialError }: { initialTodo
           {manualSortable && (
             <div className="text-muted-foreground/60 flex shrink-0 flex-col">
               {/* HTML5 드래그는 모바일에서 동작하지 않는다 — ↑↓ 버튼을 함께 제공할 것 */}
-              <button
-                type="button"
-                aria-label="위로"
-                disabled={index === 0}
-                onClick={() => moveTo(todo.id, index - 1)}
-                className="disabled:opacity-30">
-                <ChevronUp className="h-4 w-4" />
-              </button>
-              <button
-                type="button"
-                aria-label="아래로"
-                disabled={index === openItems.length - 1}
-                onClick={() => moveTo(todo.id, index + 1)}
-                className="disabled:opacity-30">
-                <ChevronDown className="h-4 w-4" />
-              </button>
+              <IconTip label="위로 이동">
+                <button
+                  type="button"
+                  aria-label="위로"
+                  disabled={index === 0}
+                  onClick={() => moveTo(todo.id, index - 1)}
+                  className="disabled:opacity-30">
+                  <ChevronUp className="h-4 w-4" />
+                </button>
+              </IconTip>
+              <IconTip label="아래로 이동">
+                <button
+                  type="button"
+                  aria-label="아래로"
+                  disabled={index === openItems.length - 1}
+                  onClick={() => moveTo(todo.id, index + 1)}
+                  className="disabled:opacity-30">
+                  <ChevronDown className="h-4 w-4" />
+                </button>
+              </IconTip>
             </div>
           )}
-          {manualSortable && <GripVertical className="text-muted-foreground/40 hidden h-4 w-4 shrink-0 cursor-grab md:block" />}
+          {manualSortable && (
+            <IconTip label="끌어서 순서 변경">
+              <GripVertical className="text-muted-foreground/40 hidden h-4 w-4 shrink-0 cursor-grab md:block" />
+            </IconTip>
+          )}
 
-          <button
-            type="button"
-            aria-label={todo.is_done ? "완료 취소" : "완료"}
-            onClick={() => handleToggle(todo)}
-            className={todo.is_done ? "text-success shrink-0" : "text-muted-foreground hover:text-brand shrink-0"}>
-            {todo.is_done ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
-          </button>
+          <IconTip label={todo.is_done ? "완료 취소" : todo.repeat !== "none" ? "완료(다음 주기로 넘김)" : "완료로 표시"}>
+            <button
+              type="button"
+              aria-label={todo.is_done ? "완료 취소" : "완료"}
+              onClick={() => handleToggle(todo)}
+              className={todo.is_done ? "text-success shrink-0" : "text-muted-foreground hover:text-brand shrink-0"}>
+              {todo.is_done ? <CheckCircle2 className="h-5 w-5" /> : <Circle className="h-5 w-5" />}
+            </button>
+          </IconTip>
 
           {isEditing ? (
             <Input
@@ -282,20 +304,28 @@ export default function TodoClient({ initialTodos, initialError }: { initialTodo
           {todo.due_date && (
             <span className={`shrink-0 text-xs font-medium tabular-nums ${dueClass(todo.due_date, today)}`}>{dueLabel(todo.due_date, today)}</span>
           )}
-          {todo.repeat !== "none" && <Repeat className="text-muted-foreground/70 h-3.5 w-3.5 shrink-0" />}
+          {todo.repeat !== "none" && (
+            <IconTip label={`${repeatLabel(todo.repeat)} 반복`}>
+              <Repeat className="text-muted-foreground/70 h-3.5 w-3.5 shrink-0" />
+            </IconTip>
+          )}
 
-          <button
-            type="button"
-            aria-label="메모"
-            onClick={() => toggleNote(todo.id)}
-            className={`shrink-0 ${noteOpen ? "text-brand" : todo.note ? "text-foreground" : "text-muted-foreground/40"}`}>
-            <StickyNote className="h-4 w-4" />
-          </button>
+          <IconTip label={noteOpen ? "메모 닫기" : todo.note ? "메모 보기" : "메모·상세 설정"}>
+            <button
+              type="button"
+              aria-label="메모"
+              onClick={() => toggleNote(todo.id)}
+              className={`shrink-0 ${noteOpen ? "text-brand" : todo.note ? "text-foreground" : "text-muted-foreground/40"}`}>
+              <StickyNote className="h-4 w-4" />
+            </button>
+          </IconTip>
 
           <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label="삭제" className="text-muted-foreground shrink-0" />}>
-              <Trash2 className="h-4 w-4" />
-            </AlertDialogTrigger>
+            <IconTip label="삭제">
+              <AlertDialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label="삭제" className="text-muted-foreground shrink-0" />}>
+                <Trash2 className="h-4 w-4" />
+              </AlertDialogTrigger>
+            </IconTip>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>할 일 삭제</AlertDialogTitle>
@@ -368,130 +398,132 @@ export default function TodoClient({ initialTodos, initialError }: { initialTodo
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* 입력 바 */}
-      <Card>
-        <CardContent className="flex flex-col gap-3 py-4">
-          <div className="flex gap-2">
-            <Input
-              value={title}
-              maxLength={MAX_TODO_TITLE}
-              placeholder="할 일을 입력하세요"
-              onChange={(e) => setTitle(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAdd();
-                }
-              }}
-              className="h-10 flex-1"
-            />
-            <Button variant="brand" disabled={!title.trim() || adding} onClick={handleAdd} className="h-10 px-4">
-              {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
-              추가
-            </Button>
-          </div>
-
-          <button type="button" onClick={() => setDetailOpen((v) => !v)} className="text-muted-foreground self-start text-xs">
-            상세 {detailOpen ? "접기" : "설정"} {detailOpen ? "▲" : "▼"}
-          </button>
-
-          {detailOpen && (
-            <div className="flex flex-wrap items-center gap-2">
-              <select value={priority} onChange={(e) => setPriority(e.target.value as TodoPriority)} aria-label="우선순위" className={selectClass}>
-                {PRIORITIES.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
-              <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} aria-label="마감일" className={selectClass} />
-              <select value={repeat} onChange={(e) => setRepeat(e.target.value as TodoRepeat)} aria-label="반복" className={selectClass}>
-                {REPEATS.map((r) => (
-                  <option key={r.value} value={r.value}>
-                    {r.label}
-                  </option>
-                ))}
-              </select>
+    <TooltipProvider delay={300}>
+      <div className="flex flex-col gap-4">
+        {/* 입력 바 */}
+        <Card>
+          <CardContent className="flex flex-col gap-3 py-4">
+            <div className="flex gap-2">
+              <Input
+                value={title}
+                maxLength={MAX_TODO_TITLE}
+                placeholder="할 일을 입력하세요"
+                onChange={(e) => setTitle(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    handleAdd();
+                  }
+                }}
+                className="h-10 flex-1"
+              />
+              <Button variant="brand" disabled={!title.trim() || adding} onClick={handleAdd} className="h-10 px-4">
+                {adding ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+                추가
+              </Button>
             </div>
-          )}
-        </CardContent>
-      </Card>
 
-      {/* 보기 / 정렬 */}
-      <div className="flex flex-wrap items-center gap-2">
-        {TODO_VIEWS.map((v) => (
-          <Button key={v.value} variant={view === v.value ? "brand" : "outline"} size="sm" onClick={() => setView(v.value)}>
-            {v.label}
-          </Button>
-        ))}
-        <select value={sort} onChange={(e) => setSort(e.target.value as TodoSort)} aria-label="정렬" className={`${selectClass} ml-auto h-8`}>
-          {TODO_SORTS.map((s) => (
-            <option key={s.value} value={s.value}>
-              {s.label}
-            </option>
-          ))}
-        </select>
-      </div>
+            <button type="button" onClick={() => setDetailOpen((v) => !v)} className="text-muted-foreground self-start text-xs">
+              상세 {detailOpen ? "접기" : "설정"} {detailOpen ? "▲" : "▼"}
+            </button>
 
-      <p className="text-muted-foreground text-sm">
-        남은 일 <span className="text-foreground font-semibold tabular-nums">{activeCount}</span> · 완료{" "}
-        <span className="font-semibold tabular-nums">{doneCount}</span>
-      </p>
-
-      {/* 목록 */}
-      {todos.length === 0 ? (
-        <Card>
-          <CardContent className="text-muted-foreground py-10 text-center text-sm">할 일이 없습니다. 위에서 추가해 보세요.</CardContent>
-        </Card>
-      ) : (
-        <Card>
-          <CardContent className="py-2">
-            {openItems.length === 0 && doneItems.length === 0 && (
-              <p className="text-muted-foreground py-6 text-center text-sm">조건에 맞는 할 일이 없습니다.</p>
-            )}
-            <ul className="flex flex-col">{openItems.map((todo, i) => renderRow(todo, i, sort === "manual" && view !== "done"))}</ul>
-
-            {doneItems.length > 0 && (
-              <div className="border-border mt-2 border-t pt-2">
-                <button type="button" onClick={() => setDoneOpen((v) => !v)} className="text-muted-foreground flex items-center gap-1 py-1 text-xs">
-                  {doneOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
-                  완료 {doneItems.length}개 {doneOpen ? "숨기기" : "보기"}
-                </button>
-                {doneOpen && <ul className="flex flex-col opacity-70">{doneItems.map((todo, i) => renderRow(todo, i, false))}</ul>}
+            {detailOpen && (
+              <div className="flex flex-wrap items-center gap-2">
+                <select value={priority} onChange={(e) => setPriority(e.target.value as TodoPriority)} aria-label="우선순위" className={selectClass}>
+                  {PRIORITIES.map((p) => (
+                    <option key={p.value} value={p.value}>
+                      {p.label}
+                    </option>
+                  ))}
+                </select>
+                <input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} aria-label="마감일" className={selectClass} />
+                <select value={repeat} onChange={(e) => setRepeat(e.target.value as TodoRepeat)} aria-label="반복" className={selectClass}>
+                  {REPEATS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
               </div>
             )}
           </CardContent>
         </Card>
-      )}
 
-      {doneCount > 0 && (
-        <div className="flex justify-end">
-          <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="ghost" size="sm" disabled={clearing} className="text-muted-foreground" />}>
-              {clearing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
-              완료 항목 정리
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>완료 항목 정리</AlertDialogTitle>
-                <AlertDialogDescription>완료한 할 일 {doneCount}개를 삭제합니다. 되돌릴 수 없습니다.</AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>취소</AlertDialogCancel>
-                <AlertDialogAction onClick={handleClearCompleted} className="bg-destructive hover:bg-destructive/90 text-white">
-                  정리
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+        {/* 보기 / 정렬 */}
+        <div className="flex flex-wrap items-center gap-2">
+          {TODO_VIEWS.map((v) => (
+            <Button key={v.value} variant={view === v.value ? "brand" : "outline"} size="sm" onClick={() => setView(v.value)}>
+              {v.label}
+            </Button>
+          ))}
+          <select value={sort} onChange={(e) => setSort(e.target.value as TodoSort)} aria-label="정렬" className={`${selectClass} ml-auto h-8`}>
+            {TODO_SORTS.map((s) => (
+              <option key={s.value} value={s.value}>
+                {s.label}
+              </option>
+            ))}
+          </select>
         </div>
-      )}
 
-      <p className="text-muted-foreground/70 flex items-center justify-center gap-1 text-xs">
-        <CalendarDays className="h-3 w-3" />
-        마감일·오늘 판정은 한국 시간 기준입니다.
-      </p>
-    </div>
+        <p className="text-muted-foreground text-sm">
+          남은 일 <span className="text-foreground font-semibold tabular-nums">{activeCount}</span> · 완료{" "}
+          <span className="font-semibold tabular-nums">{doneCount}</span>
+        </p>
+
+        {/* 목록 */}
+        {todos.length === 0 ? (
+          <Card>
+            <CardContent className="text-muted-foreground py-10 text-center text-sm">할 일이 없습니다. 위에서 추가해 보세요.</CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardContent className="py-2">
+              {openItems.length === 0 && doneItems.length === 0 && (
+                <p className="text-muted-foreground py-6 text-center text-sm">조건에 맞는 할 일이 없습니다.</p>
+              )}
+              <ul className="flex flex-col">{openItems.map((todo, i) => renderRow(todo, i, sort === "manual" && view !== "done"))}</ul>
+
+              {doneItems.length > 0 && (
+                <div className="border-border mt-2 border-t pt-2">
+                  <button type="button" onClick={() => setDoneOpen((v) => !v)} className="text-muted-foreground flex items-center gap-1 py-1 text-xs">
+                    {doneOpen ? <ChevronUp className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5" />}
+                    완료 {doneItems.length}개 {doneOpen ? "숨기기" : "보기"}
+                  </button>
+                  {doneOpen && <ul className="flex flex-col opacity-70">{doneItems.map((todo, i) => renderRow(todo, i, false))}</ul>}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {doneCount > 0 && (
+          <div className="flex justify-end">
+            <AlertDialog>
+              <AlertDialogTrigger render={<Button variant="ghost" size="sm" disabled={clearing} className="text-muted-foreground" />}>
+                {clearing ? <Loader2 className="mr-1 h-4 w-4 animate-spin" /> : <Trash2 className="mr-1 h-4 w-4" />}
+                완료 항목 정리
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>완료 항목 정리</AlertDialogTitle>
+                  <AlertDialogDescription>완료한 할 일 {doneCount}개를 삭제합니다. 되돌릴 수 없습니다.</AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>취소</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearCompleted} className="bg-destructive hover:bg-destructive/90 text-white">
+                    정리
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        )}
+
+        <p className="text-muted-foreground/70 flex items-center justify-center gap-1 text-xs">
+          <CalendarDays className="h-3 w-3" />
+          마감일·오늘 판정은 한국 시간 기준입니다.
+        </p>
+      </div>
+    </TooltipProvider>
   );
 }
