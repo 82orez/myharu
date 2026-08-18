@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      memos: {
+        Row: {
+          color: string
+          content: string
+          created_at: string
+          id: string
+          is_archived: boolean
+          is_pinned: boolean
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_pinned?: boolean
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_archived?: boolean
+          is_pinned?: boolean
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       practice_results: {
         Row: {
           id: string

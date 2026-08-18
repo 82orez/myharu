@@ -27,6 +27,9 @@ export default function Footer() {
           <Link href="/todo" className="text-muted-foreground hover:text-foreground text-xs">
             할 일
           </Link>
+          <Link href="/memo" className="text-muted-foreground hover:text-foreground text-xs">
+            메모
+          </Link>
           <Link href="/learn/player" className="text-muted-foreground hover:text-foreground text-xs">
             Repeater
           </Link>
