@@ -154,7 +154,7 @@ export default function MemoClient({ initialMemos, initialError }: { initialMemo
         onKeyDown={(e) => {
           if (e.key === "Enter") setEditing(memo);
         }}
-        className={`relative mb-3 block break-inside-avoid overflow-hidden rounded-xl border p-3 text-left transition-shadow hover:shadow-md ${palette.card}`}>
+        className={`relative mb-3 block break-inside-avoid overflow-hidden rounded-xl border p-3 pb-11 text-left transition-shadow hover:shadow-md ${palette.card}`}>
         {/* 기본 크기를 정사각형으로 잡아 주는 스페이서. 폭 0 + padding-top 100%라 자리는 차지하지 않고 높이만 확보하고,
             내용이 길면 카드가 그만큼 늘어난다(overflow-hidden이 float를 감싸야 높이에 반영된다).
             ⚠️ max-h로 상한을 두는 이유: 1열(모바일)처럼 카드가 넓을 때 정사각형이면 지나치게 높아진다. */}
@@ -180,7 +180,10 @@ export default function MemoClient({ initialMemos, initialError }: { initialMemo
           </IconTip>
         </div>
 
-        <div className="text-muted-foreground mt-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
+        {/* 액션 줄은 카드 하단 중앙 고정 — 카드에 pb를 줘 본문이 아이콘 아래로 흘러들지 않게 한다 */}
+        <div
+          className="text-muted-foreground absolute inset-x-0 bottom-2 flex items-center justify-center gap-1"
+          onClick={(e) => e.stopPropagation()}>
           <Dialog>
             <IconTip label="색상 변경">
               <DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label="색상" className="text-muted-foreground" />}>
