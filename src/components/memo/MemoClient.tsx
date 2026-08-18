@@ -154,7 +154,11 @@ export default function MemoClient({ initialMemos, initialError }: { initialMemo
         onKeyDown={(e) => {
           if (e.key === "Enter") setEditing(memo);
         }}
-        className={`mb-3 block break-inside-avoid rounded-xl border p-3 text-left transition-shadow hover:shadow-md ${palette.card}`}>
+        className={`relative mb-3 block break-inside-avoid overflow-hidden rounded-xl border p-3 text-left transition-shadow hover:shadow-md ${palette.card}`}>
+        {/* 기본 크기를 정사각형으로 잡아 주는 스페이서. 폭 0 + padding-top 100%라 자리는 차지하지 않고 높이만 확보하고,
+            내용이 길면 카드가 그만큼 늘어난다(overflow-hidden이 float를 감싸야 높이에 반영된다).
+            ⚠️ max-h로 상한을 두는 이유: 1열(모바일)처럼 카드가 넓을 때 정사각형이면 지나치게 높아진다. */}
+        <div aria-hidden className="float-right max-h-56 w-0 pt-[100%]" />
         <div className="flex items-start gap-2">
           <div className="min-w-0 flex-1">
             {memo.title && <p className="mb-1 truncate text-sm font-semibold">{memo.title}</p>}
