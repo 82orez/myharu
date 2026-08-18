@@ -100,6 +100,48 @@ export type Database = {
         }
         Relationships: []
       }
+      todos: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          due_date: string | null
+          id: string
+          is_done: boolean
+          note: string
+          position: number
+          priority: string
+          repeat: string
+          title: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          is_done?: boolean
+          note?: string
+          position?: number
+          priority?: string
+          repeat?: string
+          title: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          due_date?: string | null
+          id?: string
+          is_done?: boolean
+          note?: string
+          position?: number
+          priority?: string
+          repeat?: string
+          title?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_stats: {
         Row: {
           created_at: string

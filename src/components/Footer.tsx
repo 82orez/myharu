@@ -24,6 +24,9 @@ export default function Footer() {
           <Link href="/learn/quiz" className="text-muted-foreground hover:text-foreground text-xs">
             퀴즈 풀기
           </Link>
+          <Link href="/todo" className="text-muted-foreground hover:text-foreground text-xs">
+            할 일
+          </Link>
           <Link href="/learn/player" className="text-muted-foreground hover:text-foreground text-xs">
             Repeater
           </Link>
