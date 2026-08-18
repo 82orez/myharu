@@ -178,6 +178,12 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
                 </Link>
               </li>
               <li className="border-border border-b py-4">
+                <Link href="/learn/player" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
+                  <Repeat size={18} className="text-brand" />
+                  Repeater
+                </Link>
+              </li>
+              <li className="border-border border-b py-4">
                 <Link href="/todo" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
                   <ListTodo size={18} className="text-brand" />할 일
                 </Link>
@@ -186,12 +192,6 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
                 <Link href="/memo" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
                   <StickyNote size={18} className="text-brand" />
                   메모
-                </Link>
-              </li>
-              <li className="border-border border-b py-4">
-                <Link href="/learn/player" onClick={closeMenu} className="text-foreground flex items-center gap-3 text-[15px] font-medium">
-                  <Repeat size={18} className="text-brand" />
-                  Repeater
                 </Link>
               </li>
               <li className="border-border border-b py-4">
