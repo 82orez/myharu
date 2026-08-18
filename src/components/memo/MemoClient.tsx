@@ -18,6 +18,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import MemoEditorDialog from "@/components/memo/MemoEditorDialog";
 import {
   MAX_MEMO_CONTENT,
@@ -31,6 +32,17 @@ import {
   type MemoView,
 } from "@/lib/memo";
 import { addMemo, deleteMemo, setMemoArchived, setMemoPinned, updateMemo, type Memo } from "@/app/(learn)/memo/actions";
+
+// 아이콘 버튼 설명. base-ui Tooltip 트리거는 단일 엘리먼트여야 해서 span으로 감싼다
+// (버튼 자체는 Dialog/AlertDialog 트리거로 이미 쓰이는 경우가 있다).
+function IconTip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className="inline-flex" />}>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 export default function MemoClient({ initialMemos, initialError }: { initialMemos: Memo[]; initialError?: string }) {
   const [memos, setMemos] = useState<Memo[]>(initialMemos);
@@ -150,23 +162,27 @@ export default function MemoClient({ initialMemos, initialError }: { initialMemo
             {!memo.title && !memo.content && <p className="text-muted-foreground text-sm">(빈 메모)</p>}
           </div>
           {/* ⚠️ 카드 클릭(편집 모달)과 겹치므로 액션은 모두 stopPropagation 필수 */}
-          <button
-            type="button"
-            aria-label={memo.is_pinned ? "고정 해제" : "고정"}
-            onClick={(e) => {
-              e.stopPropagation();
-              handlePin(memo);
-            }}
-            className={memo.is_pinned ? "text-brand shrink-0" : "text-muted-foreground/60 hover:text-foreground shrink-0"}>
-            {memo.is_pinned ? <Pin className="h-4 w-4 fill-current" /> : <Pin className="h-4 w-4" />}
-          </button>
+          <IconTip label={memo.is_pinned ? "고정 해제" : "고정"}>
+            <button
+              type="button"
+              aria-label={memo.is_pinned ? "고정 해제" : "고정"}
+              onClick={(e) => {
+                e.stopPropagation();
+                handlePin(memo);
+              }}
+              className={memo.is_pinned ? "text-brand shrink-0" : "text-muted-foreground/60 hover:text-foreground shrink-0"}>
+              {memo.is_pinned ? <Pin className="h-4 w-4 fill-current" /> : <Pin className="h-4 w-4" />}
+            </button>
+          </IconTip>
         </div>
 
         <div className="text-muted-foreground mt-2 flex items-center gap-1" onClick={(e) => e.stopPropagation()}>
           <Dialog>
-            <DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label="색상" className="text-muted-foreground" />}>
-              <Palette className="h-4 w-4" />
-            </DialogTrigger>
+            <IconTip label="색상 변경">
+              <DialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label="색상" className="text-muted-foreground" />}>
+                <Palette className="h-4 w-4" />
+              </DialogTrigger>
+            </IconTip>
             <DialogContent className="sm:max-w-xs">
               <DialogHeader>
                 <DialogTitle>색상</DialogTitle>
@@ -186,19 +202,23 @@ export default function MemoClient({ initialMemos, initialError }: { initialMemo
             </DialogContent>
           </Dialog>
 
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            aria-label={memo.is_archived ? "보관 해제" : "보관"}
-            className="text-muted-foreground"
-            onClick={() => handleArchive(memo)}>
-            {memo.is_archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-          </Button>
+          <IconTip label={memo.is_archived ? "보관 해제" : "보관함으로 이동"}>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={memo.is_archived ? "보관 해제" : "보관"}
+              className="text-muted-foreground"
+              onClick={() => handleArchive(memo)}>
+              {memo.is_archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+            </Button>
+          </IconTip>
 
           <AlertDialog>
-            <AlertDialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label="삭제" className="text-muted-foreground" />}>
-              <Trash2 className="h-4 w-4" />
-            </AlertDialogTrigger>
+            <IconTip label="삭제">
+              <AlertDialogTrigger render={<Button variant="ghost" size="icon-sm" aria-label="삭제" className="text-muted-foreground" />}>
+                <Trash2 className="h-4 w-4" />
+              </AlertDialogTrigger>
+            </IconTip>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>메모 삭제</AlertDialogTitle>
@@ -226,111 +246,113 @@ export default function MemoClient({ initialMemos, initialError }: { initialMemo
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      {/* 빠른 작성 바 */}
-      <Card className={memoColor(draftColor).card}>
-        <CardContent className="py-3">
-          {composing ? (
-            <div className="flex flex-col gap-2">
-              <Input
-                value={draftTitle}
-                maxLength={MAX_MEMO_TITLE}
-                placeholder="제목"
-                onChange={(e) => setDraftTitle(e.target.value)}
-                className="h-9 border-none px-0 font-semibold shadow-none focus-visible:ring-0"
-              />
-              <textarea
-                autoFocus
-                value={draftContent}
-                rows={4}
-                maxLength={MAX_MEMO_CONTENT}
-                placeholder="메모 작성..."
-                onChange={(e) => setDraftContent(e.target.value)}
-                className="w-full resize-y bg-transparent text-sm leading-relaxed outline-none"
-              />
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="flex flex-wrap gap-1.5">
-                  {MEMO_COLORS.map((c) => (
-                    <button
-                      key={c.value}
-                      type="button"
-                      aria-label={c.label}
-                      onClick={() => setDraftColor(c.value)}
-                      className={`h-6 w-6 rounded-full border ${c.swatch} ${draftColor === c.value ? "ring-brand ring-2 ring-offset-1" : ""}`}
-                    />
-                  ))}
-                </div>
-                <div className="flex gap-2">
-                  <Button variant="ghost" size="sm" onClick={resetDraft} disabled={saving}>
-                    닫기
-                  </Button>
-                  <Button variant="brand" size="sm" onClick={handleCreate} disabled={saving}>
-                    {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
-                    저장
-                  </Button>
+    <TooltipProvider delay={300}>
+      <div className="flex flex-col gap-4">
+        {/* 빠른 작성 바 */}
+        <Card className={memoColor(draftColor).card}>
+          <CardContent className="py-3">
+            {composing ? (
+              <div className="flex flex-col gap-2">
+                <Input
+                  value={draftTitle}
+                  maxLength={MAX_MEMO_TITLE}
+                  placeholder="제목"
+                  onChange={(e) => setDraftTitle(e.target.value)}
+                  className="h-9 border-none px-0 font-semibold shadow-none focus-visible:ring-0"
+                />
+                <textarea
+                  autoFocus
+                  value={draftContent}
+                  rows={4}
+                  maxLength={MAX_MEMO_CONTENT}
+                  placeholder="메모 작성..."
+                  onChange={(e) => setDraftContent(e.target.value)}
+                  className="w-full resize-y bg-transparent text-sm leading-relaxed outline-none"
+                />
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap gap-1.5">
+                    {MEMO_COLORS.map((c) => (
+                      <button
+                        key={c.value}
+                        type="button"
+                        aria-label={c.label}
+                        onClick={() => setDraftColor(c.value)}
+                        className={`h-6 w-6 rounded-full border ${c.swatch} ${draftColor === c.value ? "ring-brand ring-2 ring-offset-1" : ""}`}
+                      />
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="ghost" size="sm" onClick={resetDraft} disabled={saving}>
+                      닫기
+                    </Button>
+                    <Button variant="brand" size="sm" onClick={handleCreate} disabled={saving}>
+                      {saving && <Loader2 className="mr-1 h-4 w-4 animate-spin" />}
+                      저장
+                    </Button>
+                  </div>
                 </div>
               </div>
-            </div>
-          ) : (
-            <button type="button" onClick={() => setComposing(true)} className="text-muted-foreground w-full py-1 text-left text-sm">
-              메모 작성...
-            </button>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* 툴바 */}
-      <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-40 flex-1">
-          <Search className="text-muted-foreground absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
-          <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="메모 검색" className="h-9 pl-8" />
-        </div>
-        <Button variant={view === "active" ? "brand" : "outline"} size="sm" onClick={() => setView("active")}>
-          메모
-        </Button>
-        <Button variant={view === "archived" ? "brand" : "outline"} size="sm" onClick={() => setView("archived")}>
-          보관함 {archivedCount > 0 && archivedCount}
-        </Button>
-      </div>
-
-      {/* 그리드 */}
-      {visible.length === 0 ? (
-        <Card>
-          <CardContent className="text-muted-foreground py-10 text-center text-sm">
-            {query ? "검색 결과가 없습니다." : view === "archived" ? "보관한 메모가 없습니다." : "메모가 없습니다. 위에서 첫 메모를 작성해 보세요."}
+            ) : (
+              <button type="button" onClick={() => setComposing(true)} className="text-muted-foreground w-full py-1 text-left text-sm">
+                메모 작성...
+              </button>
+            )}
           </CardContent>
         </Card>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {view === "active" && pinned.length > 0 && (
-            <section>
-              <h2 className="text-muted-foreground mb-2 text-xs font-semibold">고정됨</h2>
-              <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">{pinned.map(renderCard)}</div>
-            </section>
-          )}
-          {others.length > 0 && (
-            <section>
-              {view === "active" && pinned.length > 0 && <h2 className="text-muted-foreground mb-2 text-xs font-semibold">기타</h2>}
-              <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">{others.map(renderCard)}</div>
-            </section>
-          )}
-        </div>
-      )}
 
-      <MemoEditorDialog
-        memo={editing}
-        onClose={() => setEditing(null)}
-        onSave={handleSave}
-        onPin={(memo) => {
-          handlePin(memo);
-          setEditing({ ...memo, is_pinned: !memo.is_pinned });
-        }}
-        onArchive={(memo) => {
-          handleArchive(memo);
-          setEditing(null);
-        }}
-        onDelete={handleDelete}
-      />
-    </div>
+        {/* 툴바 */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-40 flex-1">
+            <Search className="text-muted-foreground absolute top-1/2 left-2 h-4 w-4 -translate-y-1/2" />
+            <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="메모 검색" className="h-9 pl-8" />
+          </div>
+          <Button variant={view === "active" ? "brand" : "outline"} size="sm" onClick={() => setView("active")}>
+            메모
+          </Button>
+          <Button variant={view === "archived" ? "brand" : "outline"} size="sm" onClick={() => setView("archived")}>
+            보관함 {archivedCount > 0 && archivedCount}
+          </Button>
+        </div>
+
+        {/* 그리드 */}
+        {visible.length === 0 ? (
+          <Card>
+            <CardContent className="text-muted-foreground py-10 text-center text-sm">
+              {query ? "검색 결과가 없습니다." : view === "archived" ? "보관한 메모가 없습니다." : "메모가 없습니다. 위에서 첫 메모를 작성해 보세요."}
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="flex flex-col gap-4">
+            {view === "active" && pinned.length > 0 && (
+              <section>
+                <h2 className="text-muted-foreground mb-2 text-xs font-semibold">고정됨</h2>
+                <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">{pinned.map(renderCard)}</div>
+              </section>
+            )}
+            {others.length > 0 && (
+              <section>
+                {view === "active" && pinned.length > 0 && <h2 className="text-muted-foreground mb-2 text-xs font-semibold">기타</h2>}
+                <div className="columns-1 gap-3 sm:columns-2 lg:columns-3">{others.map(renderCard)}</div>
+              </section>
+            )}
+          </div>
+        )}
+
+        <MemoEditorDialog
+          memo={editing}
+          onClose={() => setEditing(null)}
+          onSave={handleSave}
+          onPin={(memo) => {
+            handlePin(memo);
+            setEditing({ ...memo, is_pinned: !memo.is_pinned });
+          }}
+          onArchive={(memo) => {
+            handleArchive(memo);
+            setEditing(null);
+          }}
+          onDelete={handleDelete}
+        />
+      </div>
+    </TooltipProvider>
   );
 }

@@ -5,8 +5,19 @@ import { Pin, PinOff, Archive, ArchiveRestore, Trash2, Check } from "lucide-reac
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { MAX_MEMO_CONTENT, MAX_MEMO_TITLE, MEMO_COLORS, isEmptyMemo, type MemoColor } from "@/lib/memo";
 import type { Memo } from "@/app/(learn)/memo/actions";
+
+// 아이콘 버튼 설명(MemoClient의 IconTip과 같은 구조 — 트리거는 단일 엘리먼트여야 한다)
+function IconTip({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger render={<span className="inline-flex" />}>{children}</TooltipTrigger>
+      <TooltipContent>{label}</TooltipContent>
+    </Tooltip>
+  );
+}
 
 /**
  * 메모 편집 모달. Keep처럼 **닫을 때 변경분을 저장**한다(별도 저장 버튼 없음).
@@ -87,25 +98,33 @@ export default function MemoEditorDialog({
 
         {memo && (
           <div className="flex items-center justify-between gap-2 pt-1">
-            <div className="flex gap-1">
-              <Button variant="ghost" size="icon-sm" aria-label={memo.is_pinned ? "고정 해제" : "고정"} onClick={() => onPin(memo)}>
-                {memo.is_pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
-              </Button>
-              <Button variant="ghost" size="icon-sm" aria-label={memo.is_archived ? "보관 해제" : "보관"} onClick={() => onArchive(memo)}>
-                {memo.is_archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label="삭제"
-                className="text-destructive"
-                onClick={() => {
-                  onDelete(memo.id);
-                  onClose();
-                }}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
-            </div>
+            <TooltipProvider delay={300}>
+              <div className="flex gap-1">
+                <IconTip label={memo.is_pinned ? "고정 해제" : "고정"}>
+                  <Button variant="ghost" size="icon-sm" aria-label={memo.is_pinned ? "고정 해제" : "고정"} onClick={() => onPin(memo)}>
+                    {memo.is_pinned ? <PinOff className="h-4 w-4" /> : <Pin className="h-4 w-4" />}
+                  </Button>
+                </IconTip>
+                <IconTip label={memo.is_archived ? "보관 해제" : "보관함으로 이동"}>
+                  <Button variant="ghost" size="icon-sm" aria-label={memo.is_archived ? "보관 해제" : "보관"} onClick={() => onArchive(memo)}>
+                    {memo.is_archived ? <ArchiveRestore className="h-4 w-4" /> : <Archive className="h-4 w-4" />}
+                  </Button>
+                </IconTip>
+                <IconTip label="삭제">
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="삭제"
+                    className="text-destructive"
+                    onClick={() => {
+                      onDelete(memo.id);
+                      onClose();
+                    }}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </IconTip>
+              </div>
+            </TooltipProvider>
             <Button variant="outline" onClick={close}>
               닫기
             </Button>
