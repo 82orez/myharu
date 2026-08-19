@@ -182,6 +182,8 @@ export type Database = {
         Row: {
           created_at: string
           daily_goal: number
+          dday_date: string | null
+          dday_label: string
           personal_message: string
           speech_strict: boolean
           tag_presets: string[]
@@ -190,6 +192,8 @@ export type Database = {
         Insert: {
           created_at?: string
           daily_goal?: number
+          dday_date?: string | null
+          dday_label?: string
           personal_message?: string
           speech_strict?: boolean
           tag_presets?: string[]
@@ -198,6 +202,8 @@ export type Database = {
         Update: {
           created_at?: string
           daily_goal?: number
+          dday_date?: string | null
+          dday_label?: string
           personal_message?: string
           speech_strict?: boolean
           tag_presets?: string[]

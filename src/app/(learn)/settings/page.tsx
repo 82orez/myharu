@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { Mic, Target, ListChecks, Tag, AlertTriangle, Mail, Volume2, RotateCcw, CalendarDays, Timer, AudioLines } from "lucide-react";
+import { Mic, Target, ListChecks, Tag, AlertTriangle, Mail, Volume2, RotateCcw, CalendarDays, Timer, AudioLines, CalendarClock } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
 import { fetchUserStats, fetchPracticeCountTotal } from "@/lib/gamification";
 import { getTagPresets } from "@/app/(learn)/learn/tag-actions";
@@ -11,6 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import SpeechStrictField from "@/components/settings/SpeechStrictField";
 import DailyGoalField from "@/components/settings/DailyGoalField";
+import DdayField from "@/components/settings/DdayField";
 import FeedbackSoundField from "@/components/settings/FeedbackSoundField";
 import AutoPlayDelayField from "@/components/settings/AutoPlayDelayField";
 import SttModelField from "@/components/settings/SttModelField";
@@ -112,6 +113,9 @@ export default async function SettingsPage() {
             label="하루 목표"
             description={`홈 진도·학습 달력 기준 (${MIN_DAILY_GOAL}~${MAX_DAILY_GOAL.toLocaleString()}회)`}>
             <DailyGoalField initialGoal={resolveDailyGoal(stats?.daily_goal)} />
+          </Row>
+          <Row icon={<CalendarClock size={16} />} label="D-day" description="목표일까지 남은 일수를 상단에 표시 (날짜를 비우면 해제)">
+            <DdayField initialLabel={stats?.dday_label ?? ""} initialDate={stats?.dday_date ?? null} />
           </Row>
           <Row icon={<ListChecks size={16} />} label="등록된 문장" description="지금까지 저장한 문장 수">
             <span className="text-sm font-semibold tabular-nums">{sentenceCount.toLocaleString()}개</span>

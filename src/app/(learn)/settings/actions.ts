@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { MAX_DAILY_GOAL, MAX_PERSONAL_MESSAGE, MIN_DAILY_GOAL } from "@/lib/settings-config";
+import { MAX_DDAY_LABEL, isValidDdayDate } from "@/lib/dday";
 
 export type SettingsActionResult = { success: true } | { error: string };
 
@@ -74,6 +75,38 @@ export async function setPersonalMessage(message: string): Promise<SettingsActio
 
   revalidatePath("/");
   revalidatePath("/settings");
+  return { success: true };
+}
+
+// D-day 목표(이름 + 날짜). 날짜를 비우면(null) 해제 → Navbar 배지가 사라진다.
+export async function setDday(label: string, date: string | null): Promise<SettingsActionResult> {
+  const supabase = createClient(await cookies());
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return { error: "로그인이 필요합니다." };
+
+  const trimmed = (label ?? "").trim();
+  if (trimmed.length > MAX_DDAY_LABEL) {
+    return { error: `D-day 이름은 ${MAX_DDAY_LABEL}자 이내로 입력해 주세요.` };
+  }
+
+  const normalized = date ? date : null; // 빈 문자열도 미설정으로 취급(todo actions의 dueDate 관례)
+  if (normalized !== null && !isValidDdayDate(normalized)) {
+    return { error: "날짜 형식이 올바르지 않습니다." };
+  }
+
+  const { error } = await supabase.from("user_stats").update({ dday_label: trimmed, dday_date: normalized }).eq("user_id", user.id);
+
+  if (error) {
+    console.error("[setDday] 업데이트 실패:", error);
+    return { error: "저장 중 오류가 발생했습니다." };
+  }
+
+  revalidatePath("/settings");
+  // ⚠️ 배지가 루트 레이아웃(Navbar)에 있어 page 단위 revalidate로는 다른 경로의 헤더가 갱신되지 않는다.
+  revalidatePath("/", "layout");
   return { success: true };
 }
 

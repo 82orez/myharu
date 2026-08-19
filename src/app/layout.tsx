@@ -49,11 +49,18 @@ export default async function RootLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
+  // D-day 배지용. ⚠️ fetchUserStats(select("*") + 없으면 upsert)를 쓰지 말 것 —
+  // 이 레이아웃은 모든 페이지 렌더마다 도므로 PK 단일 조회로 최소화한다.
+  const { data: stats } = user
+    ? await supabase.from("user_stats").select("dday_label, dday_date").eq("user_id", user.id).maybeSingle()
+    : { data: null };
+  const dday = stats?.dday_date ? { label: stats.dday_label ?? "", date: stats.dday_date } : null;
+
   return (
     <html lang="ko" className={pretendard.variable}>
       <body className="bg-background text-foreground pb-16 font-sans antialiased md:pb-0">
         <ScrollToTop />
-        <Navbar user={user ? { email: user.email } : null} />
+        <Navbar user={user ? { email: user.email } : null} dday={dday} />
         <AuthHashHandler />
         {children}
         <Footer />

@@ -5,12 +5,15 @@ import { useEffect, useRef, useState } from "react";
 import { Menu, X, PenLine, BookOpen, List, ListTodo, StickyNote, LogOut, Repeat, Settings } from "lucide-react";
 import { logout } from "@/app/(auth)/logout/actions";
 import { createClient } from "@/utils/supabase/client";
+import DdayBadge from "@/components/DdayBadge";
 
 type NavbarUser = { email?: string | null } | null;
+type DdayInfo = { label: string; date: string } | null;
 
 const SITE_NAME = process.env.NEXT_PUBLIC_SITE_NAME ?? "My Haru";
 
-export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
+// ⚠️ dday는 SSR prop만 쓴다 — 클라 세션 이벤트로는 알 수 없으므로 아래 user state 동기화 로직에 끼워 넣지 말 것.
+export default function Navbar({ user: initialUser, dday }: { user: NavbarUser; dday: DdayInfo }) {
   const [user, setUser] = useState<NavbarUser>(initialUser);
   const [menuOpen, setMenuOpen] = useState(false);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -83,6 +86,9 @@ export default function Navbar({ user: initialUser }: { user: NavbarUser }) {
         </div>
 
         <div className="flex flex-1 items-center justify-end gap-3">
+          {/* D-day 배지 — 데스크톱 전용 블록 바깥이라 모바일에서도 보인다 */}
+          {user && dday && <DdayBadge label={dday.label} date={dday.date} />}
+
           {/* 데스크톱 인라인 학습 + 인증 영역 */}
           <div className="hidden items-center gap-3 md:flex">
             {user ? (
