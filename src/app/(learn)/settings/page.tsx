@@ -114,7 +114,10 @@ export default async function SettingsPage() {
             description={`홈 진도·학습 달력 기준 (${MIN_DAILY_GOAL}~${MAX_DAILY_GOAL.toLocaleString()}회)`}>
             <DailyGoalField initialGoal={resolveDailyGoal(stats?.daily_goal)} />
           </Row>
-          <Row icon={<CalendarClock size={16} />} label="D-day" description="목표일까지 남은 일수를 상단에 표시 (날짜를 비우면 해제)">
+          <Row
+            icon={<CalendarClock size={16} />}
+            label="D-day"
+            description="목표일까지 남은 일수를 상단에 표시 (날짜 또는 남은 기간으로 지정, 날짜를 비우면 해제)">
             <DdayField initialLabel={stats?.dday_label ?? ""} initialDate={stats?.dday_date ?? null} />
           </Row>
           <Row icon={<ListChecks size={16} />} label="등록된 문장" description="지금까지 저장한 문장 수">

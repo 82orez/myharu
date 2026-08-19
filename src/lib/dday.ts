@@ -29,3 +29,19 @@ export function formatDday(diff: number): string {
   if (diff === 0) return "D-DAY";
   return diff > 0 ? `D-${diff}` : `D+${-diff}`;
 }
+
+// 기간 입력 프리셋(일). 설정 폼에서 칩으로 노출한다.
+export const DDAY_PERIOD_PRESETS = [20, 50, 100, 200, 300];
+export const MIN_DDAY_PERIOD = 1;
+export const MAX_DDAY_PERIOD = 3650; // 10년
+
+/**
+ * 오늘(KST)로부터 `days`일 뒤의 `YYYY-MM-DD`.
+ * ⚠️ 오늘을 세지 않는 정의라 `ddayDiff(dateAfterDays(N)) === N` — 입력한 숫자가 그대로 배지 `D-N`이 된다.
+ * 이 불변식을 깨지 말 것(오늘 포함 방식으로 바꾸면 "20일"을 넣었는데 D-19가 뜬다).
+ */
+export function dateAfterDays(days: number, today: string = todayKST()): string {
+  const d = new Date(`${today}T12:00:00Z`); // nextDueDate·ddayDiff와 같은 정오 기준
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
