@@ -117,7 +117,7 @@ export default async function SettingsPage() {
           <Row
             icon={<CalendarClock size={16} />}
             label="D-day"
-            description="목표일까지 남은 일수를 상단에 표시 (날짜 또는 남은 기간으로 지정, 날짜를 비우면 해제)">
+            description="목표일까지 남은 일수를 상단에 표시 (날짜 또는 남은 기간으로 지정, 비우고 저장하면 해제)">
             <DdayField initialLabel={stats?.dday_label ?? ""} initialDate={stats?.dday_date ?? null} />
           </Row>
           <Row icon={<ListChecks size={16} />} label="등록된 문장" description="지금까지 저장한 문장 수">

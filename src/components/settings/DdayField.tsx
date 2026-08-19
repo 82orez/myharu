@@ -30,11 +30,14 @@ export default function DdayField({ initialLabel, initialDate }: { initialLabel:
 
   const trimmed = label.trim();
   const period = Number(days.trim());
-  const periodValid = days.trim() !== "" && Number.isInteger(period) && period >= MIN_DDAY_PERIOD && period <= MAX_DDAY_PERIOD;
+  const periodEmpty = days.trim() === "";
+  const periodValid = !periodEmpty && Number.isInteger(period) && period >= MIN_DDAY_PERIOD && period <= MAX_DDAY_PERIOD;
 
   // 저장될 목표일. 기간 모드에서는 오늘+N일로 파생한다(저장 경로는 날짜 모드와 하나로 유지).
+  // 빈 값이면 ""가 되어 setDday(null) → 해제. ⚠️ 두 모드 모두 "비우고 저장하면 해제"로 대칭이어야 한다
+  // (기간 모드에서만 해제를 막으면 사용자가 날짜 모드로 건너가야만 끌 수 있다).
   const effectiveDate = mode === "period" ? (periodValid ? dateAfterDays(period) : "") : date;
-  const valid = trimmed.length <= MAX_DDAY_LABEL && (mode === "period" ? periodValid : date === "" || isValidDdayDate(date));
+  const valid = trimmed.length <= MAX_DDAY_LABEL && (mode === "period" ? periodEmpty || periodValid : date === "" || isValidDdayDate(date));
   const changed = trimmed !== saved.label || effectiveDate !== saved.date;
   const canSave = valid && changed && !saving;
 
@@ -137,9 +140,9 @@ export default function DdayField({ initialLabel, initialDate }: { initialLabel:
         </div>
       )}
 
-      {mode === "period" && periodValid && (
+      {mode === "period" && (periodValid || (periodEmpty && saved.date !== "")) && (
         <p className="text-muted-foreground text-xs tabular-nums">
-          → {effectiveDate} · {formatDday(period)}
+          {periodValid ? `→ ${effectiveDate} · ${formatDday(period)}` : "→ 저장하면 D-day 해제"}
         </p>
       )}
     </form>
